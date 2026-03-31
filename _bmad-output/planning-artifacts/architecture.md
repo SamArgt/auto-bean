@@ -103,6 +103,8 @@ Privacy is universal: architecture must keep primary data local and avoid unnece
 
 Consistency of agent behavior is universal: because the product is agent-first, architecture must define clear boundaries, contracts, and review gates so different skills or future agent runs do not mutate the ledger inconsistently.
 
+Delivery integrity is universal: because trust in V1 depends on agent workflows behaving predictably, CI verification, deterministic smoke checks, and structured diagnostics are part of the runtime trust model rather than optional engineering polish.
+
 ## Starter Template Evaluation
 
 ### Primary Technology Domain
@@ -312,20 +314,33 @@ Use `.env`-style local configuration only for non-sensitive development settings
 **Monitoring and Logging:**
 Use structured local logging for workflow traces, validation outcomes, import decisions, and recovery diagnostics. Logging should aid trust and troubleshooting, not just debugging.
 
+Workflow runs should emit governed artifacts under the local artifacts tree so review, validation, and troubleshooting evidence remain inspectable after the command exits.
+
 **Scaling Strategy:**
 Defer scale-out architecture. MVP should scale by keeping workflows modular and deterministic, not by introducing services or distributed infrastructure.
+
+### Workflow Verification & Observability Contract
+
+Trust-sensitive workflows must share one verification contract across bootstrap, import, reconciliation, memory updates, and troubleshooting:
+- every workflow run gets a stable `run_id`
+- stage transitions are logged with structured event records
+- validation output is persisted as an inspectable artifact for any ledger-changing or readiness-significant run
+- deterministic smoke tests cover the standard happy path plus at least one blocked or validation-failure path
+- CI must fail if core workflow contracts, result schemas, or deterministic smoke tests regress
+
+This contract keeps cross-cutting readiness requirements visible in implementation instead of relying on convention.
 
 ### Decision Impact Analysis
 
 **Implementation Sequence:**
 1. initialize packaged Python project
-2. define core typed domain models and service boundaries
-3. implement file-backed memory store abstraction
-4. implement ledger mutation planning and validation pipeline
-5. implement import normalization adapters
-6. implement reconciliation and approval workflows
-7. wire CLI/skill orchestration to service layer
-8. add CI automation and smoke-test coverage
+2. establish CI baseline, workflow smoke tests, and structured run artifact conventions
+3. define core typed domain models and service boundaries
+4. implement file-backed memory store abstraction
+5. implement ledger mutation planning and validation pipeline
+6. implement import normalization adapters
+7. implement reconciliation and approval workflows
+8. wire CLI/skill orchestration to service layer
 
 **Cross-Component Dependencies:**
 - File-backed memory affects import normalization, reconciliation, and categorization flows
@@ -515,6 +530,7 @@ No agent may skip directly from parsed input to file mutation.
 **Pattern Enforcement:**
 - verify naming and import boundaries through Ruff and tests
 - verify workflow contracts with unit tests for service results and domain errors
+- verify deterministic workflow behavior and artifact emission with CI smoke tests
 - review pattern violations as architecture issues, not style nits
 - update patterns only by editing this architecture document first, then implementation guidance
 

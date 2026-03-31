@@ -84,6 +84,7 @@ NFR6: Re-running the same import workflow on the same inputs shall produce deter
 ### Additional Requirements
 
 - Epic 1 Story 1 should initialize the packaged Python foundation with `uv init --package auto-bean`; the architecture explicitly identifies this as the first implementation story.
+- Epic 1 must also make the greenfield quality baseline explicit with CI, deterministic workflow verification, and structured run artifacts before ledger-changing workflows are considered implementation-ready.
 - V1 is scoped to local execution on macOS only.
 - Beancount and Fava are required local dependencies and should be integrated through infrastructure adapters or scripts.
 - Codex skills are the primary user interface; CLI commands and scripts are supporting implementation surfaces rather than the main product interface.
@@ -106,10 +107,12 @@ NFR6: Re-running the same import workflow on the same inputs shall produce deter
 - Review artifacts, diffs, validation reports, and run traces should live under a governed local artifacts area such as `.auto-bean/artifacts/`.
 - `ledger.beancount` should remain the stable entrypoint for Fava and validation workflows.
 - Only the memory workflow should modify durable memory files under the governed memory tree.
+- Readiness checks on an already bootstrapped workspace should complete within 2 minutes on the supported V1 environment, and a typical single-statement import plus review preparation should complete within 3 minutes before approval.
+- Every ledger-changing workflow must emit structured diagnostics and an inspectable validation artifact before the result is treated as accepted.
 
 ### UX Design Requirements
 
-No UX design document was found in the planning artifacts, so no UX-specific implementation requirements were extracted in this step.
+No UX design document was found in the planning artifacts, and this course correction does not introduce one. Trust-sensitive interaction expectations must therefore remain explicit in story acceptance criteria for quickstart, review, clarification, approval, rollback, and troubleshooting flows.
 
 ### FR Coverage Map
 
@@ -172,6 +175,7 @@ FR53: Epic 1 - use the product as an evolving local tool within an existing repo
 ### Epic 1: Bootstrap a Safe Local Ledger Workspace
 Users can install auto-bean, initialize a local workspace, create the base Beancount ledger, and operate through a guided Codex-first workflow with review gates from day one.
 **FRs covered:** FR1, FR2, FR3, FR4, FR5, FR6, FR9, FR10, FR11, FR45, FR51, FR52, FR53
+**Primary NFR support:** NFR4, NFR5, NFR6
 
 ### Epic 2: Import Statements and Introduce New Accounts Through Import
 Users can import PDF, CSV, and Excel statements into a new or existing ledger, have first-seen accounts proposed through the import flow, review the resulting structure and transactions, and preserve source-specific context for repeat use.
@@ -228,8 +232,27 @@ So that I can tell whether my environment is ready before attempting ledger work
 **When** the readiness check is run
 **Then** the system verifies that required commands, configuration, and local runtime dependencies are available
 **And** it returns a clear pass/fail result before any ledger operation begins
+**And** a successful readiness check on an already bootstrapped supported environment completes within 2 minutes
 
-### Story 1.3: Create a new base Beancount ledger workspace
+### Story 1.3: Establish the CI, workflow verification, and diagnostics baseline
+
+As a trust-conscious maintainer-user,
+I want the repo to prove basic workflow integrity before ledger-changing automation expands,
+So that quality gates are visible and repeatable instead of being implied.
+
+**Acceptance Criteria:**
+
+**Given** the packaged foundation and bootstrap workflow exist
+**When** the baseline quality workflow is configured
+**Then** GitHub Actions runs linting, type validation, automated tests, and deterministic workflow smoke checks for core commands
+**And** failures block the baseline from being treated as implementation-ready
+
+**Given** a readiness-significant or ledger-changing workflow is executed
+**When** the run completes or fails
+**Then** the system emits structured local diagnostics and stores inspectable run artifacts under the governed artifacts area
+**And** the artifacts make it possible to review validation, blocked mutations, and troubleshooting context without relying on raw stack traces
+
+### Story 1.4: Create a new base Beancount ledger workspace
 
 As a first-time user,
 I want the agent to create a usable base ledger workspace,
@@ -247,7 +270,7 @@ So that I can start operating a linked personal-finance ledger without manual fi
 **Then** the user can inspect what was created before risky structural changes are finalized
 **And** the resulting ledger workspace supports later imports into the same linked ledger
 
-### Story 1.4: Review and approve structural ledger changes through the agent workflow
+### Story 1.5: Review and approve structural ledger changes through the agent workflow
 
 As a trust-conscious user,
 I want structural ledger changes to go through explicit review and approval,
@@ -265,7 +288,7 @@ So that the agent cannot silently alter the meaning of my ledger.
 **Then** the resulting change is captured in inspectable history with diff visibility
 **And** the system preserves an auditable trail for later review or rollback
 
-### Story 1.5: Deliver the Codex-first quickstart for first meaningful use
+### Story 1.6: Deliver the Codex-first quickstart for first meaningful use
 
 As a new user,
 I want a quickstart workflow that shows how to bootstrap, initialize a ledger, and reach first value,
@@ -299,6 +322,7 @@ So that different statement formats can enter the ledger pipeline consistently.
 **When** the import workflow is run
 **Then** the system parses the file into a normalized intermediate representation suitable for downstream review and reconciliation
 **And** the workflow reports format-specific parsing failures clearly without mutating the ledger
+**And** the run records a structured import artifact that keeps the source, parse status, and blocking issues inspectable for troubleshooting
 
 **Given** multiple supported statement files from different sources
 **When** the user imports them into the same ledger workflow
@@ -434,6 +458,7 @@ So that only trustworthy changes reach my ledger.
 **When** the workflow executes the mutation
 **Then** post-change validation runs before the result is treated as accepted
 **And** validation failures are surfaced clearly without being misrepresented as success
+**And** the workflow writes an inspectable validation artifact and review trace for the accepted or blocked run
 
 ### Story 3.5: Preserve audit history and rollback for accepted or rejected changes
 
@@ -465,6 +490,7 @@ So that I can understand the failure and correct it safely.
 **When** the troubleshooting workflow is run
 **Then** the system presents the relevant validation failures, suspicious changes, or reconciliation warnings in one guided diagnostic view
 **And** the workflow narrows the problem to actionable issues rather than pushing further unsafe changes
+**And** the guided view is derived from structured diagnostics and saved run artifacts rather than ad hoc reconstruction
 
 **Given** the user is investigating a failed or suspicious result
 **When** the agent explains the issue

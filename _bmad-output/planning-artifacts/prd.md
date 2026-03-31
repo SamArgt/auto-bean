@@ -71,9 +71,17 @@ The product must not produce invalid ledgers without surfacing that clearly. It 
 
 Technical success also requires safety and auditability to be first-class. Every edit or import must run through validation, and changes must be inspectable and reversible through the git-backed workflow.
 
+Delivery readiness is part of product trust for V1. The repo must have an early CI baseline that verifies linting, types, tests, and deterministic workflow behavior before ledger-changing automation is treated as ready for regular use.
+
 ### Measurable Outcomes
 
 A first-time user can complete setup, create a new ledger, and import multiple statement accounts in under 60 minutes. Imported results are valid Beancount output after the standard validation step. Repeated imports from the same or similar sources require less intervention over time because account mappings, categorization, and import behavior are remembered.
+
+The default quality baseline is measurable rather than implied:
+- readiness checks for a correctly configured workspace complete in under 2 minutes on the supported macOS environment
+- a typical single-statement import plus review preparation completes in under 3 minutes before final approval
+- every ledger-changing workflow emits an inspectable validation result and review artifact before acceptance
+- the main CI workflow passes lint, type validation, automated tests, and deterministic workflow smoke checks on every proposed change to workflow logic
 
 The strongest V1 acceptance criterion is practical self-use: the system is stable and accurate enough to rely on for managing personal finances.
 
@@ -82,6 +90,8 @@ The strongest V1 acceptance criterion is practical self-use: the system is stabl
 ### MVP - Minimum Viable Product
 
 MVP includes bootstrap setup, Beancount and Fava installation, creation of a new ledger, import support for PDF, CSV, and Excel statements, memory for prior import and categorization decisions, price lookup where needed for valuation context, git-backed safety for edits and imports, post-change Beancount validation, and support for multiple account and asset types linked in one ledger.
+
+MVP also includes the minimum quality and observability infrastructure required to trust an agent-operated ledger workflow: CI baseline checks, deterministic workflow verification, and structured local run artifacts for diagnostics and review.
 
 ### Growth Features (Post-MVP)
 
@@ -241,6 +251,8 @@ Phase 1 succeeds only if all actual accounts can be represented in the ledger an
 
 The primary technical risk is whether the full workflow remains trustworthy enough for real finance use. That risk is mitigated through validation at every critical step, explicit approval before risky actions, reversible git-based changes, visible diffs, and conservative clarification behavior when the agent is uncertain.
 
+Readiness risk is also mitigated by making workflow integrity explicit in planning rather than treating it as implied engineering hygiene. CI checks, deterministic verification, and structured troubleshooting artifacts are MVP requirements because they protect trust, not just developer convenience.
+
 ## Functional Requirements
 
 ### Environment Setup & Workspace Initialization
@@ -328,6 +340,7 @@ The primary technical risk is whether the full workflow remains trustworthy enou
 ### Performance
 
 The system shall complete import and review of typical statement files fast enough to remain operationally useful in normal personal-finance workflows.
+For the supported V1 environment, a readiness check on an already bootstrapped workspace should complete within 2 minutes, and a typical single-statement import plus review preparation should complete within 3 minutes before approval.
 
 ### Security
 
@@ -336,3 +349,9 @@ The system shall keep ledger data and operational context local to the user’s 
 ### Reliability
 
 The system shall not silently corrupt ledger state. All meaningful ledger-changing operations shall be validated before acceptance, and failures shall be surfaced clearly to the user. Re-running the same import workflow on the same inputs shall produce deterministic results unless the user intentionally changes configuration, mappings, or memory that affect the outcome.
+
+Every ledger-changing workflow shall produce an inspectable validation artifact and review artifact before the result is treated as accepted. CI shall verify linting, type validation, automated tests, and deterministic workflow smoke checks for workflow logic that can mutate ledger state.
+
+### Observability & Diagnostics
+
+The system shall emit structured local logs and run artifacts for readiness checks, imports, validation, and troubleshooting workflows. Diagnostic records must make it possible to distinguish validation failures, ambiguous interpretations, external dependency failures, and blocked unsafe mutations without requiring raw stack traces or ad hoc manual reconstruction.
