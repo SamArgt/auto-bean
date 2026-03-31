@@ -1,0 +1,78 @@
+# generated: 2026-03-31 08:46:40 CEST
+# last_updated: 2026-03-31 08:46:40 CEST
+# project: auto-bean
+# project_key: NOKEY
+# tracking_system: file-system
+# story_location: /Users/sam/Projects/auto-bean/_bmad-output/implementation-artifacts
+#
+# STATUS DEFINITIONS:
+# ==================
+# Epic Status:
+#   - backlog: Epic not yet started
+#   - in-progress: Epic actively being worked on
+#   - done: All stories in epic completed
+#
+# Epic Status Transitions:
+#   - backlog -> in-progress: Automatically when first story is created (via create-story)
+#   - in-progress -> done: Manually when all stories reach 'done' status
+#
+# Story Status:
+#   - backlog: Story only exists in epic file
+#   - ready-for-dev: Story file created in stories folder
+#   - in-progress: Developer actively working on implementation
+#   - review: Ready for code review (via Dev's code-review workflow)
+#   - done: Story completed
+#
+# Retrospective Status:
+#   - optional: Can be completed but not required
+#   - done: Retrospective has been completed
+#
+# WORKFLOW NOTES:
+# ===============
+# - Epic transitions to 'in-progress' automatically when first story is created
+# - Stories can be worked in parallel if team capacity allows
+# - SM typically creates next story after previous one is 'done' to incorporate learnings
+# - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
+
+generated: 2026-03-31 08:46:40 CEST
+last_updated: 2026-03-31 08:46:40 CEST
+project: auto-bean
+project_key: NOKEY
+tracking_system: file-system
+story_location: /Users/sam/Projects/auto-bean/_bmad-output/implementation-artifacts
+
+development_status:
+  epic-1: backlog
+  1-1-initialize-the-packaged-auto-bean-project-foundation: backlog
+  1-2-bootstrap-local-dependencies-and-readiness-checks-on-macos: backlog
+  1-3-establish-the-ci-workflow-verification-and-diagnostics-baseline: backlog
+  1-4-create-a-new-base-beancount-ledger-workspace: backlog
+  1-5-review-and-approve-structural-ledger-changes-through-the-agent-workflow: backlog
+  1-6-deliver-the-codex-first-quickstart-for-first-meaningful-use: backlog
+  epic-1-retrospective: optional
+  epic-2: backlog
+  2-1-import-statement-files-into-a-normalized-intake-workflow: backlog
+  2-2-create-or-extend-a-ledger-from-first-time-imported-account-statements: backlog
+  2-3-review-import-results-before-accepting-transactions-and-structure-changes: backlog
+  2-4-persist-source-specific-import-context-for-repeated-imports: backlog
+  epic-2-retrospective: optional
+  epic-3: backlog
+  3-1-map-imported-transactions-into-candidate-ledger-postings: backlog
+  3-2-detect-transfers-duplicates-and-unbalanced-outcomes-during-reconciliation: backlog
+  3-3-run-clarification-workflows-for-ambiguous-or-unfamiliar-transaction-patterns: backlog
+  3-4-review-validate-and-approve-proposed-ledger-mutations: backlog
+  3-5-preserve-audit-history-and-rollback-for-accepted-or-rejected-changes: backlog
+  3-6-troubleshoot-suspicious-or-failed-imports-with-guided-diagnostics: backlog
+  epic-3-retrospective: optional
+  epic-4: backlog
+  4-1-persist-governed-memory-for-mappings-categorization-naming-and-import-behavior: backlog
+  4-2-reuse-learned-memory-in-future-import-and-reconciliation-workflows: backlog
+  4-3-inspect-stored-memory-that-influences-future-behavior: backlog
+  4-4-correct-or-refine-learned-memory-through-an-explicit-workflow: backlog
+  4-5-tune-workflow-behavior-over-time-through-supervised-feedback: backlog
+  epic-4-retrospective: optional
+  epic-5: backlog
+  5-1-retrieve-external-price-data-through-bounded-pricing-adapters: backlog
+  5-2-apply-currency-equity-and-crypto-valuation-context-in-ledger-workflows: backlog
+  5-3-handle-pricing-failures-and-gaps-without-breaking-local-first-safety: backlog
+  epic-5-retrospective: optional
