@@ -1,6 +1,6 @@
 # Story 1.1: Initialize the packaged auto-bean project foundation
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
