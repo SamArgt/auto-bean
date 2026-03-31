@@ -12,6 +12,13 @@ dependencies = [
     "fava",
 ]
 
+[dependency-groups]
+dev = [
+    "mypy>=1.18.2,<2",
+    "pytest>=7.4,<9",
+    "ruff>=0.15.2,<0.16",
+]
+
 [project.scripts]
 auto-bean = "auto_bean:main"
 
@@ -22,3 +29,12 @@ build-backend = "uv_build"
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 testpaths = ["tests"]
+
+[tool.mypy]
+python_version = "3.13"
+files = ["src", "tests", "scripts"]
+strict = true
+warn_unused_ignores = true
+
+[tool.ruff]
+target-version = "py313"

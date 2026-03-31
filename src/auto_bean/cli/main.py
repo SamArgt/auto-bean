@@ -47,10 +47,19 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0
 
     service = build_setup_service()
-    if args.command == "readiness":
-        result = service.readiness()
-    else:
-        result = service.init(args.project_name)
+    try:
+        if args.command == "readiness":
+            result = service.readiness()
+        else:
+            result = service.init(args.project_name)
+    except Exception as exc:
+        result = service.execution_error(
+            args.command,
+            details={
+                "exception_type": type(exc).__name__,
+                "exception_message": str(exc),
+            },
+        )
     render_result(result, as_json=args.json)
     return 0 if result.status == "ok" else 1
 
@@ -60,11 +69,18 @@ def render_result(result: WorkflowResult, *, as_json: bool) -> None:
         print(json.dumps(result.as_dict(), indent=2, sort_keys=True))
         return
 
+    print(f"run_id: {result.run_id}")
+    print(f"workflow: {result.workflow}")
     print(f"status: {result.status}")
     if result.error_code:
         print(f"error_code: {result.error_code}")
+    if result.error_category:
+        print(f"error_category: {result.error_category.value}")
     print(f"message: {result.message}")
+    print(f"started_at: {result.started_at}")
     print(f"duration_seconds: {result.duration_seconds:.3f}")
+    if result.artifact:
+        print(f"artifact_path: {result.artifact.path}")
     for check in result.checks:
         _render_check(check)
 

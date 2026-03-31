@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
+
+from pytest import CaptureFixture, MonkeyPatch
 
 from auto_bean.application.setup import SetupService
 from auto_bean.cli.main import main
@@ -47,7 +50,7 @@ class FakeCommandRunner:
     responses: dict[tuple[str, ...], CommandResult]
     calls: list[tuple[str, ...]] | None = None
 
-    def run(self, args: list[str], cwd: Path | None = None) -> CommandResult:
+    def run(self, args: Sequence[str], cwd: Path | None = None) -> CommandResult:
         if self.calls is not None:
             self.calls.append(tuple(args))
         return self.responses.get(tuple(args), CommandResult(returncode=0))
@@ -201,7 +204,11 @@ def test_init_is_reserved_for_later_workspace_story(tmp_path: Path) -> None:
     assert result.details["project_name"] == "demo-ledger"
 
 
-def test_cli_renders_json_failure_output(capsys, monkeypatch, tmp_path: Path) -> None:
+def test_cli_renders_json_failure_output(
+    capsys: CaptureFixture[str],
+    monkeypatch: MonkeyPatch,
+    tmp_path: Path,
+) -> None:
     service = make_service(tmp_path, system="Linux")
     monkeypatch.setattr("auto_bean.cli.main.build_setup_service", lambda: service)
 
