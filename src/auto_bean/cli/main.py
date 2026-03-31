@@ -11,25 +11,26 @@ from auto_bean.domain.setup import CheckStatus, WorkflowResult
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="auto-bean",
-        description="Bootstrap and verify the local auto-bean development environment.",
+        description="Verify the installed auto-bean uv tool and manage future workspaces.",
     )
     subparsers = parser.add_subparsers(dest="command")
 
-    bootstrap_parser = subparsers.add_parser(
-        "bootstrap",
-        help="Install or verify the repo-local environment and required dependencies.",
+    readiness_parser = subparsers.add_parser(
+        "readiness",
+        help="Verify that uv is available and auto-bean is discoverable on PATH.",
     )
-    bootstrap_parser.add_argument(
+    readiness_parser.add_argument(
         "--json",
         action="store_true",
         help="Render the result as JSON.",
     )
 
-    readiness_parser = subparsers.add_parser(
-        "readiness",
-        help="Verify that the current repo-local environment is ready for later workflows.",
+    init_parser = subparsers.add_parser(
+        "init",
+        help="Reserved workspace creation surface for a later story.",
     )
-    readiness_parser.add_argument(
+    init_parser.add_argument("project_name", help="Name of the workspace to create.")
+    init_parser.add_argument(
         "--json",
         action="store_true",
         help="Render the result as JSON.",
@@ -46,7 +47,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0
 
     service = build_setup_service()
-    result = service.bootstrap() if args.command == "bootstrap" else service.readiness()
+    if args.command == "readiness":
+        result = service.readiness()
+    else:
+        result = service.init(args.project_name)
     render_result(result, as_json=args.json)
     return 0 if result.status == "ok" else 1
 

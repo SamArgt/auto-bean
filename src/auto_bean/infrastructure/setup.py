@@ -21,7 +21,7 @@ class PlatformProbe:
 
 
 class CommandRunner:
-    def run(self, args: list[str], cwd: Path) -> CommandResult:
+    def run(self, args: list[str], cwd: Path | None = None) -> CommandResult:
         completed = subprocess.run(
             args,
             cwd=cwd,
@@ -69,4 +69,3 @@ def current_time() -> float:
 
 def current_python_executable() -> str:
     return sys.executable
-

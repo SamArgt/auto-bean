@@ -2,46 +2,57 @@
 
 `auto-bean` is a packaged Python foundation for local-first coding-agent workflows around Beancount ledgers.
 
-The repo now includes a macOS-only bootstrap and readiness surface for preparing the product environment before later ledger workflows begin.
+The repo now includes a macOS-only installation path based on `uv tool install`. Workspace creation is intentionally deferred to a later `init <PROJECT-NAME>` workflow.
 
 ## Supported scope
 
 - supported platform: macOS only
-- managed environment: repo-local `uv` project environment
-- required local dependencies: `auto-bean`, `beancount`, and `fava`
+- install target: `uv` tool named `auto-bean`
+- future workspace creation surface: `auto-bean init <PROJECT-NAME>`
 
 ## Commands
 
-Bootstrap or reconcile the repo-local environment:
+Install from the product repo:
 
 ```bash
-uv run auto-bean bootstrap
+uv tool install --from . --force auto-bean
 ```
 
-Check whether the current repo-local environment is ready for later workflows:
+Verify after install, even before your shell PATH is updated:
 
 ```bash
-uv run auto-bean readiness
+uv tool run --from . auto-bean readiness
+```
+
+Verify through the installed command once it is on `PATH`:
+
+```bash
+auto-bean readiness
 ```
 
 Render machine-readable diagnostics:
 
 ```bash
-uv run auto-bean readiness --json
+auto-bean readiness --json
+```
+
+Reserved future workspace creation surface:
+
+```bash
+auto-bean init my-ledger
 ```
 
 ## Remediation behavior
 
-- if `uv` is missing, the command fails with guidance to install `uv`
-- if `uv sync` falls back to a Beancount source build and the local toolchain is missing a suitable `bison`, bootstrap reports that specific remediation
+- if `uv` is missing, readiness fails with guidance to install `uv` and then run the install command
 - if the machine is not macOS, the command fails closed instead of attempting partial support
-- if the repo-local environment or dependencies are missing, the readiness check reports the failing prerequisite and points back to `auto-bean bootstrap`
-- bootstrap uses `uv sync` rather than global Python mutation or `sudo pip`
+- if the tool installs but the shell cannot find `auto-bean`, verify first with `uv tool run --from . auto-bean readiness`, then follow the reported `PATH` remediation
+- installation uses `uv tool install --from` rather than ad hoc global Python mutation or `sudo pip`
+- `init <PROJECT-NAME>` is reserved but not implemented in this story
 
 ## Repo boundaries
 
 - application code belongs under `src/auto_bean/`
 - stable user-owned ledger, memory, and artifact state must stay out of `src/`
-- top-level `scripts/` remains reserved for repo helper tooling
 - `.agents/skills/` remains the home for installed skill surfaces
 - future governed runtime state belongs under `.auto-bean/`, not inside the package tree

@@ -215,24 +215,28 @@ So that the repo starts from a reproducible, maintainable base that matches the 
 **Then** stable user-owned assets and evolving tool logic are separated clearly
 **And** the structure leaves room for skills, scripts, governed memory, and artifact directories without overwriting ledger assets
 
-### Story 1.2: Bootstrap local dependencies and readiness checks on macOS
+### Story 1.2: Bootstrap the auto-bean uv tool on macOS
 
 As a new user on a supported macOS machine,
-I want auto-bean to install or verify its required local tooling,
-So that I can tell whether my environment is ready before attempting ledger work.
+I want one bootstrap entry point that installs the `auto-bean` uv tool,
+So that I can get the product onto my machine before creating a workspace.
 
 **Acceptance Criteria:**
 
 **Given** a supported macOS environment
-**When** the bootstrap workflow is run
-**Then** it installs or verifies the required local dependencies for auto-bean, Beancount, and Fava
+**When** the user runs `uv tool install --from . --force auto-bean`
+**Then** it installs or updates the `auto-bean` uv tool from the product source
 **And** it reports any missing prerequisites with clear remediation guidance
 
-**Given** the environment bootstrap has completed
-**When** the readiness check is run
-**Then** the system verifies that required commands, configuration, and local runtime dependencies are available
-**And** it returns a clear pass/fail result before any ledger operation begins
-**And** a successful readiness check on an already bootstrapped supported environment completes within 2 minutes
+**Given** installation has completed
+**When** the user verifies the installation
+**Then** the system confirms that `uv` is available and that `auto-bean` is discoverable as an installed tool
+**And** it returns clear remediation if the shell still cannot find the command
+
+**Given** a user wants to create a working ledger repository
+**When** they inspect Story 1.2 outputs
+**Then** it is clear that workspace creation belongs to a later `auto-bean init <PROJECT-NAME>` command
+**And** Story 1.2 does not create the workspace itself
 
 ### Story 1.3: Establish the CI, workflow verification, and diagnostics baseline
 
@@ -242,7 +246,7 @@ So that quality gates are visible and repeatable instead of being implied.
 
 **Acceptance Criteria:**
 
-**Given** the packaged foundation and bootstrap workflow exist
+**Given** the packaged foundation and install workflow exist
 **When** the baseline quality workflow is configured
 **Then** GitHub Actions runs linting, type validation, automated tests, and deterministic workflow smoke checks for core commands
 **And** failures block the baseline from being treated as implementation-ready
@@ -260,9 +264,9 @@ So that I can start operating a linked personal-finance ledger without manual fi
 
 **Acceptance Criteria:**
 
-**Given** a bootstrapped workspace with required dependencies available
-**When** the ledger creation workflow is run
-**Then** the system creates a base Beancount ledger entrypoint and the minimum supporting files required for operation
+**Given** the `auto-bean` tool is installed and the user provides a project name
+**When** the `auto-bean init <PROJECT-NAME>` workflow is run
+**Then** the system creates a new workspace and the base Beancount ledger entrypoint with the minimum supporting files required for operation
 **And** the created workspace is compatible with validation and Fava inspection
 
 **Given** the base ledger workspace has been created
@@ -298,7 +302,7 @@ So that I can become operational in the first session without needing a public S
 
 **Given** a new user opening the repo for the first time
 **When** they follow the quickstart guidance
-**Then** they can bootstrap the environment, initialize the workspace, create the base ledger, and understand the next import-oriented workflow
+**Then** they can install the tool, initialize the workspace, create the base ledger, and understand the next import-oriented workflow
 **And** the guidance uses Codex skill-driven interaction as the primary interface
 
 **Given** the quickstart documentation is available

@@ -16,15 +16,15 @@ Spec file:
 Primary diff target:
 
 ```bash
-git diff HEAD -- README.md _bmad-output/implementation-artifacts/sprint-status.yaml pyproject.toml src/auto_bean/__main__.py src/auto_bean/cli/main.py tests/test_package_foundation.py uv.lock
+git diff HEAD -- README.md _bmad-output/implementation-artifacts/sprint-status.yaml _bmad-output/planning-artifacts/epics.md pyproject.toml src/auto_bean/__main__.py src/auto_bean/cli/main.py tests/test_package_foundation.py
 git diff --no-index /dev/null src/auto_bean/application/setup.py
 git diff --no-index /dev/null src/auto_bean/domain/setup.py
 git diff --no-index /dev/null src/auto_bean/infrastructure/setup.py
-git diff --no-index /dev/null .python-version
 git diff --no-index /dev/null _bmad-output/implementation-artifacts/1-2-bootstrap-local-dependencies-and-readiness-checks-on-macos.md
 ```
 
 Check especially for:
-- AC1: bootstrap installs or verifies required local dependencies and reports missing prerequisites with clear remediation
-- AC2: readiness verifies required commands, configuration, and local runtime dependencies, returns clear pass/fail, and stays lightweight on reruns
-- Guardrails: macOS-only support, idempotent bootstrap, side-effect-light readiness, no invented future ledger requirements, machine-friendly output
+- AC1: direct `uv tool install --from . --force auto-bean` installation is the contract and missing prerequisites have clear remediation
+- AC2: installation verification confirms `uv` availability and whether `auto-bean` is discoverable as an installed tool
+- AC3: Story 1.2 keeps workspace creation out of scope and makes `auto-bean init <PROJECT-NAME>` the later workflow
+- Guardrails: macOS-only support, idempotent installation, no redundant bootstrap command, no workspace scaffolding in Story 1.2, machine-friendly output
