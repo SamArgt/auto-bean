@@ -1,6 +1,6 @@
 # Story 1.1: Initialize the packaged auto-bean project foundation
 
-Status: ready-for-dev
+Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -17,25 +17,25 @@ so that the repo starts from a reproducible, maintainable base that matches the 
 
 ## Tasks / Subtasks
 
-- [ ] Run the starter initialization for the product repo using `uv init --package auto-bean` or produce the same packaged result intentionally. (AC: 1)
-- [ ] Confirm the generated package identity is `auto_bean` under `src/` and that the repo has a baseline importable entrypoint. (AC: 1)
-- [ ] Preserve existing planning artifacts and repo metadata while adding only the minimum packaged-app foundation files required for the first implementation slice. (AC: 1, 2)
-- [ ] Establish the initial source layout using architecture-approved layer boundaries:
-  - [ ] `src/auto_bean/cli/`
-  - [ ] `src/auto_bean/application/`
-  - [ ] `src/auto_bean/domain/`
-  - [ ] `src/auto_bean/infrastructure/`
-  - [ ] `src/auto_bean/memory/`
-  - [ ] `tests/`
+- [x] Run the starter initialization for the product repo using `uv init --package auto-bean` or produce the same packaged result intentionally. (AC: 1)
+- [x] Confirm the generated package identity is `auto_bean` under `src/` and that the repo has a baseline importable entrypoint. (AC: 1)
+- [x] Preserve existing planning artifacts and repo metadata while adding only the minimum packaged-app foundation files required for the first implementation slice. (AC: 1, 2)
+- [x] Establish the initial source layout using architecture-approved layer boundaries:
+  - [x] `src/auto_bean/cli/`
+  - [x] `src/auto_bean/application/`
+  - [x] `src/auto_bean/domain/`
+  - [x] `src/auto_bean/infrastructure/`
+  - [x] `src/auto_bean/memory/`
+  - [x] `tests/`
   (AC: 2)
-- [ ] Ensure repo-level structure keeps room for governed user-owned state and helper surfaces without creating them prematurely:
-  - [ ] Reserve top-level roles for `scripts/`, `.agents/skills/`, and future `.auto-bean/` state
-  - [ ] Do not place ledger, memory, or artifact files inside `src/`
+- [x] Ensure repo-level structure keeps room for governed user-owned state and helper surfaces without creating them prematurely:
+  - [x] Reserve top-level roles for `scripts/`, `.agents/skills/`, and future `.auto-bean/` state
+  - [x] Do not place ledger, memory, or artifact files inside `src/`
   (AC: 2)
-- [ ] Add or update minimal documentation so a future maintainer can see that this story establishes the packaged foundation only, not full bootstrap/readiness flows. (AC: 2)
-- [ ] Add baseline automated verification for this initial foundation:
-  - [ ] a smoke test or equivalent assertion that the package imports / entrypoint resolves
-  - [ ] test placement under `tests/`
+- [x] Add or update minimal documentation so a future maintainer can see that this story establishes the packaged foundation only, not full bootstrap/readiness flows. (AC: 2)
+- [x] Add baseline automated verification for this initial foundation:
+  - [x] a smoke test or equivalent assertion that the package imports / entrypoint resolves
+  - [x] test placement under `tests/`
   (AC: 1)
 
 ## Dev Notes
@@ -123,13 +123,45 @@ GPT-5 Codex
 ### Debug Log References
 
 - Story created from BMAD planning and architecture artifacts on 2026-03-31.
+- Verified the `uv` packaged template in a scratch directory, then reproduced the equivalent packaged foundation intentionally in-repo to preserve the existing README and planning outputs.
+- Red phase: `pytest tests/test_package_foundation.py` failed before `src/auto_bean/` existed.
+- Green phase: `pytest` passed after adding the packaged layout, entrypoint, and pytest configuration.
+- Verified module entrypoint with `PYTHONPATH=src python3 -m auto_bean`.
+
+### Implementation Plan
+
+- Reproduce the minimal `uv init --package auto-bean` result intentionally instead of running it directly in the repo, so existing repo metadata and docs remain intact.
+- Create only the packaged Python baseline and architecture-approved layer directories required by Story 1.1.
+- Add a deterministic smoke test under `tests/` that validates the package layout and importable entrypoint.
+- Document repo boundaries so future runtime state stays outside `src/`.
 
 ### Completion Notes List
 
 - Comprehensive story context created for the first backlog item auto-discovered from sprint status.
 - No prior implementation story or project-context artifact existed.
 - Story guidance intentionally keeps Story 1.1 narrow so later setup/readiness stories retain their own scope.
+- Added a minimal packaged Python application foundation with `pyproject.toml`, `.python-version`, `src/auto_bean/`, and a baseline CLI/module entrypoint.
+- Established the initial layer package layout for `cli`, `application`, `domain`, `infrastructure`, and `memory`, with test coverage under `tests/`.
+- Updated the README to document that user-owned ledger and governed runtime state stay outside `src/`, while reserving top-level roles for `scripts/`, `.agents/skills/`, and future `.auto-bean/` state.
+- Validation completed with `pytest` and `PYTHONPATH=src python3 -m auto_bean`.
 
 ### File List
 
 - _bmad-output/implementation-artifacts/1-1-initialize-the-packaged-auto-bean-project-foundation.md
+- _bmad-output/implementation-artifacts/sprint-status.yaml
+- .python-version
+- README.md
+- pyproject.toml
+- src/auto_bean/__init__.py
+- src/auto_bean/__main__.py
+- src/auto_bean/application/__init__.py
+- src/auto_bean/cli/__init__.py
+- src/auto_bean/cli/main.py
+- src/auto_bean/domain/__init__.py
+- src/auto_bean/infrastructure/__init__.py
+- src/auto_bean/memory/__init__.py
+- tests/test_package_foundation.py
+
+### Change Log
+
+- 2026-03-31: Added the initial packaged `auto_bean` foundation, architecture-aligned layer packages, baseline entrypoint, README boundary notes, and smoke-test coverage for Story 1.1.

@@ -1,0 +1,21 @@
+[project]
+name = "auto-bean"
+version = "0.1.0"
+description = "Local-first coding-agent helpers for operating Beancount ledgers."
+readme = "README.md"
+authors = [
+    { name = "SamArgt", email = "36817478+SamArgt@users.noreply.github.com" }
+]
+requires-python = ">=3.11"
+dependencies = []
+
+[project.scripts]
+auto-bean = "auto_bean:main"
+
+[build-system]
+requires = ["uv_build>=0.9.15,<0.10.0"]
+build-backend = "uv_build"
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
