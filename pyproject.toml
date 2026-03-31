@@ -6,8 +6,11 @@ readme = "README.md"
 authors = [
     { name = "SamArgt", email = "36817478+SamArgt@users.noreply.github.com" }
 ]
-requires-python = ">=3.13"
-dependencies = []
+requires-python = ">=3.13,<3.14"
+dependencies = [
+    "beancount",
+    "fava",
+]
 
 [project.scripts]
 auto-bean = "auto_bean:main"
