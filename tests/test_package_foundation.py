@@ -129,109 +129,58 @@ def make_service(
     )
 
 
-def test_readiness_fails_on_unsupported_os(tmp_path: Path) -> None:
+def test_init_fails_on_unsupported_os(tmp_path: Path) -> None:
     service = make_service(tmp_path, system="Linux")
 
-    result = service.readiness()
+    result = service.init("demo-ledger")
 
     assert result.status == "failed"
     assert result.error_code == "unsupported_environment"
     assert result.checks[0].details["detected_system"] == "Linux"
 
 
-def test_readiness_reports_missing_uv_prerequisite(tmp_path: Path) -> None:
+def test_init_reports_missing_uv_prerequisite(tmp_path: Path) -> None:
+    template_root = tmp_path / "workspace_template"
+    (template_root / "beancount").mkdir(parents=True)
+    (template_root / ".agents").mkdir(parents=True)
+    (template_root / "statements" / "raw").mkdir(parents=True)
+    (template_root / ".auto-bean" / "artifacts").mkdir(parents=True)
+    (template_root / ".auto-bean" / "proposals").mkdir(parents=True)
+    (template_root / "AGENTS.md").write_text("# Agents\n", encoding="utf-8")
+    (template_root / "ledger.beancount").write_text(
+        'option "title" "Test Ledger"\ninclude "beancount/opening-balances.beancount"\n',
+        encoding="utf-8",
+    )
+    (template_root / "beancount" / "opening-balances.beancount").write_text(
+        "1970-01-01 open Assets:Checking EUR\n1970-01-01 open Equity:Opening-Balances EUR\n",
+        encoding="utf-8",
+    )
+    skill_sources_root = tmp_path / "skill_sources"
+    (skill_sources_root / "auto-bean-apply" / "scripts").mkdir(parents=True)
+    (skill_sources_root / "auto-bean-apply" / "agents").mkdir(parents=True)
+    (skill_sources_root / "shared").mkdir(parents=True)
+    (skill_sources_root / "auto-bean-apply" / "SKILL.md").write_text(
+        "# Apply\n", encoding="utf-8"
+    )
+    (skill_sources_root / "auto-bean-apply" / "agents" / "openai.yaml").write_text(
+        'interface:\n  display_name: "Apply"\n  short_description: "Apply changes"\n  default_prompt: "Use $auto-bean-apply."\n',
+        encoding="utf-8",
+    )
+    (skill_sources_root / "shared" / "mutation-pipeline.md").write_text(
+        "# Pipeline\n", encoding="utf-8"
+    )
+    (skill_sources_root / "shared" / "mutation-authority-matrix.md").write_text(
+        "# Authority\n", encoding="utf-8"
+    )
     service = make_service(tmp_path, tools={})
 
-    result = service.readiness()
+    result = service.init("demo-ledger")
 
     assert result.status == "failed"
     assert result.error_code == "missing_uv"
-    remediation = result.checks[1].details["remediation"]
-    assert isinstance(remediation, str)
-    assert "uv tool install --from . --force auto-bean" in remediation
-
-
-def test_readiness_succeeds_when_auto_bean_is_on_path(tmp_path: Path) -> None:
-    auto_bean_path = tmp_path / "bin" / "auto-bean"
-    auto_bean_path.parent.mkdir()
-    auto_bean_path.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
-    service = make_service(
-        tmp_path,
-        tools={
-            "uv": "/opt/homebrew/bin/uv",
-            "auto-bean": str(auto_bean_path),
-        },
-        responses={
-            (str(auto_bean_path), "--help"): CommandResult(returncode=0, stdout="help"),
-        },
-    )
-
-    result = service.readiness()
-
-    assert result.status == "ok"
-    assert result.error_code is None
-    assert result.duration_seconds < 120
-
-
-def test_readiness_reports_when_auto_bean_is_missing_from_path(tmp_path: Path) -> None:
-    service = make_service(tmp_path)
-
-    result = service.readiness()
-
-    assert result.status == "failed"
-    assert result.error_code == "missing_auto_bean_on_path"
     remediation = result.details["remediation"]
-    verification_command = result.details["verification_command"]
     assert isinstance(remediation, str)
-    assert isinstance(verification_command, str)
     assert "uv tool install --from . --force auto-bean" in remediation
-    assert verification_command == "uv tool run --from . auto-bean readiness"
-
-
-def test_readiness_reports_when_auto_bean_is_not_runnable(tmp_path: Path) -> None:
-    auto_bean_path = tmp_path / "bin" / "auto-bean"
-    auto_bean_path.parent.mkdir()
-    auto_bean_path.write_text("#!/bin/sh\nexit 1\n", encoding="utf-8")
-    service = make_service(
-        tmp_path,
-        tools={
-            "uv": "/opt/homebrew/bin/uv",
-            "auto-bean": str(auto_bean_path),
-        },
-        responses={
-            (str(auto_bean_path), "--help"): CommandResult(returncode=1, stderr="boom"),
-        },
-    )
-
-    result = service.readiness()
-
-    assert result.status == "failed"
-    assert result.error_code == "auto_bean_unavailable"
-
-
-def test_readiness_checks_installed_tool_without_repo_root_dependency(
-    tmp_path: Path,
-) -> None:
-    auto_bean_path = tmp_path / "bin" / "auto-bean"
-    auto_bean_path.parent.mkdir()
-    auto_bean_path.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
-    calls: list[tuple[str, ...]] = []
-    service = make_service(
-        tmp_path,
-        tools={
-            "uv": "/opt/homebrew/bin/uv",
-            "auto-bean": str(auto_bean_path),
-        },
-        responses={
-            (str(auto_bean_path), "--help"): CommandResult(returncode=0, stdout="help"),
-        },
-        calls=calls,
-    )
-
-    result = service.readiness()
-
-    assert result.status == "ok"
-    assert calls == [(str(auto_bean_path), "--help")]
 
 
 def test_init_is_reserved_for_later_workspace_story(tmp_path: Path) -> None:
@@ -285,7 +234,7 @@ def test_cli_renders_json_failure_output(
     service = make_service(tmp_path, system="Linux")
     monkeypatch.setattr("auto_bean.cli.main.build_setup_service", lambda: service)
 
-    exit_code = main(["readiness", "--json"])
+    exit_code = main(["init", "demo-ledger", "--json"])
 
     captured = capsys.readouterr()
     payload = json.loads(captured.out)

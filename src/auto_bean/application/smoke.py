@@ -55,15 +55,9 @@ class _FakeCommandRunner:
         return self.responses.get(command, CommandResult(returncode=0))
 
 
-def _build_service(repo_root: Path, *, readiness_success: bool) -> SetupService:
+def _build_service(repo_root: Path) -> SetupService:
     tools = {"uv": "/opt/homebrew/bin/uv", "git": "/usr/bin/git"}
     responses: dict[tuple[str, ...], CommandResult] = {}
-    if readiness_success:
-        tools["auto-bean"] = "/tmp/fake-auto-bean"
-        responses[("/tmp/fake-auto-bean", "--help")] = CommandResult(
-            returncode=0,
-            stdout="help",
-        )
 
     return SetupService(
         paths=ProjectPaths(start=repo_root),
@@ -130,21 +124,15 @@ def run_smoke_checks() -> int:
 
         cases = (
             (
-                "readiness-success",
-                ["readiness", "--json"],
-                _build_service(repo_root, readiness_success=True),
-                0,
-            ),
-            (
                 "init-success",
                 ["init", project_name, "--json"],
-                _build_service(repo_root, readiness_success=False),
+                _build_service(repo_root),
                 0,
             ),
             (
                 "init-blocked",
                 ["init", ".", "--json"],
-                _build_service(repo_root, readiness_success=False),
+                _build_service(repo_root),
                 1,
             ),
         )

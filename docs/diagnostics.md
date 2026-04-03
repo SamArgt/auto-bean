@@ -2,7 +2,7 @@
 
 `auto-bean` now persists structured workflow diagnostics under `.auto-bean/artifacts/`.
 
-Each readiness-significant or blocked workflow run writes a JSON artifact with:
+Each blocked or completed workflow run writes a JSON artifact with:
 
 - a stable `run_id`
 - the workflow name and creation timestamp

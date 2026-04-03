@@ -149,32 +149,38 @@ def make_service(
     return service, command_runner
 
 
-def test_readiness_returns_checks_and_success_summary(tmp_path: Path) -> None:
-    service, _ = make_service(
-        tmp_path,
-        responses={
-            ("/tmp/fake-auto-bean", "--help"): CommandResult(
-                returncode=0, stdout="help"
-            ),
-        },
-    )
+def test_init_reports_environment_and_runtime_checks(tmp_path: Path) -> None:
+    seed_workspace_template(tmp_path)
+    service, _ = make_service(tmp_path)
+    project_name = f"my-ledger-{tmp_path.name[-6:]}"
 
-    result = service.readiness()
+    result = service.init(project_name)
 
     assert result.status == "ok"
-    assert result.workflow == "readiness"
+    assert result.workflow == "init"
     assert result.error_category is None
     assert [check.name for check in result.checks] == [
         "supported_environment",
+        "project_name_valid",
+        "coding_agent_selected",
+        "workspace_template_available",
+        "skill_sources_available",
         "uv_available",
-        "auto_bean_on_path",
+        "workspace_scaffolded",
+        "workspace_git_initialized",
+        "workspace_runtime_bootstrapped",
+        "ledger_validation",
+        "workspace_fava_available",
+        "workspace_git_initial_commit",
     ]
 
 
-def test_readiness_classifies_prerequisite_failure(tmp_path: Path) -> None:
+def test_init_classifies_prerequisite_failure(tmp_path: Path) -> None:
+    seed_workspace_template(tmp_path)
     service, _ = make_service(tmp_path, tools={})
+    project_name = f"my-ledger-{tmp_path.name[-6:]}"
 
-    result = service.readiness()
+    result = service.init(project_name)
 
     assert result.status == "failed"
     assert result.error_code == "missing_uv"
@@ -342,7 +348,6 @@ def test_init_works_outside_repo_when_packaged_assets_are_available(
             {
                 "git": "/usr/bin/git",
                 "uv": "/opt/homebrew/bin/uv",
-                "auto-bean": "/tmp/fake-auto-bean",
             }
         ),
         command_runner=command_runner,
@@ -378,7 +383,6 @@ def test_init_works_outside_repo_from_source_checkout_assets(tmp_path: Path) -> 
             {
                 "git": "/usr/bin/git",
                 "uv": "/opt/homebrew/bin/uv",
-                "auto-bean": "/tmp/fake-auto-bean",
             }
         ),
         command_runner=command_runner,
@@ -522,21 +526,16 @@ def test_cli_json_output_includes_core_diagnostics(
     monkeypatch: MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    service, _ = make_service(
-        tmp_path,
-        responses={
-            ("/tmp/fake-auto-bean", "--help"): CommandResult(
-                returncode=0, stdout="help"
-            ),
-        },
-    )
+    seed_workspace_template(tmp_path)
+    service, _ = make_service(tmp_path)
     monkeypatch.setattr("auto_bean.cli.main.build_setup_service", lambda: service)
+    project_name = f"my-ledger-{tmp_path.name[-6:]}"
 
-    exit_code = main(["readiness", "--json"])
+    exit_code = main(["init", project_name, "--json"])
 
     payload = cast(dict[str, Any], json.loads(capsys.readouterr().out))
     assert exit_code == 0
-    assert payload["workflow"] == "readiness"
+    assert payload["workflow"] == "init"
     assert payload["status"] == "ok"
     checks = cast(list[dict[str, Any]], payload["checks"])
     assert checks[0]["name"] == "supported_environment"
@@ -547,14 +546,16 @@ def test_cli_human_output_is_console_focused(
     monkeypatch: MonkeyPatch,
     tmp_path: Path,
 ) -> None:
+    seed_workspace_template(tmp_path)
     service, _ = make_service(tmp_path, tools={})
     monkeypatch.setattr("auto_bean.cli.main.build_setup_service", lambda: service)
+    project_name = f"my-ledger-{tmp_path.name[-6:]}"
 
-    exit_code = main(["readiness"])
+    exit_code = main(["init", project_name])
 
     output = capsys.readouterr().out
     assert exit_code == 1
-    assert "workflow: readiness" in output
+    assert "workflow: init" in output
     assert "status: failed" in output
     assert "[FAIL] uv_available" in output
     assert "artifact_path:" not in output
@@ -593,9 +594,6 @@ def test_cli_reports_unexpected_execution_errors_as_structured_output(
     monkeypatch: MonkeyPatch,
 ) -> None:
     class ExplodingService:
-        def readiness(self) -> CommandOutcome:
-            raise RuntimeError("boom")
-
         def init(self, project_name: str) -> CommandOutcome:
             raise RuntimeError(project_name)
 
@@ -620,7 +618,7 @@ def test_cli_reports_unexpected_execution_errors_as_structured_output(
         lambda: ExplodingService(),
     )
 
-    exit_code = main(["readiness", "--json"])
+    exit_code = main(["init", "boom", "--json"])
 
     payload = cast(dict[str, Any], json.loads(capsys.readouterr().out))
     assert exit_code == 1

@@ -5,7 +5,6 @@
 Right now this repository gives you a supported first session for:
 
 - installing `auto-bean` from this product repo
-- checking readiness on macOS
 - creating a separate runtime ledger workspace
 - validating `ledger.beancount`
 - inspecting that ledger in Fava
@@ -32,29 +31,7 @@ uv tool install --from . --force auto-bean
 
 This installs the local package as the `auto-bean` tool without asking you to mutate global Python by hand.
 
-### 2. Verify readiness
-
-If your shell has not picked up the installed tool on `PATH` yet, verify with:
-
-```bash
-uv tool run --from . auto-bean readiness
-```
-
-Once `auto-bean` is available directly, the normal check is:
-
-```bash
-auto-bean readiness
-```
-
-For machine-readable diagnostics:
-
-```bash
-auto-bean readiness --json
-```
-
-Human-readable readiness output includes a stable `run_id` and the governed artifact path for the workflow result.
-
-### 3. Create your runtime ledger workspace
+### 2. Create your runtime ledger workspace
 
 Create a new workspace next to this product repo:
 
@@ -77,7 +54,9 @@ On success, `auto-bean` creates a separate runtime Git repository with:
 
 This matters operationally: the product repo is where `auto-bean` is authored, while the generated workspace is where your live ledger, statements, and governed runtime state live.
 
-### 4. Move into the workspace and validate the ledger
+If `uv` is missing or the machine is unsupported, `auto-bean init` fails immediately with structured remediation details instead of sending you through a separate readiness command.
+
+### 3. Move into the workspace and validate the ledger
 
 After init finishes, change into the new workspace:
 
@@ -94,7 +73,7 @@ Validate the generated base ledger with either the helper script or the direct B
 
 “First meaningful use” for the current V1 scope means you now have a bootstrapped workspace, a valid `ledger.beancount`, and a clear place to continue operating.
 
-### 5. Inspect the ledger in Fava
+### 4. Inspect the ledger in Fava
 
 Open the generated ledger in Fava with either the helper script or the direct command:
 
@@ -105,7 +84,7 @@ Open the generated ledger in Fava with either the helper script or the direct co
 
 This is the supported inspection path today.
 
-### 6. Use Codex-first workflows inside the workspace
+### 5. Use Codex-first workflows inside the workspace
 
 Once you are in the generated workspace, treat Codex and the installed skills as the primary workflow surface.
 
@@ -117,7 +96,7 @@ For trust-sensitive structural ledger changes, use the installed runtime skill u
 
 That runtime skill is materialized into the workspace during `auto-bean init`. In this product repo, the authored source of truth for that behavior lives under `skill_sources/`.
 
-### 7. Understand what comes next
+### 6. Understand what comes next
 
 The next major operating path is statement import, but it is not exposed as a public SDK or finished import command yet.
 
@@ -133,9 +112,8 @@ Later stories will add the normalized import and review workflows that begin fro
 
 ## Failure and remediation behavior
 
-- If `uv` is missing, readiness fails with installation guidance.
+- If `uv` is missing, `auto-bean init <PROJECT-NAME>` fails with installation guidance.
 - If the machine is not macOS, the workflow fails closed rather than pretending partial support exists.
-- If the installed tool is not yet on `PATH`, use `uv tool run --from . auto-bean readiness` first and then apply the reported shell remediation.
 - `auto-bean init <PROJECT-NAME>` fails closed when the project name is unsafe, the destination already exists and is non-empty, the workspace template is incomplete, or the requested coding agent is unsupported.
 - `auto-bean init <PROJECT-NAME>` validates the generated `ledger.beancount` and checks that Fava is runnable before it reports success.
 - `auto-bean init <PROJECT-NAME>` fails if the authored skill sources needed for runtime installation are missing.

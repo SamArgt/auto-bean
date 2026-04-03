@@ -11,19 +11,9 @@ from auto_bean.domain.setup import CheckStatus, CommandOutcome
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="auto-bean",
-        description="Verify the installed auto-bean uv tool and manage future workspaces.",
+        description="Create and manage auto-bean ledger workspaces.",
     )
     subparsers = parser.add_subparsers(dest="command")
-
-    readiness_parser = subparsers.add_parser(
-        "readiness",
-        help="Verify that uv is available and auto-bean is discoverable on PATH.",
-    )
-    readiness_parser.add_argument(
-        "--json",
-        action="store_true",
-        help="Render the result as JSON.",
-    )
 
     init_parser = subparsers.add_parser(
         "init",
@@ -48,9 +38,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     try:
         service = build_setup_service()
-        if args.command == "readiness":
-            result = service.readiness()
-        elif args.command == "init":
+        if args.command == "init":
             result = service.init(args.project_name)
         else:
             result = service.execution_error(
@@ -77,8 +65,6 @@ def render_result(result: CommandOutcome, *, as_json: bool) -> None:
 
     if result.workflow == "init":
         print("auto-bean init")
-    elif result.workflow == "readiness":
-        print("auto-bean readiness")
     print(f"workflow: {result.workflow}")
     print(f"status: {result.status}")
     if result.error_code:

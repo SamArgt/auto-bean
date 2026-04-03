@@ -36,56 +36,6 @@ class SetupService:
     command_runner: CommandExecutor
     prompt: PromptResponder = input
 
-    def readiness(self) -> CommandOutcome:
-        started = current_time()
-        checks = (
-            self._check_supported_environment(),
-            self._check_uv_available(),
-            self._check_auto_bean_on_path(),
-        )
-        failed_check = next(
-            (check for check in checks if check.status is CheckStatus.FAIL),
-            None,
-        )
-        if failed_check is not None:
-            return self._result(
-                workflow="readiness",
-                status="failed",
-                error_code=failed_check.error_code,
-                error_category=self._classify_error(failed_check.error_code),
-                message=failed_check.message,
-                details=failed_check.details,
-                checks=checks,
-                started=started,
-            )
-
-        warned_check = next(
-            (check for check in checks if check.status is CheckStatus.WARN),
-            None,
-        )
-        if warned_check is not None:
-            return self._result(
-                workflow="readiness",
-                status="failed",
-                error_code=warned_check.error_code,
-                error_category=self._classify_error(warned_check.error_code),
-                message=warned_check.message,
-                details=warned_check.details,
-                checks=checks,
-                started=started,
-            )
-
-        return self._result(
-            workflow="readiness",
-            status="ok",
-            error_code=None,
-            error_category=None,
-            message="Readiness check passed. auto-bean is installed and discoverable.",
-            details={"command": "auto-bean --help"},
-            checks=checks,
-            started=started,
-        )
-
     def init(self, project_name: str) -> CommandOutcome:
         started = current_time()
         working_directory = self.paths.working_directory
@@ -103,6 +53,20 @@ class SetupService:
         }
 
         checks: list[DiagnosticCheck] = []
+
+        environment_check = self._check_supported_environment()
+        checks.append(environment_check)
+        if environment_check.status is CheckStatus.FAIL:
+            return self._result(
+                workflow="init",
+                status="failed",
+                error_code=environment_check.error_code,
+                error_category=self._classify_error(environment_check.error_code),
+                message=environment_check.message,
+                details=init_context | environment_check.details,
+                checks=tuple(checks),
+                started=started,
+            )
 
         project_name_check = self._validate_project_name(project_name, target_directory)
         checks.append(project_name_check)
@@ -409,53 +373,6 @@ class SetupService:
             error_code=None,
             message="uv is available.",
             details={"path": uv_path},
-        )
-
-    def _check_auto_bean_on_path(self) -> DiagnosticCheck:
-        tool_path = self.tool_probe.find("auto-bean")
-        if tool_path is None:
-            return DiagnosticCheck(
-                name="auto_bean_on_path",
-                status=CheckStatus.WARN,
-                error_code="missing_auto_bean_on_path",
-                message="auto-bean is not discoverable on PATH yet.",
-                details={
-                    "verification_command": "uv tool run --from . auto-bean readiness",
-                    "remediation": (
-                        "Run 'uv tool install --from . --force auto-bean' if needed. To verify the "
-                        "install before PATH is fixed, run 'uv tool run --from . auto-bean readiness' "
-                        "from the product repo. Then add uv's tool bin directory to PATH or run the "
-                        "shell setup recommended by uv, open a new shell, and rerun 'auto-bean readiness'."
-                    ),
-                },
-            )
-
-        command = [tool_path, "--help"]
-        result = self.command_runner.run(command)
-        if result.returncode != 0:
-            return DiagnosticCheck(
-                name="auto_bean_on_path",
-                status=CheckStatus.FAIL,
-                error_code="auto_bean_unavailable",
-                message="auto-bean is on PATH but is not runnable.",
-                details={
-                    "path": tool_path,
-                    "command": " ".join(command),
-                    "stdout": result.stdout,
-                    "stderr": result.stderr,
-                    "remediation": (
-                        "Run 'uv tool install --from . --force auto-bean' to reinstall the tool, "
-                        "then try 'auto-bean readiness' again."
-                    ),
-                },
-            )
-
-        return DiagnosticCheck(
-            name="auto_bean_on_path",
-            status=CheckStatus.PASS,
-            error_code=None,
-            message="auto-bean is discoverable on PATH and runnable.",
-            details={"path": tool_path, "command": " ".join(command)},
         )
 
     def _target_workspace_path(self, project_name: str) -> tuple[Path, str]:
@@ -933,7 +850,6 @@ class SetupService:
             "unsupported_environment",
             "missing_uv",
             "missing_git",
-            "missing_auto_bean_on_path",
             "missing_template_assets",
             "missing_skill_sources",
             "workspace_runtime_bootstrap_failed",
