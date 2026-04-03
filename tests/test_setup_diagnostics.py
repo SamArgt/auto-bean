@@ -555,14 +555,39 @@ def test_cli_human_output_is_console_focused(
 
     output = capsys.readouterr().out
     assert exit_code == 1
-    assert "workflow: init" in output
-    assert "status: failed" in output
-    assert "[FAIL] uv_available" in output
+    assert "Failed: The 'uv' command is required but was not found." in output
+    assert "workflow: init" not in output
+    assert "uv_available" not in output
     assert "artifact_path:" not in output
     assert "run_id:" not in output
 
 
-def test_cli_init_human_output_lists_created_files_and_next_steps(
+def test_cli_init_verbose_output_streams_stage_details(
+    capsys: CaptureFixture[str],
+    monkeypatch: MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    seed_workspace_template(tmp_path)
+    project_name = f"cli-ledger-{tmp_path.name[-6:]}"
+    service, _ = make_service(tmp_path)
+    monkeypatch.setattr("auto_bean.cli.main.build_setup_service", lambda: service)
+
+    exit_code = main(["init", project_name, "--verbose"])
+
+    output = capsys.readouterr().out
+    assert exit_code == 0
+    assert (
+        "[PASS] supported_environment: Supported macOS environment detected." in output
+    )
+    assert f"project_name: {project_name}" in output
+    assert "coding_agent: Codex" in output
+    assert "created_file_count:" in output
+    assert "workspace_git_initialized" in output
+    assert "workspace_runtime_bootstrapped" in output
+    assert "Success: Workspace created at" in output
+
+
+def test_cli_init_default_output_keeps_success_summary_minimal(
     capsys: CaptureFixture[str],
     monkeypatch: MonkeyPatch,
     tmp_path: Path,
@@ -576,17 +601,23 @@ def test_cli_init_human_output_lists_created_files_and_next_steps(
 
     output = capsys.readouterr().out
     assert exit_code == 0
-    assert f"project_name: {project_name}" in output
-    assert "coding_agent: Codex" in output
-    assert "created_paths:" in output
-    assert "next_steps:" in output
-    assert (
-        "Review AGENTS.md for the Codex-first workspace workflow and path guide."
-        in output
+    assert "Success: Workspace created at" in output
+    assert "[PASS]" not in output
+    assert "project_name:" not in output
+    assert "created_paths:" not in output
+
+
+def test_init_uses_supplied_coding_agent_without_prompting(tmp_path: Path) -> None:
+    seed_workspace_template(tmp_path)
+    service, _ = make_service(
+        tmp_path,
+        prompt=lambda _: (_ for _ in ()).throw(AssertionError("prompt should not run")),
     )
-    assert "target_input_type: name" in output
-    assert "template_directory:" in output
-    assert "skill_sources_directory:" in output
+    project_name = f"cli-ledger-{tmp_path.name[-6:]}"
+
+    result = service.init(project_name, coding_agent="Codex")
+
+    assert result.status == "ok"
 
 
 def test_cli_reports_unexpected_execution_errors_as_structured_output(
@@ -594,7 +625,9 @@ def test_cli_reports_unexpected_execution_errors_as_structured_output(
     monkeypatch: MonkeyPatch,
 ) -> None:
     class ExplodingService:
-        def init(self, project_name: str) -> CommandOutcome:
+        def init(
+            self, project_name: str, *, coding_agent: str | None = None
+        ) -> CommandOutcome:
             raise RuntimeError(project_name)
 
         def execution_error(

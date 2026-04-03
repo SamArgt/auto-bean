@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 import shutil
@@ -27,6 +28,8 @@ from auto_bean.infrastructure.setup import (
     sanitize_project_name,
 )
 
+type ProgressReporter = Callable[[DiagnosticCheck], None]
+
 
 @dataclass
 class SetupService:
@@ -35,8 +38,11 @@ class SetupService:
     tool_probe: ToolLocator
     command_runner: CommandExecutor
     prompt: PromptResponder = input
+    progress_reporter: ProgressReporter | None = None
 
-    def init(self, project_name: str) -> CommandOutcome:
+    def init(
+        self, project_name: str, *, coding_agent: str | None = None
+    ) -> CommandOutcome:
         started = current_time()
         working_directory = self.paths.working_directory
         target_directory, target_input_type = self._target_workspace_path(project_name)
@@ -55,7 +61,7 @@ class SetupService:
         checks: list[DiagnosticCheck] = []
 
         environment_check = self._check_supported_environment()
-        checks.append(environment_check)
+        self._record_check(checks, environment_check)
         if environment_check.status is CheckStatus.FAIL:
             return self._result(
                 workflow="init",
@@ -69,7 +75,7 @@ class SetupService:
             )
 
         project_name_check = self._validate_project_name(project_name, target_directory)
-        checks.append(project_name_check)
+        self._record_check(checks, project_name_check)
         if project_name_check.status is CheckStatus.FAIL:
             return self._result(
                 workflow="init",
@@ -82,9 +88,9 @@ class SetupService:
                 started=started,
             )
 
-        coding_agent = self._prompt_for_coding_agent()
+        coding_agent = coding_agent or self.prompt_for_coding_agent()
         coding_agent_check = self._validate_coding_agent(coding_agent)
-        checks.append(coding_agent_check)
+        self._record_check(checks, coding_agent_check)
         if coding_agent_check.status is CheckStatus.FAIL:
             return self._result(
                 workflow="init",
@@ -97,7 +103,7 @@ class SetupService:
                 started=started,
             )
         template_check = self._validate_template_directory(template_directory)
-        checks.append(template_check)
+        self._record_check(checks, template_check)
         if template_check.status is CheckStatus.FAIL:
             return self._result(
                 workflow="init",
@@ -112,7 +118,7 @@ class SetupService:
         skill_sources_check = self._validate_skill_sources_directory(
             skill_sources_directory
         )
-        checks.append(skill_sources_check)
+        self._record_check(checks, skill_sources_check)
         if skill_sources_check.status is CheckStatus.FAIL:
             return self._result(
                 workflow="init",
@@ -132,7 +138,7 @@ class SetupService:
         )
         created_paths.extend(installed_skill_paths)
         runtime_environment_check = self._check_uv_available()
-        checks.append(runtime_environment_check)
+        self._record_check(checks, runtime_environment_check)
         if runtime_environment_check.status is CheckStatus.FAIL:
             self._cleanup_failed_workspace(
                 target_directory, preserve_root=target_preexisted
@@ -163,10 +169,10 @@ class SetupService:
                 "created_file_count": len(created_paths),
             },
         )
-        checks.append(scaffold_check)
+        self._record_check(checks, scaffold_check)
 
         git_check = self._initialize_workspace_git_repo(target_directory)
-        checks.append(git_check)
+        self._record_check(checks, git_check)
         if git_check.status is CheckStatus.FAIL:
             self._cleanup_failed_workspace(
                 target_directory, preserve_root=target_preexisted
@@ -195,7 +201,7 @@ class SetupService:
             )
 
         workspace_runtime_check = self._bootstrap_workspace_runtime(target_directory)
-        checks.append(workspace_runtime_check)
+        self._record_check(checks, workspace_runtime_check)
         if workspace_runtime_check.status is CheckStatus.FAIL:
             self._cleanup_failed_workspace(
                 target_directory, preserve_root=target_preexisted
@@ -234,9 +240,9 @@ class SetupService:
         validation_check = self._validate_generated_ledger(
             validation_command, target_directory
         )
-        checks.append(validation_check)
+        self._record_check(checks, validation_check)
         fava_check = self._check_workspace_fava_available(target_directory)
-        checks.append(fava_check)
+        self._record_check(checks, fava_check)
         details: dict[str, object] = init_context | {
             "coding_agent": coding_agent,
             "created_paths": created_paths,
@@ -286,7 +292,7 @@ class SetupService:
         )
         if failed_check is None:
             commit_check = self._create_initial_workspace_commit(target_directory)
-            checks.append(commit_check)
+            self._record_check(checks, commit_check)
             if commit_check.status is CheckStatus.FAIL:
                 self._cleanup_failed_workspace(
                     target_directory, preserve_root=target_preexisted
@@ -304,6 +310,13 @@ class SetupService:
             checks=tuple(checks),
             started=started,
         )
+
+    def _record_check(
+        self, checks: list[DiagnosticCheck], check: DiagnosticCheck
+    ) -> None:
+        checks.append(check)
+        if self.progress_reporter is not None:
+            self.progress_reporter(check)
 
     def execution_error(
         self,
@@ -378,7 +391,9 @@ class SetupService:
     def _target_workspace_path(self, project_name: str) -> tuple[Path, str]:
         working_directory = self.paths.working_directory
         if looks_like_path(project_name):
-            return (working_directory / Path(project_name).expanduser()).resolve(), "path"
+            return (
+                working_directory / Path(project_name).expanduser()
+            ).resolve(), "path"
 
         try:
             repo_root = self.paths.repo_root
@@ -447,7 +462,7 @@ class SetupService:
             },
         )
 
-    def _prompt_for_coding_agent(self) -> str:
+    def prompt_for_coding_agent(self) -> str:
         response = self.prompt(
             "Which coding agent should this workspace target? [Codex]: "
         ).strip()

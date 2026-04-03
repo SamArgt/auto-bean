@@ -1,12 +1,27 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 
 import click
+from rich.console import Console
+from rich.progress import (
+    BarColumn,
+    Progress,
+    SpinnerColumn,
+    TextColumn,
+    TimeElapsedColumn,
+)
 
-from auto_bean.application.setup import build_setup_service
-from auto_bean.domain.setup import CheckStatus, CommandOutcome
+from auto_bean.application.setup import SetupService, build_setup_service
+from auto_bean.domain.setup import CheckStatus, CommandOutcome, DiagnosticCheck
+
+_INIT_STAGE_TOTAL = 11
+_STATUS_STYLES = {
+    CheckStatus.PASS: "green",
+    CheckStatus.FAIL: "red",
+    CheckStatus.WARN: "yellow",
+}
 
 
 @click.group(invoke_without_command=True)
@@ -21,9 +36,29 @@ def cli(ctx: click.Context) -> int:
 @cli.command(help="Create a new base Beancount ledger workspace.")
 @click.argument("project_name")
 @click.option("--json", "as_json", is_flag=True, help="Render the result as JSON.")
-def init(project_name: str, as_json: bool) -> int:
-    result = _run_workflow("init", project_name=project_name)
-    render_result(result, as_json=as_json)
+@click.option(
+    "--verbose",
+    is_flag=True,
+    help="Print stage results as they complete.",
+)
+def init(project_name: str, as_json: bool, verbose: bool) -> int:
+    service = build_setup_service()
+
+    if as_json:
+        result = _run_workflow("init", project_name=project_name, service=service)
+        render_result(result, as_json=True, verbose=verbose)
+        return 0 if result.status == "ok" else 1
+
+    coding_agent = service.prompt_for_coding_agent()
+    renderer = RichWorkflowRenderer(verbose=verbose)
+    result = _run_workflow(
+        "init",
+        project_name=project_name,
+        coding_agent=coding_agent,
+        progress_reporter=renderer.report_check,
+        service=service,
+    )
+    renderer.finish(result)
     return 0 if result.status == "ok" else 1
 
 
@@ -42,12 +77,20 @@ def main(argv: Sequence[str] | None = None) -> int:
     return int(result or 0)
 
 
-def _run_workflow(workflow: str, *, project_name: str) -> CommandOutcome:
+def _run_workflow(
+    workflow: str,
+    *,
+    project_name: str,
+    coding_agent: str | None = None,
+    progress_reporter: Callable[[DiagnosticCheck], None] | None = None,
+    service: SetupService | None = None,
+) -> CommandOutcome:
     try:
-        service = build_setup_service()
+        setup_service = service if service is not None else build_setup_service()
+        setup_service.progress_reporter = progress_reporter
         if workflow == "init":
-            return service.init(project_name)
-        return service.execution_error(
+            return setup_service.init(project_name, coding_agent=coding_agent)
+        return setup_service.execution_error(
             workflow,
             details={"unsupported_command": workflow},
             message="Unsupported command.",
@@ -62,63 +105,52 @@ def _run_workflow(workflow: str, *, project_name: str) -> CommandOutcome:
         )
 
 
-def render_result(result: CommandOutcome, *, as_json: bool) -> None:
+def render_result(result: CommandOutcome, *, as_json: bool, verbose: bool) -> None:
     if as_json:
         click.echo(json.dumps(result.as_dict(), indent=2, sort_keys=True))
         return
 
-    if result.workflow == "init":
-        click.echo("auto-bean init")
-    click.echo(f"workflow: {result.workflow}")
-    click.echo(f"status: {result.status}")
-    if result.error_code:
-        click.echo(f"error_code: {result.error_code}")
-    if result.error_category:
-        click.echo(f"error_category: {result.error_category.value}")
-    click.echo(f"message: {result.message}")
-    click.echo(f"duration_seconds: {result.duration_seconds:.3f}")
-    _render_detail_lines(result.details)
+    renderer = RichWorkflowRenderer(verbose=verbose)
     for check in result.checks:
-        _render_check(check)
+        renderer.report_check(check)
+    renderer.finish(result)
 
 
-def _render_check(check: object) -> None:
-    from auto_bean.domain.setup import DiagnosticCheck
+class RichWorkflowRenderer:
+    def __init__(self, *, verbose: bool) -> None:
+        self.verbose = verbose
+        self.console = Console()
+        self.progress = Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(),
+            TextColumn("{task.completed}/{task.total}"),
+            TimeElapsedColumn(),
+            console=self.console,
+            transient=True,
+        )
+        self._task_id = self.progress.add_task(
+            "Initializing workspace", total=_INIT_STAGE_TOTAL
+        )
+        self.progress.start()
 
-    diagnostic = check if isinstance(check, DiagnosticCheck) else None
-    if diagnostic is None:
-        return
-    indicator = {
-        CheckStatus.PASS: "PASS",
-        CheckStatus.FAIL: "FAIL",
-        CheckStatus.WARN: "WARN",
-    }[diagnostic.status]
-    click.echo(f"[{indicator}] {diagnostic.name}: {diagnostic.message}")
-    for key, value in diagnostic.details.items():
-        if value:
-            click.echo(f"  - {key}: {value}")
+    def report_check(self, check: DiagnosticCheck) -> None:
+        self.progress.update(self._task_id, advance=1, description=check.message)
+        if not self.verbose:
+            return
+        status_label = check.status.value.upper()
+        status_style = _STATUS_STYLES[check.status]
+        self.progress.console.print(
+            f"[{status_style}][{status_label}][/{status_style}] {check.name}: {check.message}"
+        )
+        for key, value in check.details.items():
+            if value:
+                self.progress.console.print(f"  [dim]{key}:[/dim] {value}")
 
-
-def _render_detail_lines(details: dict[str, object]) -> None:
-    scalar_keys = (
-        "project_name",
-        "target_input_type",
-        "working_directory",
-        "target_directory",
-        "template_directory",
-        "skill_sources_directory",
-        "coding_agent",
-        "validation_command",
-        "validation_status",
-    )
-    for key in scalar_keys:
-        value = details.get(key)
-        if value:
-            click.echo(f"{key}: {value}")
-
-    for key in ("created_paths", "next_steps", "key_files"):
-        value = details.get(key)
-        if isinstance(value, list) and value:
-            click.echo(f"{key}:")
-            for item in value:
-                click.echo(f"  - {item}")
+    def finish(self, result: CommandOutcome) -> None:
+        if not self.progress.finished:
+            self.progress.update(self._task_id, completed=len(result.checks))
+        self.progress.stop()
+        style = "green" if result.status == "ok" else "red"
+        label = "Success" if result.status == "ok" else "Failed"
+        self.console.print(f"[bold {style}]{label}:[/bold {style}] {result.message}")

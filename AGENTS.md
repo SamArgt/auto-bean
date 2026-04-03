@@ -7,7 +7,7 @@ This repository authors the product, not a live user ledger workspace.
 - Use context7 mcp to look up documentation about external libraries and dependencies.
 
 ### After Code Changes
-- Run `uv run ruff check` and `uv run format` before committing changes.
+- Run `uv run ruff check` and `uv run ruff format` before committing changes.
 - Use `uv run mypy` to check types when changing Python code.
 - Use `uv run pytest` to run tests when changing Python code.
 - Use `uv sync --group dev` to keep your local environment up to date with the latest dependencies and scripts.
