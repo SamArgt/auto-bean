@@ -1,6 +1,6 @@
 # Story 1.5: Review and approve structural ledger changes through the agent workflow
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
