@@ -13,8 +13,13 @@ from rich.progress import (
     TimeElapsedColumn,
 )
 
-from auto_bean.application.setup import SetupService, build_setup_service
-from auto_bean.domain.setup import CheckStatus, CommandOutcome, DiagnosticCheck
+from auto_bean.init import (
+    CheckStatus,
+    CommandOutcome,
+    DiagnosticCheck,
+    InitService,
+    build_init_service,
+)
 
 _INIT_STAGE_TOTAL = 11
 _STATUS_STYLES = {
@@ -42,17 +47,16 @@ def cli(ctx: click.Context) -> int:
     help="Print stage results as they complete.",
 )
 def init(project_name: str, as_json: bool, verbose: bool) -> int:
-    service = build_setup_service()
+    service = build_init_service()
 
     if as_json:
-        result = _run_workflow("init", project_name=project_name, service=service)
+        result = _run_init(project_name=project_name, service=service)
         render_result(result, as_json=True, verbose=verbose)
         return 0 if result.status == "ok" else 1
 
     coding_agent = service.prompt_for_coding_agent()
     renderer = RichWorkflowRenderer(verbose=verbose)
-    result = _run_workflow(
-        "init",
+    result = _run_init(
         project_name=project_name,
         coding_agent=coding_agent,
         progress_reporter=renderer.report_check,
@@ -77,27 +81,20 @@ def main(argv: Sequence[str] | None = None) -> int:
     return int(result or 0)
 
 
-def _run_workflow(
-    workflow: str,
+def _run_init(
     *,
     project_name: str,
     coding_agent: str | None = None,
     progress_reporter: Callable[[DiagnosticCheck], None] | None = None,
-    service: SetupService | None = None,
+    service: InitService | None = None,
 ) -> CommandOutcome:
     try:
-        setup_service = service if service is not None else build_setup_service()
-        setup_service.progress_reporter = progress_reporter
-        if workflow == "init":
-            return setup_service.init(project_name, coding_agent=coding_agent)
-        return setup_service.execution_error(
-            workflow,
-            details={"unsupported_command": workflow},
-            message="Unsupported command.",
-        )
+        init_service = service if service is not None else build_init_service()
+        init_service.progress_reporter = progress_reporter
+        return init_service.init(project_name, coding_agent=coding_agent)
     except Exception as exc:
-        return build_setup_service().execution_error(
-            workflow,
+        return build_init_service().execution_error(
+            "init",
             details={
                 "exception_type": type(exc).__name__,
                 "exception_message": str(exc),

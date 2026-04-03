@@ -8,15 +8,15 @@ from typing import Any, cast
 
 from pytest import CaptureFixture, MonkeyPatch
 
-from auto_bean.application.setup import SetupService
-from auto_bean.cli.main import main
-from auto_bean.domain.setup import (
+from auto_bean.cli import main
+from auto_bean.init import (
     CommandOutcome,
     CommandResult,
     EnvironmentInfo,
     ErrorCategory,
+    InitService,
+    ProjectPaths,
 )
-from auto_bean.infrastructure.setup import ProjectPaths
 
 
 @dataclass
@@ -108,7 +108,7 @@ def make_service(
     tools: dict[str, str] | None = None,
     responses: dict[tuple[str, ...], CommandResult] | None = None,
     prompt: Callable[[str], str] | None = None,
-) -> tuple[SetupService, FakeCommandRunner]:
+) -> tuple[InitService, FakeCommandRunner]:
     repo_root = tmp_path
     (repo_root / "src").mkdir(exist_ok=True)
     (repo_root / "pyproject.toml").write_text(
@@ -124,9 +124,9 @@ def make_service(
     )
 
     command_runner = FakeCommandRunner(responses if responses is not None else {})
-    service = SetupService(
+    service = InitService(
         paths=ProjectPaths(start=repo_root),
-        platform_probe=FakePlatformProbe(
+        platform=FakePlatformProbe(
             EnvironmentInfo(
                 system=system,
                 release="24.0.0",
@@ -134,7 +134,7 @@ def make_service(
                 python_version="3.13.0",
             )
         ),
-        tool_probe=FakeToolProbe(
+        tools=FakeToolProbe(
             tools
             if tools is not None
             else {
@@ -143,7 +143,7 @@ def make_service(
                 "auto-bean": "/tmp/fake-auto-bean",
             }
         ),
-        command_runner=command_runner,
+        commands=command_runner,
         prompt=prompt or (lambda _: "Codex"),
     )
     return service, command_runner
@@ -334,9 +334,9 @@ def test_init_works_outside_repo_when_packaged_assets_are_available(
         "installed_resources_directory",
         property(lambda self: repo_root),
     )
-    service = SetupService(
+    service = InitService(
         paths=ProjectPaths(start=outside_dir),
-        platform_probe=FakePlatformProbe(
+        platform=FakePlatformProbe(
             EnvironmentInfo(
                 system="Darwin",
                 release="24.0.0",
@@ -344,13 +344,13 @@ def test_init_works_outside_repo_when_packaged_assets_are_available(
                 python_version="3.13.0",
             )
         ),
-        tool_probe=FakeToolProbe(
+        tools=FakeToolProbe(
             {
                 "git": "/usr/bin/git",
                 "uv": "/opt/homebrew/bin/uv",
             }
         ),
-        command_runner=command_runner,
+        commands=command_runner,
         prompt=lambda _: "Codex",
     )
 
@@ -369,9 +369,9 @@ def test_init_works_outside_repo_from_source_checkout_assets(tmp_path: Path) -> 
     outside_dir = tmp_path / "outside"
     outside_dir.mkdir()
     command_runner = FakeCommandRunner({})
-    service = SetupService(
+    service = InitService(
         paths=ProjectPaths(start=outside_dir),
-        platform_probe=FakePlatformProbe(
+        platform=FakePlatformProbe(
             EnvironmentInfo(
                 system="Darwin",
                 release="24.0.0",
@@ -379,13 +379,13 @@ def test_init_works_outside_repo_from_source_checkout_assets(tmp_path: Path) -> 
                 python_version="3.13.0",
             )
         ),
-        tool_probe=FakeToolProbe(
+        tools=FakeToolProbe(
             {
                 "git": "/usr/bin/git",
                 "uv": "/opt/homebrew/bin/uv",
             }
         ),
-        command_runner=command_runner,
+        commands=command_runner,
         prompt=lambda _: "Codex",
     )
 
@@ -528,7 +528,7 @@ def test_cli_json_output_includes_core_diagnostics(
 ) -> None:
     seed_workspace_template(tmp_path)
     service, _ = make_service(tmp_path)
-    monkeypatch.setattr("auto_bean.cli.main.build_setup_service", lambda: service)
+    monkeypatch.setattr("auto_bean.cli.build_init_service", lambda: service)
     project_name = f"my-ledger-{tmp_path.name[-6:]}"
 
     exit_code = main(["init", project_name, "--json"])
@@ -548,7 +548,7 @@ def test_cli_human_output_is_console_focused(
 ) -> None:
     seed_workspace_template(tmp_path)
     service, _ = make_service(tmp_path, tools={})
-    monkeypatch.setattr("auto_bean.cli.main.build_setup_service", lambda: service)
+    monkeypatch.setattr("auto_bean.cli.build_init_service", lambda: service)
     project_name = f"my-ledger-{tmp_path.name[-6:]}"
 
     exit_code = main(["init", project_name])
@@ -570,7 +570,7 @@ def test_cli_init_verbose_output_streams_stage_details(
     seed_workspace_template(tmp_path)
     project_name = f"cli-ledger-{tmp_path.name[-6:]}"
     service, _ = make_service(tmp_path)
-    monkeypatch.setattr("auto_bean.cli.main.build_setup_service", lambda: service)
+    monkeypatch.setattr("auto_bean.cli.build_init_service", lambda: service)
 
     exit_code = main(["init", project_name, "--verbose"])
 
@@ -595,7 +595,7 @@ def test_cli_init_default_output_keeps_success_summary_minimal(
     seed_workspace_template(tmp_path)
     project_name = f"cli-ledger-{tmp_path.name[-6:]}"
     service, _ = make_service(tmp_path)
-    monkeypatch.setattr("auto_bean.cli.main.build_setup_service", lambda: service)
+    monkeypatch.setattr("auto_bean.cli.build_init_service", lambda: service)
 
     exit_code = main(["init", project_name])
 
@@ -647,7 +647,7 @@ def test_cli_reports_unexpected_execution_errors_as_structured_output(
             )
 
     monkeypatch.setattr(
-        "auto_bean.cli.main.build_setup_service",
+        "auto_bean.cli.build_init_service",
         lambda: ExplodingService(),
     )
 

@@ -1,4 +1,4 @@
-from auto_bean.application.smoke import run_smoke_checks
+from auto_bean.smoke import run_smoke_checks
 
 
 if __name__ == "__main__":

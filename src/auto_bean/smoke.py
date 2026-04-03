@@ -2,19 +2,18 @@ from __future__ import annotations
 
 import io
 import json
-from contextlib import redirect_stdout
 from dataclasses import dataclass
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
-from auto_bean.application.setup import SetupService
-from auto_bean.cli.main import main
-from auto_bean.domain.setup import (
+from auto_bean.cli import main
+from auto_bean.init import (
     CommandResult,
     EnvironmentInfo,
+    InitService,
+    ProjectPaths,
 )
-from auto_bean.infrastructure.setup import ProjectPaths
 
 
 @dataclass
@@ -55,13 +54,10 @@ class _FakeCommandRunner:
         return self.responses.get(command, CommandResult(returncode=0))
 
 
-def _build_service(repo_root: Path) -> SetupService:
-    tools = {"uv": "/opt/homebrew/bin/uv", "git": "/usr/bin/git"}
-    responses: dict[tuple[str, ...], CommandResult] = {}
-
-    return SetupService(
+def _build_service(repo_root: Path) -> InitService:
+    return InitService(
         paths=ProjectPaths(start=repo_root),
-        platform_probe=_FakePlatformProbe(
+        platform=_FakePlatformProbe(
             EnvironmentInfo(
                 system="Darwin",
                 release="24.0.0",
@@ -69,8 +65,8 @@ def _build_service(repo_root: Path) -> SetupService:
                 python_version="3.13.0",
             )
         ),
-        tool_probe=_FakeToolProbe(tools),
-        command_runner=_FakeCommandRunner(responses),
+        tools=_FakeToolProbe({"uv": "/opt/homebrew/bin/uv", "git": "/usr/bin/git"}),
+        commands=_FakeCommandRunner({}),
         prompt=lambda _: "Codex",
     )
 
@@ -129,19 +125,14 @@ def run_smoke_checks() -> int:
                 _build_service(repo_root),
                 0,
             ),
-            (
-                "init-blocked",
-                ["init", ".", "--json"],
-                _build_service(repo_root),
-                1,
-            ),
+            ("init-blocked", ["init", ".", "--json"], _build_service(repo_root), 1),
         )
 
         results: list[dict[str, object]] = []
         for name, argv, service, expected_exit in cases:
             buffer = io.StringIO()
-            with patch("auto_bean.cli.main.build_setup_service", lambda: service):
-                with redirect_stdout(buffer):
+            with patch("auto_bean.cli.build_init_service", lambda: service):
+                with patch("sys.stdout", buffer):
                     exit_code = main(argv)
             payload = json.loads(buffer.getvalue())
             results.append(

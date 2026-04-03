@@ -7,9 +7,8 @@ from pathlib import Path
 
 from pytest import CaptureFixture, MonkeyPatch
 
-from auto_bean.application.setup import SetupService
-from auto_bean.cli.main import main
-from auto_bean.domain.setup import CommandResult, EnvironmentInfo
+from auto_bean.cli import main
+from auto_bean.init import CommandResult, EnvironmentInfo, InitService, ProjectPaths
 
 
 def test_package_foundation_layout_and_entrypoint() -> None:
@@ -20,9 +19,9 @@ def test_package_foundation_layout_and_entrypoint() -> None:
     assert (src_root / "__init__.py").is_file()
     assert (src_root / "__main__.py").is_file()
 
-    for package_dir in ("cli", "application", "domain", "infrastructure", "memory"):
-        assert (src_root / package_dir).is_dir()
-        assert (src_root / package_dir / "__init__.py").is_file()
+    assert (src_root / "init.py").is_file()
+    assert (src_root / "smoke.py").is_file()
+    assert (src_root / "cli.py").is_file()
 
     from auto_bean import main as entrypoint
 
@@ -87,7 +86,7 @@ def make_service(
     responses: dict[tuple[str, ...], CommandResult] | None = None,
     calls: list[tuple[str, ...]] | None = None,
     prompt: Callable[[str], str] | None = None,
-) -> SetupService:
+) -> InitService:
     repo_root = tmp_path
     (repo_root / "src").mkdir(exist_ok=True)
     (repo_root / "pyproject.toml").write_text(
@@ -102,11 +101,9 @@ def make_service(
         encoding="utf-8",
     )
 
-    from auto_bean.infrastructure.setup import ProjectPaths
-
-    return SetupService(
+    return InitService(
         paths=ProjectPaths(start=repo_root),
-        platform_probe=FakePlatformProbe(
+        platform=FakePlatformProbe(
             EnvironmentInfo(
                 system=system,
                 release="24.0.0",
@@ -114,7 +111,7 @@ def make_service(
                 python_version="3.13.0",
             )
         ),
-        tool_probe=FakeToolProbe(
+        tools=FakeToolProbe(
             tools
             if tools is not None
             else {
@@ -122,7 +119,7 @@ def make_service(
                 "uv": "/opt/homebrew/bin/uv",
             }
         ),
-        command_runner=FakeCommandRunner(
+        commands=FakeCommandRunner(
             responses if responses is not None else {}, calls=calls
         ),
         prompt=prompt or (lambda _: "Codex"),
@@ -232,7 +229,7 @@ def test_cli_renders_json_failure_output(
     tmp_path: Path,
 ) -> None:
     service = make_service(tmp_path, system="Linux")
-    monkeypatch.setattr("auto_bean.cli.main.build_setup_service", lambda: service)
+    monkeypatch.setattr("auto_bean.cli.build_init_service", lambda: service)
 
     exit_code = main(["init", "demo-ledger", "--json"])
 

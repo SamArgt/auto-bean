@@ -7,8 +7,8 @@ from typing import Any, cast
 
 from pytest import CaptureFixture
 
-from auto_bean.application.smoke import run_smoke_checks
-from auto_bean.domain.setup import CommandResult, EnvironmentInfo
+from auto_bean.init import CommandResult, EnvironmentInfo
+from auto_bean.smoke import run_smoke_checks
 
 
 class _PlatformProbe:
