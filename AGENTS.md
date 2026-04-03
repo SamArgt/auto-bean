@@ -11,6 +11,12 @@ This repository authors the product, not a live user ledger workspace.
 - Keep `workspace_template/` focused on workspace skeleton, placeholders, and docs.
 - Materialize authored skills into the user workspace during `auto-bean init`, not by hardcoding them into the template.
 
+## Development Best Practices
+- Run `uv run ruff check` and `uv run formatter` before committing changes.
+- Use `uv run mypy` to check types when changing Python code.
+- Use `uv run pytest` to run tests when changing Python code.
+- Use `uv sync --group dev` to keep your local environment up to date with the latest dependencies and scripts.
+
 ## Code Boundaries
 
 - Keep CLI surfaces thin and support-oriented.
