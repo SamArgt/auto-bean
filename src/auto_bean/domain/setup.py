@@ -91,7 +91,9 @@ class WorkflowResult:
             "workflow": self.workflow,
             "status": self.status,
             "error_code": self.error_code,
-            "error_category": self.error_category.value if self.error_category else None,
+            "error_category": self.error_category.value
+            if self.error_category
+            else None,
             "message": self.message,
             "started_at": self.started_at,
             "details": self.details,

@@ -1,5 +1,7 @@
 # BMAD Method
 .agents/
+!workspace_template/.agents/
+!workspace_template/.agents/**
 _bmad/
 
 # Byte-compiled / optimized / DLL files
@@ -11,6 +13,8 @@ __pycache__/
 .env
 .venv
 .auto-bean/
+!workspace_template/.auto-bean/
+!workspace_template/.auto-bean/**
 
 # Distribution / packaging
 .Python

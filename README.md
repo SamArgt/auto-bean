@@ -57,6 +57,7 @@ Successful init creates a sibling runtime workspace with:
 - `beancount/`, `statements/raw/`, `docs/`, `.auto-bean/`, and `.agents/skills/`
 - a workspace-local `.venv` with `beancount` and `fava` installed automatically
 - helper scripts under `scripts/` for validation and Fava launch using the workspace-local runtime
+- authored skills copied from `skill_sources/` into the new workspace runtime
 
 The command output includes the created workspace path, a manifest of generated files, validation status, and next-step commands.
 
@@ -68,6 +69,7 @@ The command output includes the created workspace path, a manifest of generated 
 - installation uses `uv tool install --from` rather than ad hoc global Python mutation or `sudo pip`
 - `init <PROJECT-NAME>` fails closed when the project name is unsafe, the destination already exists and is non-empty, the workspace template is incomplete, or the requested coding agent is unsupported
 - `init <PROJECT-NAME>` bootstraps a workspace-local `.venv`, installs `beancount` and `fava`, validates the generated `ledger.beancount`, and checks that Fava is runnable before reporting success
+- `init <PROJECT-NAME>` fails closed if the authored skill sources required for runtime installation are missing
 
 ## Repository baseline checks
 
@@ -100,10 +102,13 @@ The generated helper scripts provide the same entrypoints:
 ./scripts/open-fava.sh
 ```
 
+For trust-sensitive structural edits, prefer the installed workspace skill under `.agents/skills/auto-bean-apply/`. The product repo authors that behavior in `skill_sources/`, and `auto-bean init` materializes the installed runtime copy into the generated workspace.
+
 ## Repo boundaries
 
 - application code belongs under `src/auto_bean/`
 - stable user-owned ledger, memory, statement, and artifact state belongs in the generated workspace, not in the product repo
+- `skill_sources/` owns authored skill behavior in the product repo
 - `.agents/skills/` remains the home for installed skill surfaces inside the generated workspace
 - future governed runtime state belongs under the workspace-local `.auto-bean/`, not inside the package tree
 - `workspace_template/` in this repo is the authored source of truth for new workspace scaffolding

@@ -46,15 +46,21 @@ def main(argv: Sequence[str] | None = None) -> int:
         parser.print_help()
         return 0
 
-    service = build_setup_service()
     try:
+        service = build_setup_service()
         if args.command == "readiness":
             result = service.readiness()
-        else:
+        elif args.command == "init":
             result = service.init(args.project_name)
+        else:
+            result = service.execution_error(
+                args.command,
+                details={"unsupported_command": args.command},
+                message="Unsupported command.",
+            )
     except Exception as exc:
-        result = service.execution_error(
-            args.command,
+        result = build_setup_service().execution_error(
+            args.command or "unknown",
             details={
                 "exception_type": type(exc).__name__,
                 "exception_message": str(exc),

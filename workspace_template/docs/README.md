@@ -15,3 +15,11 @@ Inspection:
 ```bash
 ./scripts/open-fava.sh
 ```
+
+Structural review:
+
+1. Use `.agents/skills/auto-bean-apply/` so the coding agent summarizes the change in ledger context.
+2. Ask for a proposal document only when the user wants deeper inspection or the change is risky.
+3. Validate the workspace before approval and commit only after explicit approval.
+
+Governed review artifacts live under `.auto-bean/proposals/` and `.auto-bean/artifacts/`.

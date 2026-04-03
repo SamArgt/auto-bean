@@ -1,0 +1,7 @@
+interface:
+  display_name: "Apply Ledger Changes"
+  short_description: "Review and approve structural ledger changes"
+  default_prompt: "Use $auto-bean-apply to review a structural ledger or workspace change before it is accepted."
+
+policy:
+  allow_implicit_invocation: true

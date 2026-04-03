@@ -49,7 +49,11 @@ class FakeCommandRunner:
         if cwd is not None and tuple(args[:2]) == ("/opt/homebrew/bin/uv", "venv"):
             (cwd / ".venv" / "bin").mkdir(parents=True, exist_ok=True)
             (cwd / ".venv" / "bin" / "python").write_text("", encoding="utf-8")
-        if cwd is not None and tuple(args[:3]) == ("/opt/homebrew/bin/uv", "pip", "install"):
+        if cwd is not None and tuple(args[:3]) == (
+            "/opt/homebrew/bin/uv",
+            "pip",
+            "install",
+        ):
             (cwd / ".venv" / "bin").mkdir(parents=True, exist_ok=True)
             (cwd / ".venv" / "bin" / "bean-check").write_text("", encoding="utf-8")
             (cwd / ".venv" / "bin" / "fava").write_text("", encoding="utf-8")
@@ -72,25 +76,45 @@ def seed_workspace_template(repo_root: Path) -> None:
     template_root = repo_root / "workspace_template"
     (template_root / "beancount").mkdir(parents=True)
     (template_root / "docs").mkdir(parents=True)
-    (template_root / ".agents" / "skills").mkdir(parents=True)
+    (template_root / ".agents").mkdir(parents=True)
     (template_root / "statements" / "raw").mkdir(parents=True)
-    (template_root / ".auto-bean").mkdir(parents=True)
+    (template_root / ".auto-bean" / "artifacts").mkdir(parents=True)
+    (template_root / ".auto-bean" / "proposals").mkdir(parents=True)
     (template_root / "AGENTS.md").write_text("# Agents\n", encoding="utf-8")
     (template_root / "ledger.beancount").write_text(
         'option "title" "Test Ledger"\ninclude "beancount/opening-balances.beancount"\n',
         encoding="utf-8",
     )
     (template_root / "beancount" / "opening-balances.beancount").write_text(
-        '1970-01-01 open Assets:Checking EUR\n1970-01-01 open Equity:Opening-Balances EUR\n',
+        "1970-01-01 open Assets:Checking EUR\n1970-01-01 open Equity:Opening-Balances EUR\n",
         encoding="utf-8",
     )
     (template_root / "docs" / "README.md").write_text("# Docs\n", encoding="utf-8")
-    (template_root / ".agents" / "skills" / "README.md").write_text(
-        "# Skills\n",
+    (template_root / ".auto-bean" / "artifacts" / ".gitkeep").write_text(
+        "", encoding="utf-8"
+    )
+    (template_root / ".auto-bean" / "proposals" / ".gitkeep").write_text(
+        "", encoding="utf-8"
+    )
+    (template_root / "statements" / "raw" / ".gitkeep").write_text("", encoding="utf-8")
+
+    skill_sources_root = repo_root / "skill_sources"
+    (skill_sources_root / "auto-bean-apply" / "scripts").mkdir(parents=True)
+    (skill_sources_root / "auto-bean-apply" / "agents").mkdir(parents=True)
+    (skill_sources_root / "shared").mkdir(parents=True)
+    (skill_sources_root / "auto-bean-apply" / "SKILL.md").write_text(
+        "# Apply\n", encoding="utf-8"
+    )
+    (skill_sources_root / "auto-bean-apply" / "agents" / "openai.yaml").write_text(
+        'interface:\n  display_name: "Apply"\n  short_description: "Apply changes"\n  default_prompt: "Use $auto-bean-apply."\n',
         encoding="utf-8",
     )
-    (template_root / ".auto-bean" / ".gitkeep").write_text("", encoding="utf-8")
-    (template_root / "statements" / "raw" / ".gitkeep").write_text("", encoding="utf-8")
+    (skill_sources_root / "shared" / "mutation-pipeline.md").write_text(
+        "# Pipeline\n", encoding="utf-8"
+    )
+    (skill_sources_root / "shared" / "mutation-authority-matrix.md").write_text(
+        "# Authority\n", encoding="utf-8"
+    )
 
 
 def make_service(
@@ -102,7 +126,7 @@ def make_service(
     prompt: Callable[[str], str] | None = None,
 ) -> tuple[SetupService, FakeArtifactStore, FakeCommandRunner]:
     repo_root = tmp_path
-    (repo_root / "src").mkdir()
+    (repo_root / "src").mkdir(exist_ok=True)
     (repo_root / "pyproject.toml").write_text(
         "\n".join(
             [
@@ -149,7 +173,9 @@ def test_readiness_emits_structured_run_metadata_and_artifact(tmp_path: Path) ->
     service, artifact_store, _ = make_service(
         tmp_path,
         responses={
-            ("/tmp/fake-auto-bean", "--help"): CommandResult(returncode=0, stdout="help"),
+            ("/tmp/fake-auto-bean", "--help"): CommandResult(
+                returncode=0, stdout="help"
+            ),
         },
     )
 
@@ -173,7 +199,9 @@ def test_readiness_emits_structured_run_metadata_and_artifact(tmp_path: Path) ->
     assert artifact_store.records[0].result["status"] == "ok"
 
 
-def test_readiness_classifies_prerequisite_failure_and_persists_artifact(tmp_path: Path) -> None:
+def test_readiness_classifies_prerequisite_failure_and_persists_artifact(
+    tmp_path: Path,
+) -> None:
     service, artifact_store, _ = make_service(tmp_path, tools={})
 
     result = service.readiness()
@@ -200,7 +228,12 @@ def test_init_creates_workspace_and_persists_created_manifest(tmp_path: Path) ->
     assert result.artifact is not None
     assert workspace_root.joinpath("ledger.beancount").is_file()
     assert workspace_root.joinpath("AGENTS.md").is_file()
-    assert workspace_root.joinpath(".agents", "skills", "README.md").is_file()
+    assert workspace_root.joinpath(
+        ".agents", "skills", "auto-bean-apply", "SKILL.md"
+    ).is_file()
+    assert workspace_root.joinpath(
+        ".agents", "skills", "shared", "mutation-pipeline.md"
+    ).is_file()
     assert workspace_root.joinpath(".git").is_dir()
     assert workspace_root.joinpath(".gitignore").is_file()
     assert workspace_root.joinpath("scripts", "validate-ledger.sh").is_file()
@@ -214,6 +247,7 @@ def test_init_creates_workspace_and_persists_created_manifest(tmp_path: Path) ->
     assert ".gitignore" in created_paths
     assert "ledger.beancount" in created_paths
     assert "AGENTS.md" in created_paths
+    assert ".agents/skills/auto-bean-apply/SKILL.md" in created_paths
     assert "scripts/validate-ledger.sh" in created_paths
     assert "scripts/open-fava.sh" in created_paths
 
@@ -236,6 +270,28 @@ def test_init_creates_initial_git_commit(tmp_path: Path) -> None:
         "Initial workspace scaffold",
     ) in command_runner.calls
     assert workspace_root.joinpath(".venv").is_dir()
+
+
+def test_project_paths_uses_installed_resources_fallback(
+    monkeypatch: MonkeyPatch, tmp_path: Path
+) -> None:
+    (tmp_path / "src").mkdir()
+    (tmp_path / "pyproject.toml").write_text(
+        "[project]\nname='auto-bean'\nversion='0.1.0'\n", encoding="utf-8"
+    )
+    monkeypatch.setattr(
+        ProjectPaths,
+        "installed_resources_directory",
+        property(lambda self: tmp_path / "installed-root"),
+    )
+    installed_root = tmp_path / "installed-root"
+    (installed_root / "workspace_template").mkdir(parents=True)
+    (installed_root / "skill_sources").mkdir(parents=True)
+
+    paths = ProjectPaths(start=tmp_path)
+
+    assert paths.workspace_template_directory == installed_root / "workspace_template"
+    assert paths.skill_sources_directory == installed_root / "skill_sources"
 
 
 def test_init_rejects_unsupported_coding_agent(tmp_path: Path) -> None:
@@ -277,7 +333,7 @@ def test_init_rejects_non_empty_target_directory(tmp_path: Path) -> None:
 
 def test_init_rejects_missing_template_assets(tmp_path: Path) -> None:
     project_name = f"missing-template-{tmp_path.name[-6:]}"
-    (tmp_path / "workspace_template").mkdir()
+    (tmp_path / "workspace_template").mkdir(parents=True)
     service, _, _ = make_service(tmp_path)
 
     result = service.init(project_name)
@@ -364,7 +420,10 @@ def test_init_rejects_when_workspace_fava_is_not_runnable(tmp_path: Path) -> Non
     service, _, _ = make_service(
         tmp_path,
         responses={
-            (str(workspace_root / ".venv" / "bin" / "fava"), "--version"): CommandResult(
+            (
+                str(workspace_root / ".venv" / "bin" / "fava"),
+                "--version",
+            ): CommandResult(
                 returncode=1,
                 stderr="missing fava",
             ),
@@ -388,7 +447,9 @@ def test_cli_json_output_includes_structured_diagnostics(
     service, _, _ = make_service(
         tmp_path,
         responses={
-            ("/tmp/fake-auto-bean", "--help"): CommandResult(returncode=0, stdout="help"),
+            ("/tmp/fake-auto-bean", "--help"): CommandResult(
+                returncode=0, stdout="help"
+            ),
         },
     )
     monkeypatch.setattr("auto_bean.cli.main.build_setup_service", lambda: service)

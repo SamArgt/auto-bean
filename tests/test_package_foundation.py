@@ -29,6 +29,17 @@ def test_package_foundation_layout_and_entrypoint() -> None:
     assert callable(entrypoint)
 
 
+def test_resource_assets_exist_under_repo_roots() -> None:
+    repo_root = Path(__file__).resolve().parents[1]
+
+    assert repo_root.joinpath("skill_sources", "auto-bean-apply", "SKILL.md").is_file()
+    assert repo_root.joinpath(
+        "skill_sources", "shared", "mutation-pipeline.md"
+    ).is_file()
+    assert repo_root.joinpath("workspace_template", "AGENTS.md").is_file()
+    assert repo_root.joinpath("workspace_template", "docs", "README.md").is_file()
+
+
 @dataclass
 class FakePlatformProbe:
     environment: EnvironmentInfo
@@ -58,7 +69,11 @@ class FakeCommandRunner:
         if cwd is not None and tuple(args[:2]) == ("/opt/homebrew/bin/uv", "venv"):
             (cwd / ".venv" / "bin").mkdir(parents=True, exist_ok=True)
             (cwd / ".venv" / "bin" / "python").write_text("", encoding="utf-8")
-        if cwd is not None and tuple(args[:3]) == ("/opt/homebrew/bin/uv", "pip", "install"):
+        if cwd is not None and tuple(args[:3]) == (
+            "/opt/homebrew/bin/uv",
+            "pip",
+            "install",
+        ):
             (cwd / ".venv" / "bin").mkdir(parents=True, exist_ok=True)
             (cwd / ".venv" / "bin" / "bean-check").write_text("", encoding="utf-8")
             (cwd / ".venv" / "bin" / "fava").write_text("", encoding="utf-8")
@@ -75,7 +90,7 @@ def make_service(
     prompt: Callable[[str], str] | None = None,
 ) -> SetupService:
     repo_root = tmp_path
-    (repo_root / "src").mkdir()
+    (repo_root / "src").mkdir(exist_ok=True)
     (repo_root / "pyproject.toml").write_text(
         "\n".join(
             [
@@ -108,7 +123,9 @@ def make_service(
                 "uv": "/opt/homebrew/bin/uv",
             }
         ),
-        command_runner=FakeCommandRunner(responses if responses is not None else {}, calls=calls),
+        command_runner=FakeCommandRunner(
+            responses if responses is not None else {}, calls=calls
+        ),
         prompt=prompt or (lambda _: "Codex"),
     )
 
@@ -193,7 +210,9 @@ def test_readiness_reports_when_auto_bean_is_not_runnable(tmp_path: Path) -> Non
     assert result.error_code == "auto_bean_unavailable"
 
 
-def test_readiness_checks_installed_tool_without_repo_root_dependency(tmp_path: Path) -> None:
+def test_readiness_checks_installed_tool_without_repo_root_dependency(
+    tmp_path: Path,
+) -> None:
     auto_bean_path = tmp_path / "bin" / "auto-bean"
     auto_bean_path.parent.mkdir()
     auto_bean_path.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
@@ -221,22 +240,36 @@ def test_init_is_reserved_for_later_workspace_story(tmp_path: Path) -> None:
     template_root = tmp_path / "workspace_template"
     (template_root / "beancount").mkdir(parents=True)
     (template_root / "docs").mkdir(parents=True)
-    (template_root / ".agents" / "skills").mkdir(parents=True)
+    (template_root / ".agents").mkdir(parents=True)
     (template_root / "statements" / "raw").mkdir(parents=True)
-    (template_root / ".auto-bean").mkdir(parents=True)
+    (template_root / ".auto-bean" / "artifacts").mkdir(parents=True)
+    (template_root / ".auto-bean" / "proposals").mkdir(parents=True)
     (template_root / "AGENTS.md").write_text("# Agents\n", encoding="utf-8")
     (template_root / "ledger.beancount").write_text(
         'option "title" "Test Ledger"\ninclude "beancount/opening-balances.beancount"\n',
         encoding="utf-8",
     )
     (template_root / "beancount" / "opening-balances.beancount").write_text(
-        '1970-01-01 open Assets:Checking EUR\n1970-01-01 open Equity:Opening-Balances EUR\n',
+        "1970-01-01 open Assets:Checking EUR\n1970-01-01 open Equity:Opening-Balances EUR\n",
         encoding="utf-8",
     )
     (template_root / "docs" / "README.md").write_text("# Docs\n", encoding="utf-8")
-    (template_root / ".agents" / "skills" / "README.md").write_text(
-        "# Skills\n",
+    skill_sources_root = tmp_path / "skill_sources"
+    (skill_sources_root / "auto-bean-apply" / "scripts").mkdir(parents=True)
+    (skill_sources_root / "auto-bean-apply" / "agents").mkdir(parents=True)
+    (skill_sources_root / "shared").mkdir(parents=True)
+    (skill_sources_root / "auto-bean-apply" / "SKILL.md").write_text(
+        "# Apply\n", encoding="utf-8"
+    )
+    (skill_sources_root / "auto-bean-apply" / "agents" / "openai.yaml").write_text(
+        'interface:\n  display_name: "Apply"\n  short_description: "Apply changes"\n  default_prompt: "Use $auto-bean-apply."\n',
         encoding="utf-8",
+    )
+    (skill_sources_root / "shared" / "mutation-pipeline.md").write_text(
+        "# Pipeline\n", encoding="utf-8"
+    )
+    (skill_sources_root / "shared" / "mutation-authority-matrix.md").write_text(
+        "# Authority\n", encoding="utf-8"
     )
     service = make_service(tmp_path)
 

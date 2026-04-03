@@ -23,6 +23,7 @@ from auto_bean.infrastructure.setup import (
     ProjectPaths,
     ToolLocator,
     ToolProbe,
+    copy_skill_sources,
     copy_workspace_template,
     current_time,
     current_timestamp,
@@ -238,8 +239,47 @@ class SetupService:
                 started=started,
             )
 
+        skill_sources_directory = self.paths.skill_sources_directory
+        skill_sources_check = self._validate_skill_sources_directory(
+            skill_sources_directory
+        )
+        checks.append(skill_sources_check)
+        events.append(
+            self._event(
+                run_id=run_id,
+                workflow="init",
+                stage=skill_sources_check.name,
+                status=skill_sources_check.status,
+                message=skill_sources_check.message,
+                details=skill_sources_check.details,
+            )
+        )
+        if skill_sources_check.status is CheckStatus.FAIL:
+            return self._result(
+                run_id=run_id,
+                workflow="init",
+                status="failed",
+                error_code=skill_sources_check.error_code,
+                error_category=self._classify_error(skill_sources_check.error_code),
+                message=skill_sources_check.message,
+                details={
+                    "project_name": project_name,
+                    "working_directory": str(working_directory),
+                    "target_directory": str(target_directory),
+                    **skill_sources_check.details,
+                },
+                checks=tuple(checks),
+                events=events,
+                started_at=started_at,
+                started=started,
+            )
+
         target_directory.mkdir(parents=True, exist_ok=True)
         created_paths = copy_workspace_template(template_directory, target_directory)
+        installed_skill_paths = self._materialize_workspace_skills(
+            target_directory, skill_sources_directory
+        )
+        created_paths.extend(installed_skill_paths)
         runtime_environment_check = self._check_uv_available()
         checks.append(runtime_environment_check)
         events.append(
@@ -253,13 +293,17 @@ class SetupService:
             )
         )
         if runtime_environment_check.status is CheckStatus.FAIL:
-            self._cleanup_failed_workspace(target_directory, preserve_root=target_preexisted)
+            self._cleanup_failed_workspace(
+                target_directory, preserve_root=target_preexisted
+            )
             return self._result(
                 run_id=run_id,
                 workflow="init",
                 status="failed",
                 error_code=runtime_environment_check.error_code,
-                error_category=self._classify_error(runtime_environment_check.error_code),
+                error_category=self._classify_error(
+                    runtime_environment_check.error_code
+                ),
                 message=runtime_environment_check.message,
                 details={
                     "project_name": project_name,
@@ -308,7 +352,9 @@ class SetupService:
             )
         )
         if git_check.status is CheckStatus.FAIL:
-            self._cleanup_failed_workspace(target_directory, preserve_root=target_preexisted)
+            self._cleanup_failed_workspace(
+                target_directory, preserve_root=target_preexisted
+            )
             blocked_details = {
                 "project_name": project_name,
                 "working_directory": str(working_directory),
@@ -319,7 +365,8 @@ class SetupService:
                     "ledger.beancount",
                     "AGENTS.md",
                     "docs/README.md",
-                    ".agents/skills/README.md",
+                    ".agents/skills/auto-bean-apply/SKILL.md",
+                    ".agents/skills/shared/mutation-pipeline.md",
                 ],
                 "validation_status": "blocked",
                 **git_check.details,
@@ -351,7 +398,9 @@ class SetupService:
             )
         )
         if workspace_runtime_check.status is CheckStatus.FAIL:
-            self._cleanup_failed_workspace(target_directory, preserve_root=target_preexisted)
+            self._cleanup_failed_workspace(
+                target_directory, preserve_root=target_preexisted
+            )
             blocked_details = {
                 "project_name": project_name,
                 "working_directory": str(working_directory),
@@ -362,7 +411,8 @@ class SetupService:
                     "ledger.beancount",
                     "AGENTS.md",
                     "docs/README.md",
-                    ".agents/skills/README.md",
+                    ".agents/skills/auto-bean-apply/SKILL.md",
+                    ".agents/skills/shared/mutation-pipeline.md",
                 ],
                 "validation_status": "blocked",
                 **workspace_runtime_check.details,
@@ -389,7 +439,9 @@ class SetupService:
             ]
         )
         validation_command = self._resolve_bean_check_command(target_directory)
-        validation_check = self._validate_generated_ledger(validation_command, target_directory)
+        validation_check = self._validate_generated_ledger(
+            validation_command, target_directory
+        )
         checks.append(validation_check)
         events.append(
             self._event(
@@ -423,14 +475,21 @@ class SetupService:
                 "ledger.beancount",
                 "AGENTS.md",
                 "docs/README.md",
-                ".agents/skills/README.md",
+                ".agents/skills/auto-bean-apply/SKILL.md",
+                ".agents/skills/shared/mutation-pipeline.md",
             ],
             "validation_command": " ".join(validation_command),
             "workspace_python": str(target_directory / ".venv" / "bin" / "python"),
-            "workspace_bean_check": str(target_directory / ".venv" / "bin" / "bean-check"),
+            "workspace_bean_check": str(
+                target_directory / ".venv" / "bin" / "bean-check"
+            ),
             "workspace_fava": str(target_directory / ".venv" / "bin" / "fava"),
-            "validation_status": "passed" if validation_check.status is CheckStatus.PASS else "failed",
-            "fava_status": "passed" if fava_check.status is CheckStatus.PASS else "failed",
+            "validation_status": "passed"
+            if validation_check.status is CheckStatus.PASS
+            else "failed",
+            "fava_status": "passed"
+            if fava_check.status is CheckStatus.PASS
+            else "failed",
             "next_steps": [
                 f"cd {target_directory}",
                 "./scripts/validate-ledger.sh",
@@ -446,7 +505,9 @@ class SetupService:
             None,
         )
         if failed_check is not None:
-            self._cleanup_failed_workspace(target_directory, preserve_root=target_preexisted)
+            self._cleanup_failed_workspace(
+                target_directory, preserve_root=target_preexisted
+            )
         status = "ok" if failed_check is None else "failed"
         error_code = None if failed_check is None else failed_check.error_code
         message = (
@@ -468,7 +529,9 @@ class SetupService:
                 )
             )
             if commit_check.status is CheckStatus.FAIL:
-                self._cleanup_failed_workspace(target_directory, preserve_root=target_preexisted)
+                self._cleanup_failed_workspace(
+                    target_directory, preserve_root=target_preexisted
+                )
                 status = "failed"
                 error_code = commit_check.error_code
                 message = commit_check.message
@@ -636,7 +699,9 @@ class SetupService:
             return repo_root.parent / project_name
         return working_directory / project_name
 
-    def _validate_project_name(self, project_name: str, target_directory: Path) -> DiagnosticCheck:
+    def _validate_project_name(
+        self, project_name: str, target_directory: Path
+    ) -> DiagnosticCheck:
         if not sanitize_project_name(project_name):
             return DiagnosticCheck(
                 name="project_name_valid",
@@ -670,7 +735,9 @@ class SetupService:
         )
 
     def _prompt_for_coding_agent(self) -> str:
-        response = self.prompt("Which coding agent should this workspace target? [Codex]: ").strip()
+        response = self.prompt(
+            "Which coding agent should this workspace target? [Codex]: "
+        ).strip()
         return response or "Codex"
 
     def _validate_coding_agent(self, coding_agent: str) -> DiagnosticCheck:
@@ -697,7 +764,6 @@ class SetupService:
             "ledger.beancount",
             "AGENTS.md",
             "docs/README.md",
-            ".agents/skills/README.md",
             "beancount/opening-balances.beancount",
         )
         missing = [
@@ -723,6 +789,50 @@ class SetupService:
             details={"template_directory": str(template_directory)},
         )
 
+    def _validate_skill_sources_directory(
+        self, skill_sources_directory: Path
+    ) -> DiagnosticCheck:
+        required_paths = (
+            "auto-bean-apply/SKILL.md",
+            "auto-bean-apply/agents/openai.yaml",
+            "shared/mutation-pipeline.md",
+            "shared/mutation-authority-matrix.md",
+        )
+        missing = [
+            required_path
+            for required_path in required_paths
+            if not (skill_sources_directory / required_path).exists()
+        ]
+        if missing:
+            return DiagnosticCheck(
+                name="skill_sources_available",
+                status=CheckStatus.FAIL,
+                error_code="missing_skill_sources",
+                message="Authored skill source assets are missing.",
+                details={
+                    "skill_sources_directory": str(skill_sources_directory),
+                    "missing_assets": ", ".join(missing),
+                },
+            )
+        return DiagnosticCheck(
+            name="skill_sources_available",
+            status=CheckStatus.PASS,
+            message="Authored skill source assets are available.",
+            details={"skill_sources_directory": str(skill_sources_directory)},
+        )
+
+    def _materialize_workspace_skills(
+        self,
+        target_directory: Path,
+        skill_sources_directory: Path,
+    ) -> list[str]:
+        skills_directory = target_directory / ".agents" / "skills"
+        skills_directory.mkdir(parents=True, exist_ok=True)
+        return [
+            f".agents/skills/{path}"
+            for path in copy_skill_sources(skill_sources_directory, skills_directory)
+        ]
+
     def _materialize_workspace_scripts(self, target_directory: Path) -> None:
         scripts_directory = target_directory / "scripts"
         scripts_directory.mkdir(exist_ok=True)
@@ -747,7 +857,10 @@ class SetupService:
 
     def _resolve_bean_check_command(self, target_directory: Path) -> list[str]:
         ledger_path = target_directory / "ledger.beancount"
-        return [str(target_directory / ".venv" / "bin" / "bean-check"), str(ledger_path)]
+        return [
+            str(target_directory / ".venv" / "bin" / "bean-check"),
+            str(ledger_path),
+        ]
 
     def _initialize_workspace_git_repo(self, target_directory: Path) -> DiagnosticCheck:
         git_path = self.tool_probe.find("git")
@@ -787,7 +900,9 @@ class SetupService:
             details={"git_command": " ".join(init_command)},
         )
 
-    def _create_initial_workspace_commit(self, target_directory: Path) -> DiagnosticCheck:
+    def _create_initial_workspace_commit(
+        self, target_directory: Path
+    ) -> DiagnosticCheck:
         git_path = self.tool_probe.find("git")
         if git_path is None:
             return DiagnosticCheck(
@@ -937,7 +1052,9 @@ class SetupService:
             },
         )
 
-    def _check_workspace_fava_available(self, target_directory: Path) -> DiagnosticCheck:
+    def _check_workspace_fava_available(
+        self, target_directory: Path
+    ) -> DiagnosticCheck:
         fava_command = [str(target_directory / ".venv" / "bin" / "fava"), "--version"]
         result = self.command_runner.run(fava_command, cwd=target_directory)
         if result.returncode != 0:
@@ -959,7 +1076,9 @@ class SetupService:
             details={"fava_command": " ".join(fava_command)},
         )
 
-    def _cleanup_failed_workspace(self, target_directory: Path, *, preserve_root: bool) -> None:
+    def _cleanup_failed_workspace(
+        self, target_directory: Path, *, preserve_root: bool
+    ) -> None:
         if not target_directory.exists():
             return
 
@@ -982,7 +1101,11 @@ class SetupService:
             elif path.exists():
                 path.unlink(missing_ok=True)
 
-        if not preserve_root and target_directory.exists() and not any(target_directory.iterdir()):
+        if (
+            not preserve_root
+            and target_directory.exists()
+            and not any(target_directory.iterdir())
+        ):
             target_directory.rmdir()
 
     def _result(
@@ -1044,7 +1167,9 @@ class SetupService:
                         "workflow": workflow,
                         "status": status,
                         "error_code": error_code,
-                        "error_category": error_category.value if error_category else None,
+                        "error_category": error_category.value
+                        if error_category
+                        else None,
                         "message": message,
                         "started_at": started_at,
                         "details": details,
@@ -1086,6 +1211,7 @@ class SetupService:
             "missing_git",
             "missing_auto_bean_on_path",
             "missing_template_assets",
+            "missing_skill_sources",
             "workspace_runtime_bootstrap_failed",
             "workspace_git_init_failed",
             "workspace_git_commit_failed",

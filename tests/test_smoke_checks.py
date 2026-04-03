@@ -81,7 +81,9 @@ def test_workflow_artifact_store_falls_back_to_current_directory_outside_repo(
 
     result = service.readiness()
 
-    artifact_path = outside_dir / ".auto-bean" / "artifacts" / "artifact-outside-001.json"
+    artifact_path = (
+        outside_dir / ".auto-bean" / "artifacts" / "artifact-outside-001.json"
+    )
     payload = json.loads(artifact_path.read_text(encoding="utf-8"))
     assert result.status == "ok"
     assert result.artifact is not None
@@ -89,7 +91,9 @@ def test_workflow_artifact_store_falls_back_to_current_directory_outside_repo(
     assert payload["result"]["status"] == "ok"
 
 
-def test_run_smoke_checks_covers_success_and_blocked_paths(capsys: CaptureFixture[str]) -> None:
+def test_run_smoke_checks_covers_success_and_blocked_paths(
+    capsys: CaptureFixture[str],
+) -> None:
     exit_code = run_smoke_checks()
 
     payload = cast(dict[str, Any], json.loads(capsys.readouterr().out))
