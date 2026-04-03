@@ -503,7 +503,10 @@ def test_cli_init_human_output_lists_created_files_and_next_steps(
     assert "coding_agent: Codex" in output
     assert "created_paths:" in output
     assert "next_steps:" in output
-    assert "Review AGENTS.md for the Codex-first workspace workflow and path guide." in output
+    assert (
+        "Review AGENTS.md for the Codex-first workspace workflow and path guide."
+        in output
+    )
 
 
 def test_cli_reports_unexpected_execution_errors_as_structured_output(
