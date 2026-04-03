@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -53,6 +53,15 @@ class FakeCommandRunner:
     def run(self, args: Sequence[str], cwd: Path | None = None) -> CommandResult:
         if self.calls is not None:
             self.calls.append(tuple(args))
+        if cwd is not None and tuple(args[:2]) == ("/usr/bin/git", "init"):
+            (cwd / ".git").mkdir(parents=True, exist_ok=True)
+        if cwd is not None and tuple(args[:2]) == ("/opt/homebrew/bin/uv", "venv"):
+            (cwd / ".venv" / "bin").mkdir(parents=True, exist_ok=True)
+            (cwd / ".venv" / "bin" / "python").write_text("", encoding="utf-8")
+        if cwd is not None and tuple(args[:3]) == ("/opt/homebrew/bin/uv", "pip", "install"):
+            (cwd / ".venv" / "bin").mkdir(parents=True, exist_ok=True)
+            (cwd / ".venv" / "bin" / "bean-check").write_text("", encoding="utf-8")
+            (cwd / ".venv" / "bin" / "fava").write_text("", encoding="utf-8")
         return self.responses.get(tuple(args), CommandResult(returncode=0))
 
 
@@ -63,6 +72,7 @@ def make_service(
     tools: dict[str, str] | None = None,
     responses: dict[tuple[str, ...], CommandResult] | None = None,
     calls: list[tuple[str, ...]] | None = None,
+    prompt: Callable[[str], str] | None = None,
 ) -> SetupService:
     repo_root = tmp_path
     (repo_root / "src").mkdir()
@@ -91,9 +101,15 @@ def make_service(
             )
         ),
         tool_probe=FakeToolProbe(
-            tools if tools is not None else {"uv": "/opt/homebrew/bin/uv"}
+            tools
+            if tools is not None
+            else {
+                "git": "/usr/bin/git",
+                "uv": "/opt/homebrew/bin/uv",
+            }
         ),
         command_runner=FakeCommandRunner(responses if responses is not None else {}, calls=calls),
+        prompt=prompt or (lambda _: "Codex"),
     )
 
 
@@ -114,7 +130,9 @@ def test_readiness_reports_missing_uv_prerequisite(tmp_path: Path) -> None:
 
     assert result.status == "failed"
     assert result.error_code == "missing_uv"
-    assert "uv tool install --from . --force auto-bean" in result.checks[1].details["remediation"]
+    remediation = result.checks[1].details["remediation"]
+    assert isinstance(remediation, str)
+    assert "uv tool install --from . --force auto-bean" in remediation
 
 
 def test_readiness_succeeds_when_auto_bean_is_on_path(tmp_path: Path) -> None:
@@ -146,8 +164,12 @@ def test_readiness_reports_when_auto_bean_is_missing_from_path(tmp_path: Path) -
 
     assert result.status == "failed"
     assert result.error_code == "missing_auto_bean_on_path"
-    assert "uv tool install --from . --force auto-bean" in result.details["remediation"]
-    assert result.details["verification_command"] == "uv tool run --from . auto-bean readiness"
+    remediation = result.details["remediation"]
+    verification_command = result.details["verification_command"]
+    assert isinstance(remediation, str)
+    assert isinstance(verification_command, str)
+    assert "uv tool install --from . --force auto-bean" in remediation
+    assert verification_command == "uv tool run --from . auto-bean readiness"
 
 
 def test_readiness_reports_when_auto_bean_is_not_runnable(tmp_path: Path) -> None:
@@ -195,13 +217,34 @@ def test_readiness_checks_installed_tool_without_repo_root_dependency(tmp_path: 
 
 
 def test_init_is_reserved_for_later_workspace_story(tmp_path: Path) -> None:
+    project_name = f"demo-ledger-{tmp_path.name[-6:]}"
+    template_root = tmp_path / "workspace_template"
+    (template_root / "beancount").mkdir(parents=True)
+    (template_root / "docs").mkdir(parents=True)
+    (template_root / ".agents" / "skills").mkdir(parents=True)
+    (template_root / "statements" / "raw").mkdir(parents=True)
+    (template_root / ".auto-bean").mkdir(parents=True)
+    (template_root / "AGENTS.md").write_text("# Agents\n", encoding="utf-8")
+    (template_root / "ledger.beancount").write_text(
+        'option "title" "Test Ledger"\ninclude "beancount/opening-balances.beancount"\n',
+        encoding="utf-8",
+    )
+    (template_root / "beancount" / "opening-balances.beancount").write_text(
+        '1970-01-01 open Assets:Checking EUR\n1970-01-01 open Equity:Opening-Balances EUR\n',
+        encoding="utf-8",
+    )
+    (template_root / "docs" / "README.md").write_text("# Docs\n", encoding="utf-8")
+    (template_root / ".agents" / "skills" / "README.md").write_text(
+        "# Skills\n",
+        encoding="utf-8",
+    )
     service = make_service(tmp_path)
 
-    result = service.init("demo-ledger")
+    result = service.init(project_name)
 
-    assert result.status == "failed"
-    assert result.error_code == "init_not_implemented"
-    assert result.details["project_name"] == "demo-ledger"
+    assert result.status == "ok"
+    assert result.error_code is None
+    assert result.details["project_name"] == project_name
 
 
 def test_cli_renders_json_failure_output(

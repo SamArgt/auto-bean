@@ -27,7 +27,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     init_parser = subparsers.add_parser(
         "init",
-        help="Reserved workspace creation surface for a later story.",
+        help="Create a new base Beancount ledger workspace.",
     )
     init_parser.add_argument("project_name", help="Name of the workspace to create.")
     init_parser.add_argument(
@@ -81,6 +81,7 @@ def render_result(result: WorkflowResult, *, as_json: bool) -> None:
     print(f"duration_seconds: {result.duration_seconds:.3f}")
     if result.artifact:
         print(f"artifact_path: {result.artifact.path}")
+    _render_detail_lines(result.details)
     for check in result.checks:
         _render_check(check)
 
@@ -100,3 +101,25 @@ def _render_check(check: object) -> None:
     for key, value in diagnostic.details.items():
         if value:
             print(f"  - {key}: {value}")
+
+
+def _render_detail_lines(details: dict[str, object]) -> None:
+    scalar_keys = (
+        "project_name",
+        "working_directory",
+        "target_directory",
+        "coding_agent",
+        "validation_command",
+        "validation_status",
+    )
+    for key in scalar_keys:
+        value = details.get(key)
+        if value:
+            print(f"{key}: {value}")
+
+    for key in ("created_paths", "next_steps", "key_files"):
+        value = details.get(key)
+        if isinstance(value, list) and value:
+            print(f"{key}:")
+            for item in value:
+                print(f"  - {item}")

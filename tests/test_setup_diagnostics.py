@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, cast
@@ -44,6 +44,15 @@ class FakeCommandRunner:
 
     def run(self, args: Sequence[str], cwd: Path | None = None) -> CommandResult:
         self.calls.append(tuple(args))
+        if cwd is not None and tuple(args[:2]) == ("/usr/bin/git", "init"):
+            (cwd / ".git").mkdir(parents=True, exist_ok=True)
+        if cwd is not None and tuple(args[:2]) == ("/opt/homebrew/bin/uv", "venv"):
+            (cwd / ".venv" / "bin").mkdir(parents=True, exist_ok=True)
+            (cwd / ".venv" / "bin" / "python").write_text("", encoding="utf-8")
+        if cwd is not None and tuple(args[:3]) == ("/opt/homebrew/bin/uv", "pip", "install"):
+            (cwd / ".venv" / "bin").mkdir(parents=True, exist_ok=True)
+            (cwd / ".venv" / "bin" / "bean-check").write_text("", encoding="utf-8")
+            (cwd / ".venv" / "bin" / "fava").write_text("", encoding="utf-8")
         return self.responses.get(tuple(args), CommandResult(returncode=0))
 
 
@@ -59,12 +68,38 @@ class FakeArtifactStore:
         )
 
 
+def seed_workspace_template(repo_root: Path) -> None:
+    template_root = repo_root / "workspace_template"
+    (template_root / "beancount").mkdir(parents=True)
+    (template_root / "docs").mkdir(parents=True)
+    (template_root / ".agents" / "skills").mkdir(parents=True)
+    (template_root / "statements" / "raw").mkdir(parents=True)
+    (template_root / ".auto-bean").mkdir(parents=True)
+    (template_root / "AGENTS.md").write_text("# Agents\n", encoding="utf-8")
+    (template_root / "ledger.beancount").write_text(
+        'option "title" "Test Ledger"\ninclude "beancount/opening-balances.beancount"\n',
+        encoding="utf-8",
+    )
+    (template_root / "beancount" / "opening-balances.beancount").write_text(
+        '1970-01-01 open Assets:Checking EUR\n1970-01-01 open Equity:Opening-Balances EUR\n',
+        encoding="utf-8",
+    )
+    (template_root / "docs" / "README.md").write_text("# Docs\n", encoding="utf-8")
+    (template_root / ".agents" / "skills" / "README.md").write_text(
+        "# Skills\n",
+        encoding="utf-8",
+    )
+    (template_root / ".auto-bean" / ".gitkeep").write_text("", encoding="utf-8")
+    (template_root / "statements" / "raw" / ".gitkeep").write_text("", encoding="utf-8")
+
+
 def make_service(
     tmp_path: Path,
     *,
     system: str = "Darwin",
     tools: dict[str, str] | None = None,
     responses: dict[tuple[str, ...], CommandResult] | None = None,
+    prompt: Callable[[str], str] | None = None,
 ) -> tuple[SetupService, FakeArtifactStore, FakeCommandRunner]:
     repo_root = tmp_path
     (repo_root / "src").mkdir()
@@ -96,6 +131,7 @@ def make_service(
             tools
             if tools is not None
             else {
+                "git": "/usr/bin/git",
                 "uv": "/opt/homebrew/bin/uv",
                 "auto-bean": "/tmp/fake-auto-bean",
             }
@@ -104,6 +140,7 @@ def make_service(
         artifact_store=artifact_store,
         run_id_factory=lambda: "run-fixed-001",
         clock=lambda: "2026-03-31T10:30:00+02:00",
+        prompt=prompt or (lambda _: "Codex"),
     )
     return service, artifact_store, command_runner
 
@@ -149,18 +186,197 @@ def test_readiness_classifies_prerequisite_failure_and_persists_artifact(tmp_pat
     assert artifact_store.records[0].events[-1]["stage"] == "workflow_completed"
 
 
-def test_init_classifies_blocked_mutation_and_persists_artifact(tmp_path: Path) -> None:
+def test_init_creates_workspace_and_persists_created_manifest(tmp_path: Path) -> None:
+    seed_workspace_template(tmp_path)
+    project_name = f"demo-ledger-{tmp_path.name[-6:]}"
     service, artifact_store, _ = make_service(tmp_path)
 
-    result = service.init("demo-ledger")
+    result = service.init(project_name)
 
-    assert result.status == "failed"
-    assert result.error_code == "init_not_implemented"
-    assert result.error_category is ErrorCategory.BLOCKED_UNSAFE_MUTATION
+    workspace_root = tmp_path.parent / project_name
+    assert result.status == "ok"
+    assert result.error_code is None
+    assert result.error_category is None
     assert result.artifact is not None
+    assert workspace_root.joinpath("ledger.beancount").is_file()
+    assert workspace_root.joinpath("AGENTS.md").is_file()
+    assert workspace_root.joinpath(".agents", "skills", "README.md").is_file()
+    assert workspace_root.joinpath(".git").is_dir()
+    assert workspace_root.joinpath(".gitignore").is_file()
+    assert workspace_root.joinpath("scripts", "validate-ledger.sh").is_file()
+    assert workspace_root.joinpath(".venv", "bin", "bean-check").is_file()
+    assert workspace_root.joinpath(".venv", "bin", "fava").is_file()
     details = artifact_store.records[0].result["details"]
     assert isinstance(details, dict)
-    assert details["project_name"] == "demo-ledger"
+    assert details["project_name"] == project_name
+    assert details["coding_agent"] == "Codex"
+    created_paths = cast(list[str], details["created_paths"])
+    assert ".gitignore" in created_paths
+    assert "ledger.beancount" in created_paths
+    assert "AGENTS.md" in created_paths
+    assert "scripts/validate-ledger.sh" in created_paths
+    assert "scripts/open-fava.sh" in created_paths
+
+
+def test_init_creates_initial_git_commit(tmp_path: Path) -> None:
+    seed_workspace_template(tmp_path)
+    project_name = f"git-commit-{tmp_path.name[-6:]}"
+    service, _, command_runner = make_service(tmp_path)
+
+    result = service.init(project_name)
+
+    workspace_root = tmp_path.parent / project_name
+    assert result.status == "ok"
+    assert ("/usr/bin/git", "init") in command_runner.calls
+    assert ("/usr/bin/git", "add", "-A") in command_runner.calls
+    assert (
+        "/usr/bin/git",
+        "commit",
+        "-m",
+        "Initial workspace scaffold",
+    ) in command_runner.calls
+    assert workspace_root.joinpath(".venv").is_dir()
+
+
+def test_init_rejects_unsupported_coding_agent(tmp_path: Path) -> None:
+    seed_workspace_template(tmp_path)
+    project_name = f"unsupported-agent-{tmp_path.name[-6:]}"
+    service, _, _ = make_service(tmp_path, prompt=lambda _: "Claude")
+
+    result = service.init(project_name)
+
+    assert result.status == "failed"
+    assert result.error_code == "unsupported_coding_agent"
+    assert result.error_category is ErrorCategory.VALIDATION_FAILURE
+
+
+def test_init_rejects_unsafe_project_name(tmp_path: Path) -> None:
+    seed_workspace_template(tmp_path)
+    service, _, _ = make_service(tmp_path)
+
+    result = service.init("bad/name")
+
+    assert result.status == "failed"
+    assert result.error_code == "unsafe_project_name"
+    assert result.error_category is ErrorCategory.BLOCKED_UNSAFE_MUTATION
+
+
+def test_init_rejects_non_empty_target_directory(tmp_path: Path) -> None:
+    seed_workspace_template(tmp_path)
+    project_name = f"occupied-ledger-{tmp_path.name[-6:]}"
+    workspace_root = tmp_path.parent / project_name
+    workspace_root.mkdir(exist_ok=True)
+    (workspace_root / "existing.txt").write_text("occupied\n", encoding="utf-8")
+    service, _, _ = make_service(tmp_path)
+
+    result = service.init(project_name)
+
+    assert result.status == "failed"
+    assert result.error_code == "non_empty_target_directory"
+
+
+def test_init_rejects_missing_template_assets(tmp_path: Path) -> None:
+    project_name = f"missing-template-{tmp_path.name[-6:]}"
+    (tmp_path / "workspace_template").mkdir()
+    service, _, _ = make_service(tmp_path)
+
+    result = service.init(project_name)
+
+    assert result.status == "failed"
+    assert result.error_code == "missing_template_assets"
+    assert result.error_category is ErrorCategory.PREREQUISITE_FAILURE
+
+
+def test_init_rejects_missing_git(tmp_path: Path) -> None:
+    seed_workspace_template(tmp_path)
+    project_name = f"missing-git-{tmp_path.name[-6:]}"
+    service, _, _ = make_service(
+        tmp_path,
+        tools={
+            "uv": "/opt/homebrew/bin/uv",
+            "auto-bean": "/tmp/fake-auto-bean",
+        },
+    )
+
+    result = service.init(project_name)
+
+    assert result.status == "failed"
+    assert result.error_code == "missing_git"
+    assert result.error_category is ErrorCategory.PREREQUISITE_FAILURE
+    assert not (tmp_path.parent / project_name).exists()
+
+
+def test_init_rejects_when_initial_git_commit_fails(tmp_path: Path) -> None:
+    seed_workspace_template(tmp_path)
+    project_name = f"git-commit-fail-{tmp_path.name[-6:]}"
+    workspace_root = tmp_path.parent / project_name
+    service, _, _ = make_service(
+        tmp_path,
+        responses={
+            (
+                "/usr/bin/git",
+                "commit",
+                "-m",
+                "Initial workspace scaffold",
+            ): CommandResult(returncode=1, stderr="author identity unknown"),
+        },
+    )
+
+    result = service.init(project_name)
+
+    assert result.status == "failed"
+    assert result.error_code == "workspace_git_commit_failed"
+    assert result.error_category is ErrorCategory.PREREQUISITE_FAILURE
+    assert not workspace_root.exists()
+
+
+def test_init_rejects_workspace_runtime_bootstrap_failure(tmp_path: Path) -> None:
+    seed_workspace_template(tmp_path)
+    project_name = f"bootstrap-failure-{tmp_path.name[-6:]}"
+    service, _, _ = make_service(
+        tmp_path,
+        responses={
+            (
+                "/opt/homebrew/bin/uv",
+                "pip",
+                "install",
+                "--python",
+                str(tmp_path.parent / project_name / ".venv" / "bin" / "python"),
+                "beancount",
+                "fava",
+            ): CommandResult(returncode=1, stderr="network error"),
+        },
+    )
+
+    result = service.init(project_name)
+
+    assert result.status == "failed"
+    assert result.error_code == "workspace_runtime_bootstrap_failed"
+    assert result.error_category is ErrorCategory.PREREQUISITE_FAILURE
+    assert result.details["validation_status"] == "blocked"
+    assert not (tmp_path.parent / project_name).exists()
+
+
+def test_init_rejects_when_workspace_fava_is_not_runnable(tmp_path: Path) -> None:
+    seed_workspace_template(tmp_path)
+    project_name = f"missing-fava-{tmp_path.name[-6:]}"
+    workspace_root = tmp_path.parent / project_name
+    service, _, _ = make_service(
+        tmp_path,
+        responses={
+            (str(workspace_root / ".venv" / "bin" / "fava"), "--version"): CommandResult(
+                returncode=1,
+                stderr="missing fava",
+            ),
+        },
+    )
+
+    result = service.init(project_name)
+
+    assert result.status == "failed"
+    assert result.error_code == "workspace_fava_unavailable"
+    assert result.error_category is ErrorCategory.VALIDATION_FAILURE
+    assert not workspace_root.exists()
 
 
 def test_cli_json_output_includes_structured_diagnostics(
@@ -168,6 +384,7 @@ def test_cli_json_output_includes_structured_diagnostics(
     monkeypatch: MonkeyPatch,
     tmp_path: Path,
 ) -> None:
+    seed_workspace_template(tmp_path)
     service, _, _ = make_service(
         tmp_path,
         responses={
@@ -204,6 +421,26 @@ def test_cli_human_output_is_driven_by_structured_result(
     assert "[FAIL] uv_available" in output
 
 
+def test_cli_init_human_output_lists_created_files_and_next_steps(
+    capsys: CaptureFixture[str],
+    monkeypatch: MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    seed_workspace_template(tmp_path)
+    project_name = f"cli-ledger-{tmp_path.name[-6:]}"
+    service, _, _ = make_service(tmp_path)
+    monkeypatch.setattr("auto_bean.cli.main.build_setup_service", lambda: service)
+
+    exit_code = main(["init", project_name])
+
+    output = capsys.readouterr().out
+    assert exit_code == 0
+    assert f"project_name: {project_name}" in output
+    assert "coding_agent: Codex" in output
+    assert "created_paths:" in output
+    assert "next_steps:" in output
+
+
 def test_cli_reports_unexpected_execution_errors_as_structured_output(
     capsys: CaptureFixture[str],
     monkeypatch: MonkeyPatch,
@@ -230,7 +467,7 @@ def test_cli_reports_unexpected_execution_errors_as_structured_output(
                 error_category=ErrorCategory.EXECUTION_ERROR,
                 message=message,
                 started_at="2026-03-31T10:30:00+02:00",
-                details=details,
+                details=cast(dict[str, object], details),
                 artifact=WorkflowArtifact(
                     artifact_type="workflow-run",
                     path=".auto-bean/artifacts/execution-error-001.json",

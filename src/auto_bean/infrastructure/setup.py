@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import json
 import platform
+import re
 import shutil
 import subprocess
 import sys
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from datetime import datetime
 from pathlib import Path
+from stat import S_IEXEC
 from time import perf_counter
 from typing import Protocol
 from uuid import uuid4
@@ -29,6 +31,9 @@ class CommandExecutor(Protocol):
 
 class ArtifactWriter(Protocol):
     def write(self, artifact: ArtifactRecord) -> WorkflowArtifact: ...
+
+
+type PromptResponder = Callable[[str], str]
 
 
 class PlatformProbe:
@@ -67,6 +72,10 @@ class ProjectPaths:
         self._start = start or Path.cwd()
 
     @property
+    def working_directory(self) -> Path:
+        return self._start.resolve()
+
+    @property
     def repo_root(self) -> Path:
         current = self._start.resolve()
         for candidate in (current, *current.parents):
@@ -90,6 +99,19 @@ class ProjectPaths:
         except RuntimeError:
             base_directory = self._start.resolve()
         return base_directory / ".auto-bean" / "artifacts"
+
+    @property
+    def workspace_template_directory(self) -> Path:
+        candidates: list[Path] = []
+        try:
+            candidates.append(self.repo_root / "workspace_template")
+        except RuntimeError:
+            pass
+        candidates.append(Path(__file__).resolve().parents[3] / "workspace_template")
+        for candidate in candidates:
+            if candidate.is_dir():
+                return candidate
+        return candidates[0] if candidates else Path("workspace_template")
 
     def artifact_path(self, run_id: str) -> Path:
         return self.artifacts_directory / f"{run_id}.json"
@@ -137,3 +159,28 @@ def current_timestamp() -> str:
 
 def generate_run_id() -> str:
     return uuid4().hex
+
+
+def sanitize_project_name(project_name: str) -> bool:
+    return bool(re.fullmatch(r"[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?", project_name))
+
+
+def ensure_executable(path: Path) -> None:
+    current_mode = path.stat().st_mode
+    path.chmod(current_mode | S_IEXEC)
+
+
+def copy_workspace_template(template_dir: Path, target_dir: Path) -> list[str]:
+    created_paths: list[str] = []
+    for source in sorted(template_dir.rglob("*")):
+        relative_path = source.relative_to(template_dir)
+        destination = target_dir / relative_path
+        if source.is_dir():
+            destination.mkdir(parents=True, exist_ok=True)
+            continue
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, destination)
+        if destination.suffix == ".sh":
+            ensure_executable(destination)
+        created_paths.append(relative_path.as_posix())
+    return created_paths

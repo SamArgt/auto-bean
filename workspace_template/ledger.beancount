@@ -1,0 +1,4 @@
+option "title" "Auto Bean Ledger"
+option "operating_currency" "EUR"
+
+include "beancount/opening-balances.beancount"

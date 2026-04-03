@@ -2,7 +2,7 @@
 
 `auto-bean` is a packaged Python foundation for local-first coding-agent workflows around Beancount ledgers.
 
-The repo now includes a macOS-only installation path based on `uv tool install`. Workspace creation is intentionally deferred to a later `init <PROJECT-NAME>` workflow.
+The repo now includes a macOS-only installation path based on `uv tool install` plus an interactive `init <PROJECT-NAME>` workflow for creating a fresh runtime ledger workspace.
 
 Baseline repository verification now lives in CI and is reproducible locally with Ruff, mypy, pytest, and deterministic smoke checks.
 
@@ -10,7 +10,7 @@ Baseline repository verification now lives in CI and is reproducible locally wit
 
 - supported platform: macOS only
 - install target: `uv` tool named `auto-bean`
-- future workspace creation surface: `auto-bean init <PROJECT-NAME>`
+- supported workspace creation surface: `auto-bean init <PROJECT-NAME>`
 
 ## Commands
 
@@ -40,11 +40,25 @@ auto-bean readiness --json
 
 Human-readable runs also print a stable `run_id` and the governed artifact path for the workflow result.
 
-Reserved future workspace creation surface:
+Create a base ledger workspace:
 
 ```bash
 auto-bean init my-ledger
 ```
+
+The init workflow asks which coding agent to target. Only `Codex` is supported right now.
+
+Successful init creates a sibling runtime workspace with:
+
+- `ledger.beancount` as the stable entrypoint
+- `AGENTS.md` for workspace operating guidance
+- a `.git/` repository so workspace changes can be reviewed and versioned immediately
+- an initial Git commit containing the generated scaffold and helper files
+- `beancount/`, `statements/raw/`, `docs/`, `.auto-bean/`, and `.agents/skills/`
+- a workspace-local `.venv` with `beancount` and `fava` installed automatically
+- helper scripts under `scripts/` for validation and Fava launch using the workspace-local runtime
+
+The command output includes the created workspace path, a manifest of generated files, validation status, and next-step commands.
 
 ## Remediation behavior
 
@@ -52,7 +66,8 @@ auto-bean init my-ledger
 - if the machine is not macOS, the command fails closed instead of attempting partial support
 - if the tool installs but the shell cannot find `auto-bean`, verify first with `uv tool run --from . auto-bean readiness`, then follow the reported `PATH` remediation
 - installation uses `uv tool install --from` rather than ad hoc global Python mutation or `sudo pip`
-- `init <PROJECT-NAME>` is reserved but not implemented in this story
+- `init <PROJECT-NAME>` fails closed when the project name is unsafe, the destination already exists and is non-empty, the workspace template is incomplete, or the requested coding agent is unsupported
+- `init <PROJECT-NAME>` bootstraps a workspace-local `.venv`, installs `beancount` and `fava`, validates the generated `ledger.beancount`, and checks that Fava is runnable before reporting success
 
 ## Repository baseline checks
 
@@ -68,9 +83,27 @@ uv run python scripts/run_smoke_checks.py
 
 Workflow diagnostics are persisted under `.auto-bean/artifacts/` so maintainers can inspect validation outcomes, blocked flows, and troubleshooting context without scraping stack traces.
 
+## Workspace use
+
+After `auto-bean init my-ledger`, move into the created workspace and use:
+
+```bash
+cd ../my-ledger
+./.venv/bin/bean-check ledger.beancount
+./.venv/bin/fava ledger.beancount
+```
+
+The generated helper scripts provide the same entrypoints:
+
+```bash
+./scripts/validate-ledger.sh
+./scripts/open-fava.sh
+```
+
 ## Repo boundaries
 
 - application code belongs under `src/auto_bean/`
-- stable user-owned ledger, memory, and artifact state must stay out of `src/`
-- `.agents/skills/` remains the home for installed skill surfaces
-- future governed runtime state belongs under `.auto-bean/`, not inside the package tree
+- stable user-owned ledger, memory, statement, and artifact state belongs in the generated workspace, not in the product repo
+- `.agents/skills/` remains the home for installed skill surfaces inside the generated workspace
+- future governed runtime state belongs under the workspace-local `.auto-bean/`, not inside the package tree
+- `workspace_template/` in this repo is the authored source of truth for new workspace scaffolding

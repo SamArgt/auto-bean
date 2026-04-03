@@ -24,7 +24,7 @@ class DiagnosticCheck:
     status: CheckStatus
     message: str
     error_code: str | None = None
-    details: dict[str, str] = field(default_factory=dict)
+    details: dict[str, object] = field(default_factory=dict)
 
     def as_dict(self) -> dict[str, object]:
         return {
@@ -44,7 +44,7 @@ class WorkflowEvent:
     status: CheckStatus
     message: str
     timestamp: str
-    details: dict[str, str] = field(default_factory=dict)
+    details: dict[str, object] = field(default_factory=dict)
 
     def as_dict(self) -> dict[str, object]:
         return {
@@ -79,7 +79,7 @@ class WorkflowResult:
     message: str
     started_at: str
     error_category: ErrorCategory | None = None
-    details: dict[str, str] = field(default_factory=dict)
+    details: dict[str, object] = field(default_factory=dict)
     checks: tuple[DiagnosticCheck, ...] = ()
     events: tuple[WorkflowEvent, ...] = ()
     artifact: WorkflowArtifact | None = None

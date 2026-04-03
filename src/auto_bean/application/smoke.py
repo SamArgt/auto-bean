@@ -36,6 +36,15 @@ class _FakeCommandRunner:
     responses: dict[tuple[str, ...], CommandResult]
 
     def run(self, args: Sequence[str], cwd: Path | None = None) -> CommandResult:
+        if cwd is not None and tuple(args[:2]) == ("/usr/bin/git", "init"):
+            (cwd / ".git").mkdir(parents=True, exist_ok=True)
+        if cwd is not None and tuple(args[:2]) == ("/opt/homebrew/bin/uv", "venv"):
+            (cwd / ".venv" / "bin").mkdir(parents=True, exist_ok=True)
+            (cwd / ".venv" / "bin" / "python").write_text("", encoding="utf-8")
+        if cwd is not None and tuple(args[:3]) == ("/opt/homebrew/bin/uv", "pip", "install"):
+            (cwd / ".venv" / "bin").mkdir(parents=True, exist_ok=True)
+            (cwd / ".venv" / "bin" / "bean-check").write_text("", encoding="utf-8")
+            (cwd / ".venv" / "bin" / "fava").write_text("", encoding="utf-8")
         return self.responses.get(tuple(args), CommandResult(returncode=0))
 
 
@@ -69,7 +78,7 @@ class _ArtifactStore:
 
 
 def _build_service(repo_root: Path, run_id: str, *, readiness_success: bool) -> SetupService:
-    tools = {"uv": "/opt/homebrew/bin/uv"}
+    tools = {"uv": "/opt/homebrew/bin/uv", "git": "/usr/bin/git"}
     responses: dict[tuple[str, ...], CommandResult] = {}
     if readiness_success:
         tools["auto-bean"] = "/tmp/fake-auto-bean"
@@ -93,6 +102,7 @@ def _build_service(repo_root: Path, run_id: str, *, readiness_success: bool) -> 
         artifact_store=_ArtifactStore(),
         run_id_factory=lambda: run_id,
         clock=lambda: "2026-03-31T10:45:00+02:00",
+        prompt=lambda _: "Codex",
     )
 
 
@@ -104,10 +114,32 @@ def run_smoke_checks() -> int:
             "[project]\nname = 'auto-bean'\nversion = '0.1.0'\n",
             encoding="utf-8",
         )
+        template_root = repo_root / "workspace_template"
+        (template_root / "beancount").mkdir(parents=True)
+        (template_root / "docs").mkdir(parents=True)
+        (template_root / ".agents" / "skills").mkdir(parents=True)
+        (template_root / "statements" / "raw").mkdir(parents=True)
+        (template_root / ".auto-bean").mkdir(parents=True)
+        (template_root / "AGENTS.md").write_text("# Agents\n", encoding="utf-8")
+        (template_root / "ledger.beancount").write_text(
+            'option "title" "Smoke Ledger"\ninclude "beancount/opening-balances.beancount"\n',
+            encoding="utf-8",
+        )
+        (template_root / "beancount" / "opening-balances.beancount").write_text(
+            '1970-01-01 open Assets:Checking EUR\n1970-01-01 open Equity:Opening-Balances EUR\n',
+            encoding="utf-8",
+        )
+        (template_root / "docs" / "README.md").write_text("# Docs\n", encoding="utf-8")
+        (template_root / ".agents" / "skills" / "README.md").write_text(
+            "# Skills\n",
+            encoding="utf-8",
+        )
+        project_name = f"demo-ledger-{repo_root.name}"
 
         cases = (
             ("readiness-success", ["readiness", "--json"], _build_service(repo_root, "smoke-readiness", readiness_success=True), 0),
-            ("init-blocked", ["init", "demo-ledger", "--json"], _build_service(repo_root, "smoke-init", readiness_success=False), 1),
+            ("init-success", ["init", project_name, "--json"], _build_service(repo_root, "smoke-init", readiness_success=False), 0),
+            ("init-blocked", ["init", "bad/name", "--json"], _build_service(repo_root, "smoke-init-blocked", readiness_success=False), 1),
         )
 
         results: list[dict[str, object]] = []

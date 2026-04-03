@@ -48,3 +48,8 @@ coverage.xml
 .vscode/
 *.swp
 *.swo
+
+
+.mypy_cache/
+.ruffle_cache/
+.DS_Store

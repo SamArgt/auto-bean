@@ -98,6 +98,8 @@ def test_run_smoke_checks_covers_success_and_blocked_paths(capsys: CaptureFixtur
     assert payload["status"] == "ok"
     assert [result["name"] for result in results] == [
         "readiness-success",
+        "init-success",
         "init-blocked",
     ]
-    assert results[1]["error_code"] == "init_not_implemented"
+    assert results[1]["error_code"] is None
+    assert results[2]["error_code"] == "unsafe_project_name"
