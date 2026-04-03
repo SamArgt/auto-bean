@@ -75,7 +75,6 @@ class FakeArtifactStore:
 def seed_workspace_template(repo_root: Path) -> None:
     template_root = repo_root / "workspace_template"
     (template_root / "beancount").mkdir(parents=True)
-    (template_root / "docs").mkdir(parents=True)
     (template_root / ".agents").mkdir(parents=True)
     (template_root / "statements" / "raw").mkdir(parents=True)
     (template_root / ".auto-bean" / "artifacts").mkdir(parents=True)
@@ -89,7 +88,6 @@ def seed_workspace_template(repo_root: Path) -> None:
         "1970-01-01 open Assets:Checking EUR\n1970-01-01 open Equity:Opening-Balances EUR\n",
         encoding="utf-8",
     )
-    (template_root / "docs" / "README.md").write_text("# Docs\n", encoding="utf-8")
     (template_root / ".auto-bean" / "artifacts" / ".gitkeep").write_text(
         "", encoding="utf-8"
     )
@@ -250,6 +248,11 @@ def test_init_creates_workspace_and_persists_created_manifest(tmp_path: Path) ->
     assert ".agents/skills/auto-bean-apply/SKILL.md" in created_paths
     assert "scripts/validate-ledger.sh" in created_paths
     assert "scripts/open-fava.sh" in created_paths
+    next_steps = cast(list[str], details["next_steps"])
+    assert (
+        "Review AGENTS.md for the Codex-first workspace workflow and path guide."
+        in next_steps
+    )
 
 
 def test_init_creates_initial_git_commit(tmp_path: Path) -> None:
@@ -500,6 +503,7 @@ def test_cli_init_human_output_lists_created_files_and_next_steps(
     assert "coding_agent: Codex" in output
     assert "created_paths:" in output
     assert "next_steps:" in output
+    assert "Review AGENTS.md for the Codex-first workspace workflow and path guide." in output
 
 
 def test_cli_reports_unexpected_execution_errors_as_structured_output(

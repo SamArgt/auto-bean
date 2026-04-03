@@ -1,77 +1,154 @@
 # auto-bean
 
-`auto-bean` is a packaged Python foundation for local-first coding-agent workflows around Beancount ledgers.
+`auto-bean` is a local-first, Codex-first foundation for Beancount ledger workflows.
 
-The repo now includes a macOS-only installation path based on `uv tool install` plus an interactive `init <PROJECT-NAME>` workflow for creating a fresh runtime ledger workspace.
+Right now this repository gives you a supported first session for:
 
-Baseline repository verification now lives in CI and is reproducible locally with Ruff, mypy, pytest, and deterministic smoke checks.
+- installing `auto-bean` from this product repo
+- checking readiness on macOS
+- creating a separate runtime ledger workspace
+- validating `ledger.beancount`
+- inspecting that ledger in Fava
+- understanding where later statement-import work will enter the workflow
+
+It does not expose a public SDK or external API today. The stable user interface is the coding-agent workflow inside the generated workspace.
 
 ## Supported scope
 
-- supported platform: macOS only
-- install target: `uv` tool named `auto-bean`
-- supported workspace creation surface: `auto-bean init <PROJECT-NAME>`
+- Platform: macOS only
+- Install surface: `uv tool install --from . --force auto-bean`
+- Workspace creation surface: `auto-bean init <PROJECT-NAME>`
+- Supported coding agent during init: `Codex`
 
-## Commands
+## First-session quickstart
 
-Install from the product repo:
+### 1. Install from the product repo
+
+From the root of this repository:
 
 ```bash
 uv tool install --from . --force auto-bean
 ```
 
-Verify after install, even before your shell PATH is updated:
+This installs the local package as the `auto-bean` tool without asking you to mutate global Python by hand.
+
+### 2. Verify readiness
+
+If your shell has not picked up the installed tool on `PATH` yet, verify with:
 
 ```bash
 uv tool run --from . auto-bean readiness
 ```
 
-Verify through the installed command once it is on `PATH`:
+Once `auto-bean` is available directly, the normal check is:
 
 ```bash
 auto-bean readiness
 ```
 
-Render machine-readable diagnostics:
+For machine-readable diagnostics:
 
 ```bash
 auto-bean readiness --json
 ```
 
-Human-readable runs also print a stable `run_id` and the governed artifact path for the workflow result.
+Human-readable readiness output includes a stable `run_id` and the governed artifact path for the workflow result.
 
-Create a base ledger workspace:
+### 3. Create your runtime ledger workspace
+
+Create a new workspace next to this product repo:
 
 ```bash
 auto-bean init my-ledger
 ```
 
-The init workflow asks which coding agent to target. Only `Codex` is supported right now.
+`init` asks which coding agent should back the workspace. Only `Codex` is supported right now.
 
-Successful init creates a sibling runtime workspace with:
+On success, `auto-bean` creates a separate runtime Git repository with:
 
-- `ledger.beancount` as the stable entrypoint
+- `ledger.beancount` as the stable ledger entrypoint
+- `beancount/` for included ledger fragments
+- `statements/raw/` for statement files that later import stories will process
+- `.auto-bean/` for governed runtime artifacts and proposal state
+- `.agents/skills/` for installed runtime skills
 - `AGENTS.md` for workspace operating guidance
-- a `.git/` repository so workspace changes can be reviewed and versioned immediately
-- an initial Git commit containing the generated scaffold and helper files
-- `beancount/`, `statements/raw/`, `docs/`, `.auto-bean/`, and `.agents/skills/`
-- a workspace-local `.venv` with `beancount` and `fava` installed automatically
-- helper scripts under `scripts/` for validation and Fava launch using the workspace-local runtime
-- authored skills copied from `skill_sources/` into the new workspace runtime
+- a workspace-local `.venv` with `beancount` and `fava`
+- `scripts/validate-ledger.sh` and `scripts/open-fava.sh`
 
-The command output includes the created workspace path, a manifest of generated files, validation status, and next-step commands.
+This matters operationally: the product repo is where `auto-bean` is authored, while the generated workspace is where your live ledger, statements, and governed runtime state live.
 
-## Remediation behavior
+### 4. Move into the workspace and validate the ledger
 
-- if `uv` is missing, readiness fails with guidance to install `uv` and then run the install command
-- if the machine is not macOS, the command fails closed instead of attempting partial support
-- if the tool installs but the shell cannot find `auto-bean`, verify first with `uv tool run --from . auto-bean readiness`, then follow the reported `PATH` remediation
-- installation uses `uv tool install --from` rather than ad hoc global Python mutation or `sudo pip`
-- `init <PROJECT-NAME>` fails closed when the project name is unsafe, the destination already exists and is non-empty, the workspace template is incomplete, or the requested coding agent is unsupported
-- `init <PROJECT-NAME>` bootstraps a workspace-local `.venv`, installs `beancount` and `fava`, validates the generated `ledger.beancount`, and checks that Fava is runnable before reporting success
-- `init <PROJECT-NAME>` fails closed if the authored skill sources required for runtime installation are missing
+After init finishes, change into the new workspace:
 
-## Repository baseline checks
+```bash
+cd ../my-ledger
+```
+
+Validate the generated base ledger with either the helper script or the direct Beancount command:
+
+```bash
+./scripts/validate-ledger.sh
+./.venv/bin/bean-check ledger.beancount
+```
+
+“First meaningful use” for the current V1 scope means you now have a bootstrapped workspace, a valid `ledger.beancount`, and a clear place to continue operating.
+
+### 5. Inspect the ledger in Fava
+
+Open the generated ledger in Fava with either the helper script or the direct command:
+
+```bash
+./scripts/open-fava.sh
+./.venv/bin/fava ledger.beancount
+```
+
+This is the supported inspection path today.
+
+### 6. Use Codex-first workflows inside the workspace
+
+Once you are in the generated workspace, treat Codex and the installed skills as the primary workflow surface.
+
+For trust-sensitive structural ledger changes, use the installed runtime skill under:
+
+```text
+.agents/skills/auto-bean-apply/
+```
+
+That runtime skill is materialized into the workspace during `auto-bean init`. In this product repo, the authored source of truth for that behavior lives under `skill_sources/`.
+
+### 7. Understand what comes next
+
+The next major operating path is statement import, but it is not exposed as a public SDK or finished import command yet.
+
+The boundaries that matter now are:
+
+- `ledger.beancount`: stable ledger entrypoint
+- `beancount/`: included ledger files
+- `statements/raw/`: where raw statement files will land
+- `.auto-bean/`: governed runtime artifacts and workflow state
+- `.agents/skills/auto-bean-apply/`: installed skill for reviewed structural edits
+
+Later stories will add the normalized import and review workflows that begin from `statements/raw/`. This README intentionally does not document commands or skills that do not exist yet.
+
+## Failure and remediation behavior
+
+- If `uv` is missing, readiness fails with installation guidance.
+- If the machine is not macOS, the workflow fails closed rather than pretending partial support exists.
+- If the installed tool is not yet on `PATH`, use `uv tool run --from . auto-bean readiness` first and then apply the reported shell remediation.
+- `auto-bean init <PROJECT-NAME>` fails closed when the project name is unsafe, the destination already exists and is non-empty, the workspace template is incomplete, or the requested coding agent is unsupported.
+- `auto-bean init <PROJECT-NAME>` validates the generated `ledger.beancount` and checks that Fava is runnable before it reports success.
+- `auto-bean init <PROJECT-NAME>` fails if the authored skill sources needed for runtime installation are missing.
+
+## Repo boundaries
+
+- `src/auto_bean/` contains the packaged application and thin CLI surface.
+- `skill_sources/` is the source of truth for authored skill behavior in the product repo.
+- `workspace_template/` is the source of truth for generated workspace scaffolding.
+- The generated workspace, not this repo, owns the live ledger, imported statements, and governed runtime state.
+- Installed runtime skills belong under workspace-local `.agents/skills/`, not the product-repo `.agents/skills/`.
+
+## Maintainer checks
 
 Keep local verification aligned with CI:
 
@@ -83,32 +160,4 @@ uv run pytest
 uv run python scripts/run_smoke_checks.py
 ```
 
-Workflow diagnostics are persisted under `.auto-bean/artifacts/` so maintainers can inspect validation outcomes, blocked flows, and troubleshooting context without scraping stack traces.
-
-## Workspace use
-
-After `auto-bean init my-ledger`, move into the created workspace and use:
-
-```bash
-cd ../my-ledger
-./.venv/bin/bean-check ledger.beancount
-./.venv/bin/fava ledger.beancount
-```
-
-The generated helper scripts provide the same entrypoints:
-
-```bash
-./scripts/validate-ledger.sh
-./scripts/open-fava.sh
-```
-
-For trust-sensitive structural edits, prefer the installed workspace skill under `.agents/skills/auto-bean-apply/`. The product repo authors that behavior in `skill_sources/`, and `auto-bean init` materializes the installed runtime copy into the generated workspace.
-
-## Repo boundaries
-
-- application code belongs under `src/auto_bean/`
-- stable user-owned ledger, memory, statement, and artifact state belongs in the generated workspace, not in the product repo
-- `skill_sources/` owns authored skill behavior in the product repo
-- `.agents/skills/` remains the home for installed skill surfaces inside the generated workspace
-- future governed runtime state belongs under the workspace-local `.auto-bean/`, not inside the package tree
-- `workspace_template/` in this repo is the authored source of truth for new workspace scaffolding
+Workflow diagnostics are persisted under `.auto-bean/artifacts/` so maintainers can inspect validation outcomes and troubleshooting context without scraping stack traces.

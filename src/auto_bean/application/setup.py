@@ -364,7 +364,6 @@ class SetupService:
                 "key_files": [
                     "ledger.beancount",
                     "AGENTS.md",
-                    "docs/README.md",
                     ".agents/skills/auto-bean-apply/SKILL.md",
                     ".agents/skills/shared/mutation-pipeline.md",
                 ],
@@ -410,7 +409,6 @@ class SetupService:
                 "key_files": [
                     "ledger.beancount",
                     "AGENTS.md",
-                    "docs/README.md",
                     ".agents/skills/auto-bean-apply/SKILL.md",
                     ".agents/skills/shared/mutation-pipeline.md",
                 ],
@@ -474,7 +472,6 @@ class SetupService:
             "key_files": [
                 "ledger.beancount",
                 "AGENTS.md",
-                "docs/README.md",
                 ".agents/skills/auto-bean-apply/SKILL.md",
                 ".agents/skills/shared/mutation-pipeline.md",
             ],
@@ -492,6 +489,7 @@ class SetupService:
             else "failed",
             "next_steps": [
                 f"cd {target_directory}",
+                "Review AGENTS.md for the Codex-first workspace workflow and path guide.",
                 "./scripts/validate-ledger.sh",
                 "./scripts/open-fava.sh",
             ],
@@ -763,7 +761,6 @@ class SetupService:
         required_paths = (
             "ledger.beancount",
             "AGENTS.md",
-            "docs/README.md",
             "beancount/opening-balances.beancount",
         )
         missing = [

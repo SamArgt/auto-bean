@@ -37,7 +37,6 @@ def test_resource_assets_exist_under_repo_roots() -> None:
         "skill_sources", "shared", "mutation-pipeline.md"
     ).is_file()
     assert repo_root.joinpath("workspace_template", "AGENTS.md").is_file()
-    assert repo_root.joinpath("workspace_template", "docs", "README.md").is_file()
 
 
 @dataclass
@@ -239,7 +238,6 @@ def test_init_is_reserved_for_later_workspace_story(tmp_path: Path) -> None:
     project_name = f"demo-ledger-{tmp_path.name[-6:]}"
     template_root = tmp_path / "workspace_template"
     (template_root / "beancount").mkdir(parents=True)
-    (template_root / "docs").mkdir(parents=True)
     (template_root / ".agents").mkdir(parents=True)
     (template_root / "statements" / "raw").mkdir(parents=True)
     (template_root / ".auto-bean" / "artifacts").mkdir(parents=True)
@@ -253,7 +251,6 @@ def test_init_is_reserved_for_later_workspace_story(tmp_path: Path) -> None:
         "1970-01-01 open Assets:Checking EUR\n1970-01-01 open Equity:Opening-Balances EUR\n",
         encoding="utf-8",
     )
-    (template_root / "docs" / "README.md").write_text("# Docs\n", encoding="utf-8")
     skill_sources_root = tmp_path / "skill_sources"
     (skill_sources_root / "auto-bean-apply" / "scripts").mkdir(parents=True)
     (skill_sources_root / "auto-bean-apply" / "agents").mkdir(parents=True)
