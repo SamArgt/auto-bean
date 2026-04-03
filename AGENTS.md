@@ -2,6 +2,16 @@
 
 This repository authors the product, not a live user ledger workspace.
 
+## Python Development
+- Use `uv run` to run scripts and tools in the local environment.
+- Use context7 mcp to look up documentation about external libraries and dependencies.
+
+### After Code Changes
+- Run `uv run ruff check` and `uv run format` before committing changes.
+- Use `uv run mypy` to check types when changing Python code.
+- Use `uv run pytest` to run tests when changing Python code.
+- Use `uv sync --group dev` to keep your local environment up to date with the latest dependencies and scripts.
+
 ## Development Boundaries
 
 - Author skill behavior in `skill_sources/` first.
@@ -11,11 +21,8 @@ This repository authors the product, not a live user ledger workspace.
 - Keep `workspace_template/` focused on workspace skeleton, placeholders, and docs.
 - Materialize authored skills into the user workspace during `auto-bean init`, not by hardcoding them into the template.
 
-## Development Best Practices
-- Run `uv run ruff check` and `uv run formatter` before committing changes.
-- Use `uv run mypy` to check types when changing Python code.
-- Use `uv run pytest` to run tests when changing Python code.
-- Use `uv sync --group dev` to keep your local environment up to date with the latest dependencies and scripts.
+## Skills redaction guidelines
+- Rely on the beancount online doc with the context7 MCP when redacting skills about beancount ledgers management.
 
 ## Code Boundaries
 

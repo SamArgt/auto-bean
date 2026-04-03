@@ -11,12 +11,10 @@ from pytest import CaptureFixture, MonkeyPatch
 from auto_bean.application.setup import SetupService
 from auto_bean.cli.main import main
 from auto_bean.domain.setup import (
-    ArtifactRecord,
+    CommandOutcome,
     CommandResult,
     EnvironmentInfo,
     ErrorCategory,
-    WorkflowArtifact,
-    WorkflowResult,
 )
 from auto_bean.infrastructure.setup import ProjectPaths
 
@@ -58,18 +56,6 @@ class FakeCommandRunner:
             (cwd / ".venv" / "bin" / "bean-check").write_text("", encoding="utf-8")
             (cwd / ".venv" / "bin" / "fava").write_text("", encoding="utf-8")
         return self.responses.get(tuple(args), CommandResult(returncode=0))
-
-
-@dataclass
-class FakeArtifactStore:
-    records: list[ArtifactRecord] = field(default_factory=list)
-
-    def write(self, artifact: ArtifactRecord) -> WorkflowArtifact:
-        self.records.append(artifact)
-        return WorkflowArtifact(
-            artifact_type="workflow-run",
-            path=f".auto-bean/artifacts/{artifact.run_id}.json",
-        )
 
 
 def seed_workspace_template(repo_root: Path) -> None:
@@ -122,7 +108,7 @@ def make_service(
     tools: dict[str, str] | None = None,
     responses: dict[tuple[str, ...], CommandResult] | None = None,
     prompt: Callable[[str], str] | None = None,
-) -> tuple[SetupService, FakeArtifactStore, FakeCommandRunner]:
+) -> tuple[SetupService, FakeCommandRunner]:
     repo_root = tmp_path
     (repo_root / "src").mkdir(exist_ok=True)
     (repo_root / "pyproject.toml").write_text(
@@ -137,7 +123,6 @@ def make_service(
         encoding="utf-8",
     )
 
-    artifact_store = FakeArtifactStore()
     command_runner = FakeCommandRunner(responses if responses is not None else {})
     service = SetupService(
         paths=ProjectPaths(start=repo_root),
@@ -159,16 +144,13 @@ def make_service(
             }
         ),
         command_runner=command_runner,
-        artifact_store=artifact_store,
-        run_id_factory=lambda: "run-fixed-001",
-        clock=lambda: "2026-03-31T10:30:00+02:00",
         prompt=prompt or (lambda _: "Codex"),
     )
-    return service, artifact_store, command_runner
+    return service, command_runner
 
 
-def test_readiness_emits_structured_run_metadata_and_artifact(tmp_path: Path) -> None:
-    service, artifact_store, _ = make_service(
+def test_readiness_returns_checks_and_success_summary(tmp_path: Path) -> None:
+    service, _ = make_service(
         tmp_path,
         responses={
             ("/tmp/fake-auto-bean", "--help"): CommandResult(
@@ -180,42 +162,29 @@ def test_readiness_emits_structured_run_metadata_and_artifact(tmp_path: Path) ->
     result = service.readiness()
 
     assert result.status == "ok"
-    assert result.run_id == "run-fixed-001"
     assert result.workflow == "readiness"
     assert result.error_category is None
-    assert result.artifact is not None
-    assert result.artifact.path == ".auto-bean/artifacts/run-fixed-001.json"
-    assert [event.stage for event in result.events] == [
-        "workflow_started",
+    assert [check.name for check in result.checks] == [
         "supported_environment",
         "uv_available",
         "auto_bean_on_path",
-        "artifact_persisted",
-        "workflow_completed",
     ]
-    assert all(event.run_id == "run-fixed-001" for event in result.events)
-    assert artifact_store.records[0].result["status"] == "ok"
 
 
-def test_readiness_classifies_prerequisite_failure_and_persists_artifact(
-    tmp_path: Path,
-) -> None:
-    service, artifact_store, _ = make_service(tmp_path, tools={})
+def test_readiness_classifies_prerequisite_failure(tmp_path: Path) -> None:
+    service, _ = make_service(tmp_path, tools={})
 
     result = service.readiness()
 
     assert result.status == "failed"
     assert result.error_code == "missing_uv"
     assert result.error_category is ErrorCategory.PREREQUISITE_FAILURE
-    assert result.artifact is not None
-    assert artifact_store.records[0].result["error_category"] == "prerequisite_failure"
-    assert artifact_store.records[0].events[-1]["stage"] == "workflow_completed"
 
 
-def test_init_creates_workspace_and_persists_created_manifest(tmp_path: Path) -> None:
+def test_init_creates_workspace_and_reports_created_manifest(tmp_path: Path) -> None:
     seed_workspace_template(tmp_path)
     project_name = f"demo-ledger-{tmp_path.name[-6:]}"
-    service, artifact_store, _ = make_service(tmp_path)
+    service, _ = make_service(tmp_path)
 
     result = service.init(project_name)
 
@@ -223,7 +192,6 @@ def test_init_creates_workspace_and_persists_created_manifest(tmp_path: Path) ->
     assert result.status == "ok"
     assert result.error_code is None
     assert result.error_category is None
-    assert result.artifact is not None
     assert workspace_root.joinpath("ledger.beancount").is_file()
     assert workspace_root.joinpath("AGENTS.md").is_file()
     assert workspace_root.joinpath(
@@ -237,18 +205,17 @@ def test_init_creates_workspace_and_persists_created_manifest(tmp_path: Path) ->
     assert workspace_root.joinpath("scripts", "validate-ledger.sh").is_file()
     assert workspace_root.joinpath(".venv", "bin", "bean-check").is_file()
     assert workspace_root.joinpath(".venv", "bin", "fava").is_file()
-    details = artifact_store.records[0].result["details"]
-    assert isinstance(details, dict)
-    assert details["project_name"] == project_name
-    assert details["coding_agent"] == "Codex"
-    created_paths = cast(list[str], details["created_paths"])
+    assert result.details["project_name"] == project_name
+    assert result.details["coding_agent"] == "Codex"
+    assert result.details["target_input_type"] == "name"
+    created_paths = cast(list[str], result.details["created_paths"])
     assert ".gitignore" in created_paths
     assert "ledger.beancount" in created_paths
     assert "AGENTS.md" in created_paths
     assert ".agents/skills/auto-bean-apply/SKILL.md" in created_paths
     assert "scripts/validate-ledger.sh" in created_paths
     assert "scripts/open-fava.sh" in created_paths
-    next_steps = cast(list[str], details["next_steps"])
+    next_steps = cast(list[str], result.details["next_steps"])
     assert (
         "Review AGENTS.md for the Codex-first workspace workflow and path guide."
         in next_steps
@@ -258,7 +225,7 @@ def test_init_creates_workspace_and_persists_created_manifest(tmp_path: Path) ->
 def test_init_creates_initial_git_commit(tmp_path: Path) -> None:
     seed_workspace_template(tmp_path)
     project_name = f"git-commit-{tmp_path.name[-6:]}"
-    service, _, command_runner = make_service(tmp_path)
+    service, command_runner = make_service(tmp_path)
 
     result = service.init(project_name)
 
@@ -300,7 +267,7 @@ def test_project_paths_uses_installed_resources_fallback(
 def test_init_rejects_unsupported_coding_agent(tmp_path: Path) -> None:
     seed_workspace_template(tmp_path)
     project_name = f"unsupported-agent-{tmp_path.name[-6:]}"
-    service, _, _ = make_service(tmp_path, prompt=lambda _: "Claude")
+    service, _ = make_service(tmp_path, prompt=lambda _: "Claude")
 
     result = service.init(project_name)
 
@@ -309,15 +276,124 @@ def test_init_rejects_unsupported_coding_agent(tmp_path: Path) -> None:
     assert result.error_category is ErrorCategory.VALIDATION_FAILURE
 
 
+def test_init_accepts_relative_target_path(tmp_path: Path) -> None:
+    seed_workspace_template(tmp_path)
+    service, _ = make_service(tmp_path)
+    relative_target = "./nested/my-ledger"
+
+    result = service.init(relative_target)
+
+    workspace_root = (tmp_path / "nested" / "my-ledger").resolve()
+    assert result.status == "ok"
+    assert result.details["target_input_type"] == "path"
+    assert result.details["target_directory"] == str(workspace_root)
+    assert workspace_root.joinpath("ledger.beancount").is_file()
+
+
+def test_init_accepts_absolute_target_path(tmp_path: Path) -> None:
+    seed_workspace_template(tmp_path)
+    service, _ = make_service(tmp_path)
+    absolute_target = tmp_path.parent / f"absolute-ledger-{tmp_path.name[-6:]}"
+
+    result = service.init(str(absolute_target))
+
+    assert result.status == "ok"
+    assert result.details["target_input_type"] == "path"
+    assert result.details["target_directory"] == str(absolute_target.resolve())
+    assert absolute_target.joinpath("ledger.beancount").is_file()
+
+
 def test_init_rejects_unsafe_project_name(tmp_path: Path) -> None:
     seed_workspace_template(tmp_path)
-    service, _, _ = make_service(tmp_path)
+    service, _ = make_service(tmp_path)
 
-    result = service.init("bad/name")
+    result = service.init(".")
 
     assert result.status == "failed"
     assert result.error_code == "unsafe_project_name"
     assert result.error_category is ErrorCategory.BLOCKED_UNSAFE_MUTATION
+
+
+def test_init_works_outside_repo_when_packaged_assets_are_available(
+    monkeypatch: MonkeyPatch, tmp_path: Path
+) -> None:
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    seed_workspace_template(repo_root)
+    outside_dir = tmp_path / "outside"
+    outside_dir.mkdir()
+    command_runner = FakeCommandRunner({})
+    monkeypatch.setattr(
+        ProjectPaths,
+        "installed_resources_directory",
+        property(lambda self: repo_root),
+    )
+    service = SetupService(
+        paths=ProjectPaths(start=outside_dir),
+        platform_probe=FakePlatformProbe(
+            EnvironmentInfo(
+                system="Darwin",
+                release="24.0.0",
+                machine="arm64",
+                python_version="3.13.0",
+            )
+        ),
+        tool_probe=FakeToolProbe(
+            {
+                "git": "/usr/bin/git",
+                "uv": "/opt/homebrew/bin/uv",
+                "auto-bean": "/tmp/fake-auto-bean",
+            }
+        ),
+        command_runner=command_runner,
+        prompt=lambda _: "Codex",
+    )
+
+    result = service.init("my-ledger")
+
+    workspace_root = outside_dir / "my-ledger"
+    assert result.status == "ok"
+    assert result.details["target_directory"] == str(workspace_root.resolve())
+    assert result.details["template_directory"] == str(
+        (repo_root / "workspace_template").resolve()
+    )
+    assert workspace_root.joinpath("ledger.beancount").is_file()
+
+
+def test_init_works_outside_repo_from_source_checkout_assets(tmp_path: Path) -> None:
+    outside_dir = tmp_path / "outside"
+    outside_dir.mkdir()
+    command_runner = FakeCommandRunner({})
+    service = SetupService(
+        paths=ProjectPaths(start=outside_dir),
+        platform_probe=FakePlatformProbe(
+            EnvironmentInfo(
+                system="Darwin",
+                release="24.0.0",
+                machine="arm64",
+                python_version="3.13.0",
+            )
+        ),
+        tool_probe=FakeToolProbe(
+            {
+                "git": "/usr/bin/git",
+                "uv": "/opt/homebrew/bin/uv",
+                "auto-bean": "/tmp/fake-auto-bean",
+            }
+        ),
+        command_runner=command_runner,
+        prompt=lambda _: "Codex",
+    )
+
+    result = service.init("my-ledger")
+
+    workspace_root = outside_dir / "my-ledger"
+    template_directory = cast(str, result.details["template_directory"])
+    skill_sources_directory = cast(str, result.details["skill_sources_directory"])
+    assert result.status == "ok"
+    assert workspace_root.joinpath("ledger.beancount").is_file()
+    assert template_directory.endswith("/workspace_template")
+    assert skill_sources_directory.endswith("/skill_sources")
 
 
 def test_init_rejects_non_empty_target_directory(tmp_path: Path) -> None:
@@ -326,7 +402,7 @@ def test_init_rejects_non_empty_target_directory(tmp_path: Path) -> None:
     workspace_root = tmp_path.parent / project_name
     workspace_root.mkdir(exist_ok=True)
     (workspace_root / "existing.txt").write_text("occupied\n", encoding="utf-8")
-    service, _, _ = make_service(tmp_path)
+    service, _ = make_service(tmp_path)
 
     result = service.init(project_name)
 
@@ -337,7 +413,7 @@ def test_init_rejects_non_empty_target_directory(tmp_path: Path) -> None:
 def test_init_rejects_missing_template_assets(tmp_path: Path) -> None:
     project_name = f"missing-template-{tmp_path.name[-6:]}"
     (tmp_path / "workspace_template").mkdir(parents=True)
-    service, _, _ = make_service(tmp_path)
+    service, _ = make_service(tmp_path)
 
     result = service.init(project_name)
 
@@ -349,7 +425,7 @@ def test_init_rejects_missing_template_assets(tmp_path: Path) -> None:
 def test_init_rejects_missing_git(tmp_path: Path) -> None:
     seed_workspace_template(tmp_path)
     project_name = f"missing-git-{tmp_path.name[-6:]}"
-    service, _, _ = make_service(
+    service, _ = make_service(
         tmp_path,
         tools={
             "uv": "/opt/homebrew/bin/uv",
@@ -369,7 +445,7 @@ def test_init_rejects_when_initial_git_commit_fails(tmp_path: Path) -> None:
     seed_workspace_template(tmp_path)
     project_name = f"git-commit-fail-{tmp_path.name[-6:]}"
     workspace_root = tmp_path.parent / project_name
-    service, _, _ = make_service(
+    service, _ = make_service(
         tmp_path,
         responses={
             (
@@ -392,7 +468,7 @@ def test_init_rejects_when_initial_git_commit_fails(tmp_path: Path) -> None:
 def test_init_rejects_workspace_runtime_bootstrap_failure(tmp_path: Path) -> None:
     seed_workspace_template(tmp_path)
     project_name = f"bootstrap-failure-{tmp_path.name[-6:]}"
-    service, _, _ = make_service(
+    service, _ = make_service(
         tmp_path,
         responses={
             (
@@ -420,7 +496,7 @@ def test_init_rejects_when_workspace_fava_is_not_runnable(tmp_path: Path) -> Non
     seed_workspace_template(tmp_path)
     project_name = f"missing-fava-{tmp_path.name[-6:]}"
     workspace_root = tmp_path.parent / project_name
-    service, _, _ = make_service(
+    service, _ = make_service(
         tmp_path,
         responses={
             (
@@ -441,13 +517,12 @@ def test_init_rejects_when_workspace_fava_is_not_runnable(tmp_path: Path) -> Non
     assert not workspace_root.exists()
 
 
-def test_cli_json_output_includes_structured_diagnostics(
+def test_cli_json_output_includes_core_diagnostics(
     capsys: CaptureFixture[str],
     monkeypatch: MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    seed_workspace_template(tmp_path)
-    service, _, _ = make_service(
+    service, _ = make_service(
         tmp_path,
         responses={
             ("/tmp/fake-auto-bean", "--help"): CommandResult(
@@ -461,28 +536,29 @@ def test_cli_json_output_includes_structured_diagnostics(
 
     payload = cast(dict[str, Any], json.loads(capsys.readouterr().out))
     assert exit_code == 0
-    assert payload["run_id"] == "run-fixed-001"
-    artifact = cast(dict[str, Any], payload["artifact"])
-    events = cast(list[dict[str, Any]], payload["events"])
-    assert artifact["path"] == ".auto-bean/artifacts/run-fixed-001.json"
-    assert events[0]["stage"] == "workflow_started"
+    assert payload["workflow"] == "readiness"
+    assert payload["status"] == "ok"
+    checks = cast(list[dict[str, Any]], payload["checks"])
+    assert checks[0]["name"] == "supported_environment"
 
 
-def test_cli_human_output_is_driven_by_structured_result(
+def test_cli_human_output_is_console_focused(
     capsys: CaptureFixture[str],
     monkeypatch: MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    service, _, _ = make_service(tmp_path, tools={})
+    service, _ = make_service(tmp_path, tools={})
     monkeypatch.setattr("auto_bean.cli.main.build_setup_service", lambda: service)
 
     exit_code = main(["readiness"])
 
     output = capsys.readouterr().out
     assert exit_code == 1
-    assert "run_id: run-fixed-001" in output
-    assert "artifact_path: .auto-bean/artifacts/run-fixed-001.json" in output
+    assert "workflow: readiness" in output
+    assert "status: failed" in output
     assert "[FAIL] uv_available" in output
+    assert "artifact_path:" not in output
+    assert "run_id:" not in output
 
 
 def test_cli_init_human_output_lists_created_files_and_next_steps(
@@ -492,7 +568,7 @@ def test_cli_init_human_output_lists_created_files_and_next_steps(
 ) -> None:
     seed_workspace_template(tmp_path)
     project_name = f"cli-ledger-{tmp_path.name[-6:]}"
-    service, _, _ = make_service(tmp_path)
+    service, _ = make_service(tmp_path)
     monkeypatch.setattr("auto_bean.cli.main.build_setup_service", lambda: service)
 
     exit_code = main(["init", project_name])
@@ -507,6 +583,9 @@ def test_cli_init_human_output_lists_created_files_and_next_steps(
         "Review AGENTS.md for the Codex-first workspace workflow and path guide."
         in output
     )
+    assert "target_input_type: name" in output
+    assert "template_directory:" in output
+    assert "skill_sources_directory:" in output
 
 
 def test_cli_reports_unexpected_execution_errors_as_structured_output(
@@ -514,10 +593,10 @@ def test_cli_reports_unexpected_execution_errors_as_structured_output(
     monkeypatch: MonkeyPatch,
 ) -> None:
     class ExplodingService:
-        def readiness(self) -> WorkflowResult:
+        def readiness(self) -> CommandOutcome:
             raise RuntimeError("boom")
 
-        def init(self, project_name: str) -> WorkflowResult:
+        def init(self, project_name: str) -> CommandOutcome:
             raise RuntimeError(project_name)
 
         def execution_error(
@@ -526,20 +605,14 @@ def test_cli_reports_unexpected_execution_errors_as_structured_output(
             *,
             details: dict[str, str],
             message: str = "Workflow execution failed unexpectedly.",
-        ) -> WorkflowResult:
-            return WorkflowResult(
-                run_id="execution-error-001",
+        ) -> CommandOutcome:
+            return CommandOutcome(
                 workflow=workflow,
                 status="failed",
                 error_code="execution_error",
                 error_category=ErrorCategory.EXECUTION_ERROR,
                 message=message,
-                started_at="2026-03-31T10:30:00+02:00",
                 details=cast(dict[str, object], details),
-                artifact=WorkflowArtifact(
-                    artifact_type="workflow-run",
-                    path=".auto-bean/artifacts/execution-error-001.json",
-                ),
             )
 
     monkeypatch.setattr(

@@ -3,7 +3,7 @@ from __future__ import annotations
 import io
 import json
 from contextlib import redirect_stdout
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
@@ -11,10 +11,8 @@ from unittest.mock import patch
 from auto_bean.application.setup import SetupService
 from auto_bean.cli.main import main
 from auto_bean.domain.setup import (
-    ArtifactRecord,
     CommandResult,
     EnvironmentInfo,
-    WorkflowArtifact,
 )
 from auto_bean.infrastructure.setup import ProjectPaths
 
@@ -57,38 +55,7 @@ class _FakeCommandRunner:
         return self.responses.get(command, CommandResult(returncode=0))
 
 
-@dataclass
-class _ArtifactStore:
-    records: list[ArtifactRecord] = field(default_factory=list)
-
-    def write(self, artifact: ArtifactRecord) -> WorkflowArtifact:
-        self.records.append(artifact)
-        artifact_path = Path(artifact.path)
-        artifact_path.parent.mkdir(parents=True, exist_ok=True)
-        artifact_path.write_text(
-            json.dumps(
-                {
-                    "run_id": artifact.run_id,
-                    "workflow": artifact.workflow,
-                    "created_at": artifact.created_at,
-                    "result": dict(artifact.result),
-                    "events": list(artifact.events),
-                },
-                indent=2,
-                sort_keys=True,
-            )
-            + "\n",
-            encoding="utf-8",
-        )
-        return WorkflowArtifact(
-            artifact_type="workflow-run",
-            path=str(artifact_path.relative_to(artifact_path.parents[2])),
-        )
-
-
-def _build_service(
-    repo_root: Path, run_id: str, *, readiness_success: bool
-) -> SetupService:
+def _build_service(repo_root: Path, *, readiness_success: bool) -> SetupService:
     tools = {"uv": "/opt/homebrew/bin/uv", "git": "/usr/bin/git"}
     responses: dict[tuple[str, ...], CommandResult] = {}
     if readiness_success:
@@ -110,9 +77,6 @@ def _build_service(
         ),
         tool_probe=_FakeToolProbe(tools),
         command_runner=_FakeCommandRunner(responses),
-        artifact_store=_ArtifactStore(),
-        run_id_factory=lambda: run_id,
-        clock=lambda: "2026-03-31T10:45:00+02:00",
         prompt=lambda _: "Codex",
     )
 
@@ -168,21 +132,19 @@ def run_smoke_checks() -> int:
             (
                 "readiness-success",
                 ["readiness", "--json"],
-                _build_service(repo_root, "smoke-readiness", readiness_success=True),
+                _build_service(repo_root, readiness_success=True),
                 0,
             ),
             (
                 "init-success",
                 ["init", project_name, "--json"],
-                _build_service(repo_root, "smoke-init", readiness_success=False),
+                _build_service(repo_root, readiness_success=False),
                 0,
             ),
             (
                 "init-blocked",
-                ["init", "bad/name", "--json"],
-                _build_service(
-                    repo_root, "smoke-init-blocked", readiness_success=False
-                ),
+                ["init", ".", "--json"],
+                _build_service(repo_root, readiness_success=False),
                 1,
             ),
         )
@@ -201,9 +163,6 @@ def run_smoke_checks() -> int:
                     "expected_exit": expected_exit,
                     "status": payload["status"],
                     "error_code": payload["error_code"],
-                    "artifact": payload["artifact"]["path"]
-                    if payload["artifact"]
-                    else None,
                 }
             )
 

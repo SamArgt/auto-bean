@@ -1,24 +1,19 @@
 from __future__ import annotations
 
-import json
 import platform
 import re
 import shutil
 import subprocess
 import sys
 from collections.abc import Callable, Sequence
-from datetime import datetime
 from pathlib import Path
 from stat import S_IEXEC
 from time import perf_counter
 from typing import Protocol
-from uuid import uuid4
 
 from auto_bean.domain.setup import (
-    ArtifactRecord,
     CommandResult,
     EnvironmentInfo,
-    WorkflowArtifact,
 )
 
 
@@ -32,10 +27,6 @@ class ToolLocator(Protocol):
 
 class CommandExecutor(Protocol):
     def run(self, args: Sequence[str], cwd: Path | None = None) -> CommandResult: ...
-
-
-class ArtifactWriter(Protocol):
-    def write(self, artifact: ArtifactRecord) -> WorkflowArtifact: ...
 
 
 type PromptResponder = Callable[[str], str]
@@ -100,21 +91,14 @@ class ProjectPaths:
         return self.repo_root / ".venv"
 
     @property
-    def artifacts_directory(self) -> Path:
-        try:
-            base_directory = self.repo_root
-        except RuntimeError:
-            base_directory = self._start.resolve()
-        return base_directory / ".auto-bean" / "artifacts"
-
-    @property
     def workspace_template_directory(self) -> Path:
         candidates: list[Path] = []
         try:
             candidates.append(self.repo_root / "workspace_template")
         except RuntimeError:
             pass
-        candidates.append(self.installed_resources_directory / "workspace_template")
+        for resource_root in self.resource_roots:
+            candidates.append(resource_root / "workspace_template")
         for candidate in candidates:
             if candidate.is_dir():
                 return candidate
@@ -127,7 +111,8 @@ class ProjectPaths:
             candidates.append(self.repo_root / "skill_sources")
         except RuntimeError:
             pass
-        candidates.append(self.installed_resources_directory / "skill_sources")
+        for resource_root in self.resource_roots:
+            candidates.append(resource_root / "skill_sources")
         for candidate in candidates:
             if candidate.is_dir():
                 return candidate
@@ -137,36 +122,26 @@ class ProjectPaths:
     def installed_resources_directory(self) -> Path:
         return Path(__file__).resolve().parents[1] / "_packaged_assets"
 
-    def artifact_path(self, run_id: str) -> Path:
-        return self.artifacts_directory / f"{run_id}.json"
+    @property
+    def source_checkout_resources_directory(self) -> Path:
+        module_path = Path(__file__).resolve()
+        for parent in module_path.parents:
+            if (parent / "workspace_template").is_dir() and (
+                parent / "skill_sources"
+            ).is_dir():
+                return parent
+        return module_path.parents[1]
 
-    def artifact_display_path(self, run_id: str) -> str:
-        return f".auto-bean/artifacts/{run_id}.json"
-
-
-class WorkflowArtifactStore:
-    def write(self, artifact: ArtifactRecord) -> WorkflowArtifact:
-        artifact_path = Path(artifact.path)
-        artifact_path.parent.mkdir(parents=True, exist_ok=True)
-        artifact_path.write_text(
-            json.dumps(
-                {
-                    "run_id": artifact.run_id,
-                    "workflow": artifact.workflow,
-                    "created_at": artifact.created_at,
-                    "result": dict(artifact.result),
-                    "events": list(artifact.events),
-                },
-                indent=2,
-                sort_keys=True,
-            )
-            + "\n",
-            encoding="utf-8",
-        )
-        return WorkflowArtifact(
-            artifact_type="workflow-run",
-            path=f".auto-bean/artifacts/{artifact_path.name}",
-        )
+    @property
+    def resource_roots(self) -> tuple[Path, ...]:
+        roots: list[Path] = []
+        for candidate in (
+            self.installed_resources_directory,
+            self.source_checkout_resources_directory,
+        ):
+            if candidate not in roots:
+                roots.append(candidate)
+        return tuple(roots)
 
 
 def current_time() -> float:
@@ -177,17 +152,19 @@ def current_python_executable() -> str:
     return sys.executable
 
 
-def current_timestamp() -> str:
-    return datetime.now().astimezone().isoformat(timespec="seconds")
-
-
-def generate_run_id() -> str:
-    return uuid4().hex
-
-
 def sanitize_project_name(project_name: str) -> bool:
     return bool(
         re.fullmatch(r"[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?", project_name)
+    )
+
+
+def looks_like_path(target: str) -> bool:
+    path = Path(target).expanduser()
+    return (
+        path.is_absolute()
+        or len(path.parts) > 1
+        or target.startswith((".", "~"))
+        or target.endswith(("/", "\\"))
     )
 
 

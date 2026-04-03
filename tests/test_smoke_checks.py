@@ -10,7 +10,7 @@ from pytest import CaptureFixture
 from auto_bean.application.setup import SetupService
 from auto_bean.application.smoke import run_smoke_checks
 from auto_bean.domain.setup import CommandResult, EnvironmentInfo
-from auto_bean.infrastructure.setup import ProjectPaths, WorkflowArtifactStore
+from auto_bean.infrastructure.setup import ProjectPaths
 
 
 class _PlatformProbe:
@@ -37,7 +37,7 @@ class _CommandRunner:
         return CommandResult(returncode=0, stdout="help")
 
 
-def test_workflow_artifact_store_writes_governed_json_artifact(tmp_path: Path) -> None:
+def test_readiness_succeeds_without_persisting_artifacts(tmp_path: Path) -> None:
     repo_root = tmp_path
     (repo_root / "src").mkdir()
     (repo_root / "pyproject.toml").write_text(
@@ -49,22 +49,17 @@ def test_workflow_artifact_store_writes_governed_json_artifact(tmp_path: Path) -
         platform_probe=_PlatformProbe(),
         tool_probe=_ToolProbe(),
         command_runner=_CommandRunner(),
-        artifact_store=WorkflowArtifactStore(),
-        run_id_factory=lambda: "artifact-store-001",
-        clock=lambda: "2026-03-31T10:50:00+02:00",
     )
 
     result = service.readiness()
 
-    artifact_path = repo_root / ".auto-bean" / "artifacts" / "artifact-store-001.json"
-    payload = json.loads(artifact_path.read_text(encoding="utf-8"))
-    assert result.artifact is not None
-    assert result.artifact.path == ".auto-bean/artifacts/artifact-store-001.json"
-    assert payload["result"]["status"] == "ok"
-    assert payload["events"][0]["stage"] == "workflow_started"
+    assert result.status == "ok"
+    assert result.error_code is None
+    assert result.details["command"] == "auto-bean --help"
+    assert not (repo_root / ".auto-bean" / "artifacts").exists()
 
 
-def test_workflow_artifact_store_falls_back_to_current_directory_outside_repo(
+def test_readiness_outside_repo_still_returns_console_friendly_result(
     tmp_path: Path,
 ) -> None:
     outside_dir = tmp_path / "outside"
@@ -74,21 +69,13 @@ def test_workflow_artifact_store_falls_back_to_current_directory_outside_repo(
         platform_probe=_PlatformProbe(),
         tool_probe=_ToolProbe(),
         command_runner=_CommandRunner(),
-        artifact_store=WorkflowArtifactStore(),
-        run_id_factory=lambda: "artifact-outside-001",
-        clock=lambda: "2026-03-31T10:50:00+02:00",
     )
 
     result = service.readiness()
 
-    artifact_path = (
-        outside_dir / ".auto-bean" / "artifacts" / "artifact-outside-001.json"
-    )
-    payload = json.loads(artifact_path.read_text(encoding="utf-8"))
     assert result.status == "ok"
-    assert result.artifact is not None
-    assert result.artifact.path == ".auto-bean/artifacts/artifact-outside-001.json"
-    assert payload["result"]["status"] == "ok"
+    assert result.workflow == "readiness"
+    assert result.duration_seconds >= 0
 
 
 def test_run_smoke_checks_covers_success_and_blocked_paths(

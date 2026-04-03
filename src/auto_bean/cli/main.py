@@ -5,7 +5,7 @@ import json
 from collections.abc import Sequence
 
 from auto_bean.application.setup import build_setup_service
-from auto_bean.domain.setup import CheckStatus, WorkflowResult
+from auto_bean.domain.setup import CheckStatus, CommandOutcome
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -70,12 +70,15 @@ def main(argv: Sequence[str] | None = None) -> int:
     return 0 if result.status == "ok" else 1
 
 
-def render_result(result: WorkflowResult, *, as_json: bool) -> None:
+def render_result(result: CommandOutcome, *, as_json: bool) -> None:
     if as_json:
         print(json.dumps(result.as_dict(), indent=2, sort_keys=True))
         return
 
-    print(f"run_id: {result.run_id}")
+    if result.workflow == "init":
+        print("auto-bean init")
+    elif result.workflow == "readiness":
+        print("auto-bean readiness")
     print(f"workflow: {result.workflow}")
     print(f"status: {result.status}")
     if result.error_code:
@@ -83,10 +86,7 @@ def render_result(result: WorkflowResult, *, as_json: bool) -> None:
     if result.error_category:
         print(f"error_category: {result.error_category.value}")
     print(f"message: {result.message}")
-    print(f"started_at: {result.started_at}")
     print(f"duration_seconds: {result.duration_seconds:.3f}")
-    if result.artifact:
-        print(f"artifact_path: {result.artifact.path}")
     _render_detail_lines(result.details)
     for check in result.checks:
         _render_check(check)
@@ -112,8 +112,11 @@ def _render_check(check: object) -> None:
 def _render_detail_lines(details: dict[str, object]) -> None:
     scalar_keys = (
         "project_name",
+        "target_input_type",
         "working_directory",
         "target_directory",
+        "template_directory",
+        "skill_sources_directory",
         "coding_agent",
         "validation_command",
         "validation_status",

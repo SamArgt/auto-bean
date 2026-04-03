@@ -1,22 +1,19 @@
 from __future__ import annotations
 
-from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 import shutil
 
 from auto_bean.domain.setup import (
-    ArtifactRecord,
     CheckStatus,
+    CommandOutcome,
     DiagnosticCheck,
     ErrorCategory,
-    WorkflowEvent,
-    WorkflowResult,
 )
 from auto_bean.infrastructure.setup import (
-    ArtifactWriter,
     CommandExecutor,
     CommandRunner,
+    looks_like_path,
     PlatformInspector,
     PlatformProbe,
     PromptResponder,
@@ -26,11 +23,8 @@ from auto_bean.infrastructure.setup import (
     copy_skill_sources,
     copy_workspace_template,
     current_time,
-    current_timestamp,
     ensure_executable,
-    generate_run_id,
     sanitize_project_name,
-    WorkflowArtifactStore,
 )
 
 
@@ -40,47 +34,21 @@ class SetupService:
     platform_probe: PlatformInspector
     tool_probe: ToolLocator
     command_runner: CommandExecutor
-    artifact_store: ArtifactWriter = field(default_factory=WorkflowArtifactStore)
-    run_id_factory: Callable[[], str] = generate_run_id
-    clock: Callable[[], str] = current_timestamp
     prompt: PromptResponder = input
 
-    def readiness(self) -> WorkflowResult:
-        run_id = self.run_id_factory()
-        started_at = self.clock()
+    def readiness(self) -> CommandOutcome:
         started = current_time()
-        events: list[WorkflowEvent] = [
-            self._event(
-                run_id=run_id,
-                workflow="readiness",
-                stage="workflow_started",
-                status=CheckStatus.PASS,
-                message="Readiness workflow started.",
-            )
-        ]
         checks = (
             self._check_supported_environment(),
             self._check_uv_available(),
             self._check_auto_bean_on_path(),
         )
-        for check in checks:
-            events.append(
-                self._event(
-                    run_id=run_id,
-                    workflow="readiness",
-                    stage=check.name,
-                    status=check.status,
-                    message=check.message,
-                    details=check.details,
-                )
-            )
         failed_check = next(
             (check for check in checks if check.status is CheckStatus.FAIL),
             None,
         )
         if failed_check is not None:
             return self._result(
-                run_id=run_id,
                 workflow="readiness",
                 status="failed",
                 error_code=failed_check.error_code,
@@ -88,8 +56,6 @@ class SetupService:
                 message=failed_check.message,
                 details=failed_check.details,
                 checks=checks,
-                events=events,
-                started_at=started_at,
                 started=started,
             )
 
@@ -99,7 +65,6 @@ class SetupService:
         )
         if warned_check is not None:
             return self._result(
-                run_id=run_id,
                 workflow="readiness",
                 status="failed",
                 error_code=warned_check.error_code,
@@ -107,13 +72,10 @@ class SetupService:
                 message=warned_check.message,
                 details=warned_check.details,
                 checks=checks,
-                events=events,
-                started_at=started_at,
                 started=started,
             )
 
         return self._result(
-            run_id=run_id,
             workflow="readiness",
             status="ok",
             error_code=None,
@@ -121,156 +83,81 @@ class SetupService:
             message="Readiness check passed. auto-bean is installed and discoverable.",
             details={"command": "auto-bean --help"},
             checks=checks,
-            events=events,
-            started_at=started_at,
             started=started,
         )
 
-    def init(self, project_name: str) -> WorkflowResult:
-        run_id = self.run_id_factory()
-        started_at = self.clock()
+    def init(self, project_name: str) -> CommandOutcome:
         started = current_time()
-        events = [
-            self._event(
-                run_id=run_id,
-                workflow="init",
-                stage="workflow_started",
-                status=CheckStatus.PASS,
-                message="Init workflow started.",
-                details={"project_name": project_name},
-            )
-        ]
         working_directory = self.paths.working_directory
-        target_directory = self._target_workspace_path(project_name)
+        target_directory, target_input_type = self._target_workspace_path(project_name)
         target_preexisted = target_directory.exists()
+        template_directory = self.paths.workspace_template_directory
+        skill_sources_directory = self.paths.skill_sources_directory
+        init_context = {
+            "project_name": project_name,
+            "target_input_type": target_input_type,
+            "working_directory": str(working_directory),
+            "target_directory": str(target_directory),
+            "template_directory": str(template_directory),
+            "skill_sources_directory": str(skill_sources_directory),
+        }
 
         checks: list[DiagnosticCheck] = []
 
         project_name_check = self._validate_project_name(project_name, target_directory)
         checks.append(project_name_check)
-        events.append(
-            self._event(
-                run_id=run_id,
-                workflow="init",
-                stage=project_name_check.name,
-                status=project_name_check.status,
-                message=project_name_check.message,
-                details=project_name_check.details,
-            )
-        )
         if project_name_check.status is CheckStatus.FAIL:
             return self._result(
-                run_id=run_id,
                 workflow="init",
                 status="failed",
                 error_code=project_name_check.error_code,
                 error_category=self._classify_error(project_name_check.error_code),
                 message=project_name_check.message,
-                details=project_name_check.details,
+                details=init_context | project_name_check.details,
                 checks=tuple(checks),
-                events=events,
-                started_at=started_at,
                 started=started,
             )
 
         coding_agent = self._prompt_for_coding_agent()
         coding_agent_check = self._validate_coding_agent(coding_agent)
         checks.append(coding_agent_check)
-        events.append(
-            self._event(
-                run_id=run_id,
-                workflow="init",
-                stage=coding_agent_check.name,
-                status=coding_agent_check.status,
-                message=coding_agent_check.message,
-                details=coding_agent_check.details,
-            )
-        )
         if coding_agent_check.status is CheckStatus.FAIL:
             return self._result(
-                run_id=run_id,
                 workflow="init",
                 status="failed",
                 error_code=coding_agent_check.error_code,
                 error_category=self._classify_error(coding_agent_check.error_code),
                 message=coding_agent_check.message,
-                details={
-                    "project_name": project_name,
-                    "working_directory": str(working_directory),
-                    "target_directory": str(target_directory),
-                    **coding_agent_check.details,
-                },
+                details=init_context | coding_agent_check.details,
                 checks=tuple(checks),
-                events=events,
-                started_at=started_at,
                 started=started,
             )
-
-        template_directory = self.paths.workspace_template_directory
         template_check = self._validate_template_directory(template_directory)
         checks.append(template_check)
-        events.append(
-            self._event(
-                run_id=run_id,
-                workflow="init",
-                stage=template_check.name,
-                status=template_check.status,
-                message=template_check.message,
-                details=template_check.details,
-            )
-        )
         if template_check.status is CheckStatus.FAIL:
             return self._result(
-                run_id=run_id,
                 workflow="init",
                 status="failed",
                 error_code=template_check.error_code,
                 error_category=self._classify_error(template_check.error_code),
                 message=template_check.message,
-                details={
-                    "project_name": project_name,
-                    "working_directory": str(working_directory),
-                    "target_directory": str(target_directory),
-                    **template_check.details,
-                },
+                details=init_context | template_check.details,
                 checks=tuple(checks),
-                events=events,
-                started_at=started_at,
                 started=started,
             )
-
-        skill_sources_directory = self.paths.skill_sources_directory
         skill_sources_check = self._validate_skill_sources_directory(
             skill_sources_directory
         )
         checks.append(skill_sources_check)
-        events.append(
-            self._event(
-                run_id=run_id,
-                workflow="init",
-                stage=skill_sources_check.name,
-                status=skill_sources_check.status,
-                message=skill_sources_check.message,
-                details=skill_sources_check.details,
-            )
-        )
         if skill_sources_check.status is CheckStatus.FAIL:
             return self._result(
-                run_id=run_id,
                 workflow="init",
                 status="failed",
                 error_code=skill_sources_check.error_code,
                 error_category=self._classify_error(skill_sources_check.error_code),
                 message=skill_sources_check.message,
-                details={
-                    "project_name": project_name,
-                    "working_directory": str(working_directory),
-                    "target_directory": str(target_directory),
-                    **skill_sources_check.details,
-                },
+                details=init_context | skill_sources_check.details,
                 checks=tuple(checks),
-                events=events,
-                started_at=started_at,
                 started=started,
             )
 
@@ -282,22 +169,11 @@ class SetupService:
         created_paths.extend(installed_skill_paths)
         runtime_environment_check = self._check_uv_available()
         checks.append(runtime_environment_check)
-        events.append(
-            self._event(
-                run_id=run_id,
-                workflow="init",
-                stage="workspace_runtime_prerequisites",
-                status=runtime_environment_check.status,
-                message=runtime_environment_check.message,
-                details=runtime_environment_check.details,
-            )
-        )
         if runtime_environment_check.status is CheckStatus.FAIL:
             self._cleanup_failed_workspace(
                 target_directory, preserve_root=target_preexisted
             )
             return self._result(
-                run_id=run_id,
                 workflow="init",
                 status="failed",
                 error_code=runtime_environment_check.error_code,
@@ -305,17 +181,13 @@ class SetupService:
                     runtime_environment_check.error_code
                 ),
                 message=runtime_environment_check.message,
-                details={
-                    "project_name": project_name,
-                    "working_directory": str(working_directory),
-                    "target_directory": str(target_directory),
+                details=init_context
+                | {
                     "coding_agent": coding_agent,
                     "created_paths": created_paths,
                     **runtime_environment_check.details,
                 },
                 checks=tuple(checks),
-                events=events,
-                started_at=started_at,
                 started=started,
             )
         scaffold_check = DiagnosticCheck(
@@ -328,37 +200,14 @@ class SetupService:
             },
         )
         checks.append(scaffold_check)
-        events.append(
-            self._event(
-                run_id=run_id,
-                workflow="init",
-                stage=scaffold_check.name,
-                status=scaffold_check.status,
-                message=scaffold_check.message,
-                details=scaffold_check.details,
-            )
-        )
 
         git_check = self._initialize_workspace_git_repo(target_directory)
         checks.append(git_check)
-        events.append(
-            self._event(
-                run_id=run_id,
-                workflow="init",
-                stage=git_check.name,
-                status=git_check.status,
-                message=git_check.message,
-                details=git_check.details,
-            )
-        )
         if git_check.status is CheckStatus.FAIL:
             self._cleanup_failed_workspace(
                 target_directory, preserve_root=target_preexisted
             )
-            blocked_details = {
-                "project_name": project_name,
-                "working_directory": str(working_directory),
-                "target_directory": str(target_directory),
+            blocked_details = init_context | {
                 "coding_agent": coding_agent,
                 "created_paths": created_paths,
                 "key_files": [
@@ -371,7 +220,6 @@ class SetupService:
                 **git_check.details,
             }
             return self._result(
-                run_id=run_id,
                 workflow="init",
                 status="failed",
                 error_code=git_check.error_code,
@@ -379,31 +227,16 @@ class SetupService:
                 message=git_check.message,
                 details=blocked_details,
                 checks=tuple(checks),
-                events=events,
-                started_at=started_at,
                 started=started,
             )
 
         workspace_runtime_check = self._bootstrap_workspace_runtime(target_directory)
         checks.append(workspace_runtime_check)
-        events.append(
-            self._event(
-                run_id=run_id,
-                workflow="init",
-                stage=workspace_runtime_check.name,
-                status=workspace_runtime_check.status,
-                message=workspace_runtime_check.message,
-                details=workspace_runtime_check.details,
-            )
-        )
         if workspace_runtime_check.status is CheckStatus.FAIL:
             self._cleanup_failed_workspace(
                 target_directory, preserve_root=target_preexisted
             )
-            blocked_details = {
-                "project_name": project_name,
-                "working_directory": str(working_directory),
-                "target_directory": str(target_directory),
+            blocked_details = init_context | {
                 "coding_agent": coding_agent,
                 "created_paths": created_paths,
                 "key_files": [
@@ -416,7 +249,6 @@ class SetupService:
                 **workspace_runtime_check.details,
             }
             return self._result(
-                run_id=run_id,
                 workflow="init",
                 status="failed",
                 error_code=workspace_runtime_check.error_code,
@@ -424,8 +256,6 @@ class SetupService:
                 message=workspace_runtime_check.message,
                 details=blocked_details,
                 checks=tuple(checks),
-                events=events,
-                started_at=started_at,
                 started=started,
             )
         self._materialize_workspace_scripts(target_directory)
@@ -441,32 +271,9 @@ class SetupService:
             validation_command, target_directory
         )
         checks.append(validation_check)
-        events.append(
-            self._event(
-                run_id=run_id,
-                workflow="init",
-                stage=validation_check.name,
-                status=validation_check.status,
-                message=validation_check.message,
-                details=validation_check.details,
-            )
-        )
         fava_check = self._check_workspace_fava_available(target_directory)
         checks.append(fava_check)
-        events.append(
-            self._event(
-                run_id=run_id,
-                workflow="init",
-                stage=fava_check.name,
-                status=fava_check.status,
-                message=fava_check.message,
-                details=fava_check.details,
-            )
-        )
-        details: dict[str, object] = {
-            "project_name": project_name,
-            "working_directory": str(working_directory),
-            "target_directory": str(target_directory),
+        details: dict[str, object] = init_context | {
             "coding_agent": coding_agent,
             "created_paths": created_paths,
             "key_files": [
@@ -516,16 +323,6 @@ class SetupService:
         if failed_check is None:
             commit_check = self._create_initial_workspace_commit(target_directory)
             checks.append(commit_check)
-            events.append(
-                self._event(
-                    run_id=run_id,
-                    workflow="init",
-                    stage=commit_check.name,
-                    status=commit_check.status,
-                    message=commit_check.message,
-                    details=commit_check.details,
-                )
-            )
             if commit_check.status is CheckStatus.FAIL:
                 self._cleanup_failed_workspace(
                     target_directory, preserve_root=target_preexisted
@@ -534,7 +331,6 @@ class SetupService:
                 error_code = commit_check.error_code
                 message = commit_check.message
         return self._result(
-            run_id=run_id,
             workflow="init",
             status=status,
             error_code=error_code,
@@ -542,8 +338,6 @@ class SetupService:
             message=message,
             details=details | validation_check.details,
             checks=tuple(checks),
-            events=events,
-            started_at=started_at,
             started=started,
         )
 
@@ -553,29 +347,9 @@ class SetupService:
         *,
         details: dict[str, object],
         message: str = "Workflow execution failed unexpectedly.",
-    ) -> WorkflowResult:
-        run_id = self.run_id_factory()
-        started_at = self.clock()
+    ) -> CommandOutcome:
         started = current_time()
-        events = [
-            self._event(
-                run_id=run_id,
-                workflow=workflow,
-                stage="workflow_started",
-                status=CheckStatus.PASS,
-                message=f"{workflow.capitalize()} workflow started.",
-            ),
-            self._event(
-                run_id=run_id,
-                workflow=workflow,
-                stage="workflow_exception",
-                status=CheckStatus.FAIL,
-                message=message,
-                details=details,
-            ),
-        ]
         return self._result(
-            run_id=run_id,
             workflow=workflow,
             status="failed",
             error_code="execution_error",
@@ -583,8 +357,6 @@ class SetupService:
             message=message,
             details=details,
             checks=(),
-            events=events,
-            started_at=started_at,
             started=started,
         )
 
@@ -686,26 +458,52 @@ class SetupService:
             details={"path": tool_path, "command": " ".join(command)},
         )
 
-    def _target_workspace_path(self, project_name: str) -> Path:
+    def _target_workspace_path(self, project_name: str) -> tuple[Path, str]:
         working_directory = self.paths.working_directory
+        if looks_like_path(project_name):
+            return (working_directory / Path(project_name).expanduser()).resolve(), "path"
+
         try:
             repo_root = self.paths.repo_root
         except RuntimeError:
-            return working_directory / project_name
+            return (working_directory / project_name).resolve(), "name"
 
         if working_directory == repo_root or repo_root in working_directory.parents:
-            return repo_root.parent / project_name
-        return working_directory / project_name
+            return (repo_root.parent / project_name).resolve(), "name"
+        return (working_directory / project_name).resolve(), "name"
 
     def _validate_project_name(
         self, project_name: str, target_directory: Path
     ) -> DiagnosticCheck:
-        if not sanitize_project_name(project_name):
+        if looks_like_path(project_name):
+            if project_name.strip() in {"", ".", ".."}:
+                return DiagnosticCheck(
+                    name="project_name_valid",
+                    status=CheckStatus.FAIL,
+                    error_code="unsafe_project_name",
+                    message="Target path must point to a workspace directory, not '.' or '..'.",
+                    details={
+                        "project_name": project_name,
+                        "target_directory": str(target_directory),
+                    },
+                )
+        elif not sanitize_project_name(project_name):
             return DiagnosticCheck(
                 name="project_name_valid",
                 status=CheckStatus.FAIL,
                 error_code="unsafe_project_name",
-                message="Project name is unsafe. Use letters, numbers, dots, underscores, or dashes only.",
+                message="Project name is unsafe. Use letters, numbers, dots, underscores, or dashes only, or pass a relative/absolute path.",
+                details={
+                    "project_name": project_name,
+                    "target_directory": str(target_directory),
+                },
+            )
+        if target_directory.exists() and not target_directory.is_dir():
+            return DiagnosticCheck(
+                name="project_name_valid",
+                status=CheckStatus.FAIL,
+                error_code="non_directory_target_path",
+                message="Target path already exists and is not a directory.",
                 details={
                     "project_name": project_name,
                     "target_directory": str(target_directory),
@@ -725,7 +523,7 @@ class SetupService:
         return DiagnosticCheck(
             name="project_name_valid",
             status=CheckStatus.PASS,
-            message="Project name and target directory are valid.",
+            message="Target directory is valid.",
             details={
                 "project_name": project_name,
                 "target_directory": str(target_directory),
@@ -1108,7 +906,6 @@ class SetupService:
     def _result(
         self,
         *,
-        run_id: str,
         workflow: str,
         status: str,
         error_code: str | None,
@@ -1116,87 +913,17 @@ class SetupService:
         message: str,
         details: dict[str, object],
         checks: tuple[DiagnosticCheck, ...],
-        events: list[WorkflowEvent],
-        started_at: str,
         started: float,
-    ) -> WorkflowResult:
-        artifact_path = self.paths.artifact_path(run_id)
-        artifact_display_path = self.paths.artifact_display_path(run_id)
-        events.append(
-            self._event(
-                run_id=run_id,
-                workflow=workflow,
-                stage="artifact_persisted",
-                status=CheckStatus.PASS,
-                message="Workflow artifact persisted.",
-                details={"path": artifact_display_path},
-            )
-        )
-        events.append(
-            self._event(
-                run_id=run_id,
-                workflow=workflow,
-                stage="workflow_completed",
-                status=CheckStatus.PASS if status == "ok" else CheckStatus.FAIL,
-                message=message,
-                details={"status": status, "error_code": error_code or ""},
-            )
-        )
-        return WorkflowResult(
-            run_id=run_id,
+    ) -> CommandOutcome:
+        return CommandOutcome(
             workflow=workflow,
             status=status,
             error_code=error_code,
             error_category=error_category,
             message=message,
-            started_at=started_at,
             details=details,
             checks=checks,
-            events=tuple(events),
-            artifact=self.artifact_store.write(
-                ArtifactRecord(
-                    run_id=run_id,
-                    workflow=workflow,
-                    created_at=self.clock(),
-                    path=str(artifact_path),
-                    result={
-                        "run_id": run_id,
-                        "workflow": workflow,
-                        "status": status,
-                        "error_code": error_code,
-                        "error_category": error_category.value
-                        if error_category
-                        else None,
-                        "message": message,
-                        "started_at": started_at,
-                        "details": details,
-                        "checks": [check.as_dict() for check in checks],
-                        "duration_seconds": round(current_time() - started, 3),
-                    },
-                    events=tuple(event.as_dict() for event in events),
-                )
-            ),
             duration_seconds=current_time() - started,
-        )
-
-    def _event(
-        self,
-        *,
-        run_id: str,
-        workflow: str,
-        stage: str,
-        status: CheckStatus,
-        message: str,
-        details: dict[str, object] | None = None,
-    ) -> WorkflowEvent:
-        return WorkflowEvent(
-            run_id=run_id,
-            workflow=workflow,
-            stage=stage,
-            status=status,
-            message=message,
-            timestamp=self.clock(),
-            details=details or {},
         )
 
     def _classify_error(self, error_code: str | None) -> ErrorCategory | None:
@@ -1217,6 +944,7 @@ class SetupService:
         if error_code in {
             "unsafe_project_name",
             "non_empty_target_directory",
+            "non_directory_target_path",
         }:
             return ErrorCategory.BLOCKED_UNSAFE_MUTATION
         if error_code in {
@@ -1234,5 +962,4 @@ def build_setup_service(start: Path | None = None) -> SetupService:
         platform_probe=PlatformProbe(),
         tool_probe=ToolProbe(),
         command_runner=CommandRunner(),
-        artifact_store=WorkflowArtifactStore(),
     )
