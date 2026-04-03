@@ -20,6 +20,7 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "beancount" },
+    { name = "click" },
     { name = "fava" },
 ]
 
@@ -33,6 +34,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "beancount" },
+    { name = "click", specifier = ">=8.3.1,<9" },
     { name = "fava" },
 ]
 
