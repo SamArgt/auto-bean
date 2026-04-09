@@ -178,7 +178,7 @@ Users can install auto-bean, initialize a local workspace, create the base Beanc
 **Primary NFR support:** NFR4, NFR5, NFR6
 
 ### Epic 2: Import Statements and Introduce New Accounts Through Import
-Users can import PDF, CSV, and Excel statements into a new or existing ledger, have first-seen accounts proposed through the import flow, review the resulting structure and transactions, and preserve source-specific context for repeat use.
+Users can import PDF, CSV, and Excel statements into a new or existing ledger, normalize statement data into a reviewable intake result, have first-seen accounts proposed through the import flow, review intake and structure proposals before reconciliation, and preserve source-specific context for repeat use.
 **FRs covered:** FR7, FR8, FR12, FR13, FR14, FR15, FR16, FR17, FR18, FR19
 
 ### Epic 3: Reconcile and Approve Ledger Changes Safely
@@ -351,22 +351,23 @@ So that account creation happens principally from real imported account evidence
 **Then** the system can create a new ledger baseline or extend the existing ledger from that imported account data
 **And** standalone account creation is not required for the normal first-seen account path
 
-### Story 2.3: Review import results before accepting transactions and structure changes
+### Story 2.3: Review normalized import results and first-seen account proposals before reconciliation
 
 As a trust-conscious user,
-I want to review proposed imported transactions and structure changes before acceptance,
-So that I stay in control of what enters the ledger.
+I want to review normalized import results and first-seen account proposals before reconciliation,
+So that I stay in control of what enters the posting workflow and ledger plan.
 
 **Acceptance Criteria:**
 
-**Given** a completed import run with proposed transactions or account additions
+**Given** a completed import run with normalized statement records and proposed account additions
 **When** the system presents the import result
-**Then** the user can review the proposed ledger effects before acceptance
-**And** the review surface distinguishes transaction additions from structure changes such as first-seen account proposals
+**Then** the user can review the normalized intake result before any candidate ledger postings are generated
+**And** the review surface distinguishes parsed transaction records from structure changes such as first-seen account proposals
+**And** the workflow makes clear that transaction-to-posting conversion happens in the later reconciliation stage
 
 **Given** an import result contains issues, uncertainty, or low-confidence proposals
 **When** the user reviews the result
-**Then** the workflow surfaces those concerns clearly before anything is committed
+**Then** the workflow surfaces those concerns clearly before reconciliation or ledger mutation proceeds
 **And** the user can reject or defer acceptance without corrupting existing ledger state
 
 ### Story 2.4: Persist source-specific import context for repeated imports
@@ -391,15 +392,15 @@ So that repeated imports from the same or similar sources require less setup ove
 
 Users can turn imported data into trustworthy ledger updates by mapping transactions, handling transfers and duplicates, resolving ambiguity, validating results, reviewing diffs, and rolling back when needed.
 
-### Story 3.1: Map imported transactions into candidate ledger postings
+### Story 3.1: Transform normalized import results into candidate ledger postings
 
 As a user importing real financial activity,
-I want imported transactions mapped into candidate ledger postings,
-So that raw statement data can be turned into reviewable accounting changes.
+I want normalized imported transactions transformed into candidate ledger postings,
+So that reviewed statement data can be turned into reviewable accounting changes.
 
 **Acceptance Criteria:**
 
-**Given** normalized imported transactions and an existing ledger context
+**Given** normalized imported transactions that have passed the Epic 2 import review and an existing ledger context
 **When** the reconciliation workflow runs
 **Then** the system produces candidate ledger postings mapped to appropriate ledger accounts
 **And** the result remains a proposal until later review and approval steps complete
