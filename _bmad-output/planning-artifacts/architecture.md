@@ -35,7 +35,7 @@ Environment and setup requirements establish a bootstrap path for a supported ma
 
 Ledger creation and structure management requirements establish that the system must create new ledgers, extend existing ledgers, propose structural changes, and require approval before risky structural edits. This implies a ledger-structure service with explicit review and authorization boundaries rather than unconstrained agent mutation.
 
-Statement import and normalization requirements define a multi-format ingestion pipeline for PDF, CSV, and Excel sources, with support for both importing into existing ledgers and generating starting structure from imported data. This implies format-specific ingestion adapters feeding a normalized transaction model before ledger posting decisions are made.
+Statement import and normalization requirements define a multi-format ingestion pipeline for PDF, CSV, TSV, and Excel sources, with support for both importing into existing ledgers and generating starting structure from imported data. Document parsing itself should be delegated to installed Codex document skills/plugins where practical, beginning with the OpenAI curated `pdf` skill for PDFs and `spreadsheet` skill for CSV/TSV/Excel files. auto-bean owns the orchestration workflow, local dependency readiness, normalized parse-output contract, and ledger safety boundaries; it should not own bespoke PDF or spreadsheet parser implementations unless the product is explicitly re-scoped later.
 
 Transaction interpretation and reconciliation requirements establish account mapping, transfer detection, duplicate detection, unbalanced-state identification, clarification loops, and reuse of corrected interpretations. Architecturally, this is a decisioning and reconciliation layer that must operate conservatively and surface uncertainty explicitly.
 
@@ -66,7 +66,7 @@ This project is high complexity despite being single-user and local-first. Compl
 The most likely major subsystems are:
 1. agent workflow orchestration
 2. environment/bootstrap management
-3. import adapters and normalization
+3. document-skill-driven statement parsing and normalization
 4. reconciliation and interpretation engine
 5. ledger mutation and structure management
 6. validation/review/safety controls
@@ -81,7 +81,7 @@ Known constraints and dependencies from the PRD and briefs include:
 - Codex skills are the primary user interface
 - Beancount and Fava are required local dependencies
 - git-backed branching, diffing, and rollback are core workflow dependencies
-- statement ingestion must support PDF, CSV, and Excel inputs
+- statement ingestion must support PDF, CSV, TSV, and Excel inputs through installed document skills/plugins where practical
 - external price data sources are needed for currencies, equities, and crypto
 - the system must preserve a clean separation between stable user-owned assets and evolving tool logic
 - risky edits and structural changes require explicit user approval
@@ -213,7 +213,7 @@ Fast project bootstrap, simple dependency installation, lockfile support, and a 
 ### Data Architecture
 
 **Canonical Data Model:**
-The canonical source of truth is the user's ledger repository: Beancount files, configuration files, import artifacts, and governed memory files. This matches the local-first trust model and keeps all meaningful financial state inspectable in ordinary files.
+The canonical source of truth is the user's ledger repository: Beancount files, configuration files, raw statements, parsed statement outputs, and governed memory files. This matches the local-first trust model and keeps all meaningful financial state inspectable in ordinary files.
 
 **Operational Memory Strategy:**
 Operational memory will be file-only in MVP. This should cover:
@@ -226,8 +226,8 @@ Operational memory will be file-only in MVP. This should cover:
 The memory layer should be designed behind an internal abstraction so implementation code depends on a memory service contract, not directly on flat files. That preserves a clean migration path to PostgreSQL plus vector retrieval in V2 if memory volume, semantic lookup, or ranking quality outgrow file-based retrieval.
 
 **Data Validation Strategy:**
-Use Pydantic v2 models for typed validation at system boundaries:
-- normalized import records
+Use Pydantic v2 models for typed validation at system boundaries where Python support code owns the contract. For parsing-first workflows, a small JSON schema or documented `statements/parsed/` contract may be sufficient if the curated document skills produce the records:
+- normalized parsed statement records
 - reconciliation candidates
 - memory records
 - workflow command inputs/outputs
@@ -268,8 +268,6 @@ Security in MVP is primarily about preventing unsafe actions, silent corruption,
 **External API Strategy:**
 No public REST or GraphQL API in MVP.
 
-**Internal Communication Pattern:**
-Use internal Python service boundaries with typed request/response models. CLI commands and agent skills should call application services, not manipulate ledger files directly.
 
 **Error Handling Standard:**
 Use structured domain errors with user-safe explanations and machine-readable failure categories. Distinguish clearly between:
@@ -314,21 +312,11 @@ Use `.env`-style local configuration only for non-sensitive development settings
 **Monitoring and Logging:**
 Use structured local logging for workflow traces, validation outcomes, import decisions, and recovery diagnostics. Logging should aid trust and troubleshooting, not just debugging.
 
-Workflow runs should emit governed artifacts under the local artifacts tree so review, validation, and troubleshooting evidence remain inspectable after the command exits.
+Statement parse outputs are the exception: normalized parse results derived from raw statements live under `statements/parsed/`, while `.auto-bean/artifacts/` remains for diagnostics, diffs, validation reports, and run traces.
 
 **Scaling Strategy:**
 Defer scale-out architecture. MVP should scale by keeping workflows modular and deterministic, not by introducing services or distributed infrastructure.
 
-### Workflow Verification & Observability Contract
-
-Trust-sensitive workflows must share one verification contract across bootstrap, import, reconciliation, memory updates, and troubleshooting:
-- every workflow run gets a stable `run_id`
-- stage transitions are logged with structured event records
-- validation output is persisted as an inspectable artifact for any ledger-changing or readiness-significant run
-- deterministic smoke tests cover the standard happy path plus at least one blocked or validation-failure path
-- CI must fail if core workflow contracts, result schemas, or deterministic smoke tests regress
-
-This contract keeps cross-cutting readiness requirements visible in implementation instead of relying on convention.
 
 ### Decision Impact Analysis
 
@@ -338,7 +326,7 @@ This contract keeps cross-cutting readiness requirements visible in implementati
 3. define core typed domain models and service boundaries
 4. implement file-backed memory store abstraction
 5. implement ledger mutation planning and validation pipeline
-6. implement import normalization adapters
+6. implement statement import orchestration that installs/uses curated document skills and writes normalized outputs under `statements/parsed/`
 7. implement reconciliation and approval workflows
 8. wire CLI/skill orchestration to service layer
 
@@ -395,13 +383,6 @@ Examples:
 **Project Organization:**
 Organize by technical layer with strong domain boundaries, not by ad hoc utility growth.
 
-Recommended pattern:
-- `src/auto_bean/cli/` for command entrypoints only
-- `src/auto_bean/application/` for workflow services and orchestration
-- `src/auto_bean/domain/` for core models, policies, and domain errors
-- `src/auto_bean/infrastructure/` for filesystem, git, Beancount, Fava, and external adapter integrations
-- `src/auto_bean/memory/` for memory schemas and file-backed persistence
-- `tests/` for top-level test suites grouped by layer or workflow
 
 Rules:
 - CLI code may parse input and render output, but must not implement business logic
@@ -411,7 +392,8 @@ Rules:
 
 **File Structure Patterns:**
 - memory files live under one governed directory tree, for example `.auto-bean/memory/`
-- import artifacts live under one governed artifacts tree, separate from source ledger files
+- raw source statements live under `statements/raw/` and normalized parsed statement outputs live under `statements/parsed/`
+- review, validation, and troubleshooting artifacts live under one governed artifacts tree, separate from source ledger files
 - generated review artifacts must never be mixed into domain source modules
 - documentation about workflow contracts belongs in `docs/` or planning artifacts, not inline in random modules
 
@@ -537,7 +519,8 @@ No agent may skip directly from parsed input to file mutation.
 ### Pattern Examples
 
 **Good Examples:**
-- `src/auto_bean/application/import_service.py`
+- `skill_sources/auto-bean-import/SKILL.md` delegating PDF parsing to the installed curated `pdf` skill
+- `statements/parsed/<parse_run_id>-<source-stem>.json`
 - `src/auto_bean/memory/file_memory_store.py`
 - `build_mutation_plan(request: ImportRequest) -> MutationPlanResult`
 - memory file path like `.auto-bean/memory/import_mappings/wise.yaml`
@@ -545,6 +528,8 @@ No agent may skip directly from parsed input to file mutation.
 
 **Anti-Patterns:**
 - CLI command directly opening ledger files and writing changes
+- auto-bean implementing custom PDF/XLSX parsing when installed curated document skills are available
+- storing normalized statement parse results under `.auto-bean/artifacts/` instead of `statements/parsed/`
 - mixed naming styles like `importRunId` inside Python domain models
 - unversioned ad hoc memory JSON blobs spread across the repo
 - returning bare dictionaries with inconsistent keys per command
@@ -588,15 +573,6 @@ auto-bean/
 ├── .github/
 │   └── workflows/
 │       └── ci.yml
-├── docs/
-│   ├── quickstart.md
-│   ├── architecture-overview.md
-│   ├── ledger-concepts.md
-│   ├── import-guides/
-│   │   ├── pdf.md
-│   │   ├── csv.md
-│   │   └── excel.md
-│   └── memory-model.md
 ├── skill_sources/
 │   ├── auto-bean-init/
 │   │   └── scripts/
@@ -620,6 +596,8 @@ auto-bean/
 │   ├── ledger.beancount
 │   ├── beancount/
 │   ├── statements/
+│   │   ├── raw/
+│   │   └── parsed/
 │   ├── docs/
 │   ├── .agents/
 │   │   └── plugins/
@@ -635,9 +613,6 @@ auto-bean/
 ├── scripts/
 │   ├── bootstrap.sh
 │   ├── run_fava.sh
-│   ├── import_csv.py
-│   ├── import_excel.py
-│   ├── import_pdf.py
 │   ├── validate_ledger.py
 │   ├── generate_diff.py
 │   └── write_memory.py
@@ -661,8 +636,7 @@ Rules:
 **Application Code Boundaries:**
 Python code exists to support authored skill workflows, not replace them.
 - `skill_sources/` owns authored workflow behavior
-- `src/auto_bean/application/` owns reusable services
-- `src/auto_bean/infrastructure/` owns side effects and integrations
+- `src/auto_bean/ reusable cli and application services that support skill workflows without defining them
 - `skill_sources/**/scripts/` owns skill-local helper executables
 - top-level `scripts/` owns packaging, validation, and development helpers for the product repo
 
@@ -717,7 +691,10 @@ The mappings below describe the runtime workspace. In the product repo, the auth
 - statement import:
   - `.agents/skills/auto-bean-import/`
   - `.agents/skills/auto-bean-import/scripts/`
-  - installed auto-bean import and importer services
+  - installed curated `pdf` skill/plugin for PDF parsing
+  - installed curated `spreadsheet` skill/plugin for CSV/TSV/Excel parsing
+  - workspace-local document parsing dependencies
+  - normalized parse outputs under `statements/parsed/`
 - review, approval, rollback:
   - `.agents/skills/auto-bean-apply/`
   - `.agents/skills/auto-bean-recover/`
@@ -765,12 +742,13 @@ Primary flow:
 **External Integrations:**
 - Beancount and Fava via infrastructure adapters or scripts
 - git via infrastructure/git
-- statement parsing helpers via scripts and importer adapters
+- statement parsing via installed curated Codex document skills/plugins, initially `pdf` and `spreadsheet`
 - price lookup via infrastructure/pricing
 
 **Data Flow:**
-- source statements enter through importer adapters
-- normalized transactions flow into reconciliation services
+- source statements are preserved under `statements/raw/`
+- installed document skills parse source statements into normalized files under `statements/parsed/`
+- normalized parsed statement records flow into account proposal, review, and reconciliation services in later workflow stages
 - mutation plans flow into validation and review
 - approved plans flow into ledger writer + git review pipeline
 - learned outcomes flow into governed memory files through approved memory update paths
@@ -819,7 +797,8 @@ my-ledger/
 │   ├── prices/
 │   └── config/
 ├── statements/
-│   └── raw/
+│   ├── raw/
+│   └── parsed/
 ├── docs/
 └── .auto-bean/
     ├── memory/
@@ -834,6 +813,7 @@ Rules:
 - `.agents/skills/**/scripts/` contains skill-local helper scripts usable by that installed skill
 - `beancount/` contains canonical ledger sources
 - `statements/raw/` contains source statements and should not be rewritten
+- `statements/parsed/` contains normalized parse outputs produced from raw statements by installed document skills/plugins
 - `.auto-bean/memory/` contains durable operational memory
 - `.auto-bean/proposals/` contains reviewable proposed changes
 - `.auto-bean/artifacts/` contains diffs, validation reports, and run traces
@@ -845,13 +825,15 @@ Operating model:
 - `ledger.beancount` is the stable entrypoint for Fava and validation
 - account definitions stay separate from journals for cleaner review
 - raw statements remain preserved for auditability and re-import
-- all auto-bean-owned runtime state stays under `.auto-bean/`
+- parsed statement outputs remain inspectable and versionable without being treated as accepted ledger mutations
+- auto-bean-owned runtime state stays under `.auto-bean/`, except normalized statement parse outputs, which live under `statements/parsed/` as statement-derived data
 
 Authority boundaries:
 - installed `.agents/skills/**` may be changed by upgrade workflows, not routine ledger workflows
 - only approved apply/recovery paths may modify `beancount/**`
 - only the memory skill may modify `.auto-bean/memory/**`
-- import workflows may write `.auto-bean/proposals/**` and `.auto-bean/artifacts/**`
+- import parsing workflows may write `statements/parsed/**`
+- import review and mutation-planning workflows may write `.auto-bean/proposals/**` and `.auto-bean/artifacts/**`
 - query workflows are read-only across the repo
 
 ### File Organization Patterns
@@ -903,7 +885,7 @@ The architecture is coherent. The technology choices, workflow model, and trust 
 The patterns support the decisions well. Naming conventions, result envelopes, mutation pipeline rules, and authority boundaries all reinforce the CLI-and-skill model. The distinction between proposal-producing skills and mutation-authority skills is consistent across decisions, patterns, and structure.
 
 **Structure Alignment:**
-The structure supports the architecture. Skill directories own user-facing behavior, shared markdown files own cross-cutting policy, Python application code supports reusable execution logic, and governed local state is clearly separated into ledger files, memory files, and workflow artifacts.
+The structure supports the architecture. Skill directories own user-facing behavior, shared markdown files own cross-cutting policy, Python application code supports reusable execution logic, and governed local state is clearly separated into ledger files, raw statements, parsed statement outputs, memory files, and workflow artifacts.
 
 ### Requirements Coverage Validation ✅
 
