@@ -21,7 +21,7 @@ from auto_bean.init import (
     build_init_service,
 )
 
-_INIT_STAGE_TOTAL = 11
+_INIT_STAGE_TOTAL = 12
 _STATUS_STYLES = {
     CheckStatus.PASS: "green",
     CheckStatus.FAIL: "red",

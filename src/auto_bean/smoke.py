@@ -51,6 +51,7 @@ class _FakeCommandRunner:
             (cwd / ".venv" / "bin").mkdir(parents=True, exist_ok=True)
             (cwd / ".venv" / "bin" / "bean-check").write_text("", encoding="utf-8")
             (cwd / ".venv" / "bin" / "fava").write_text("", encoding="utf-8")
+            (cwd / ".venv" / "bin" / "docling").write_text("", encoding="utf-8")
         return self.responses.get(command, CommandResult(returncode=0))
 
 
@@ -82,6 +83,8 @@ def run_smoke_checks() -> int:
         skill_sources_root = repo_root / "skill_sources"
         (skill_sources_root / "auto-bean-apply" / "scripts").mkdir(parents=True)
         (skill_sources_root / "auto-bean-apply" / "agents").mkdir(parents=True)
+        (skill_sources_root / "auto-bean-import" / "agents").mkdir(parents=True)
+        (skill_sources_root / "auto-bean-import" / "references").mkdir(parents=True)
         (skill_sources_root / "shared").mkdir(parents=True)
         (skill_sources_root / "auto-bean-apply" / "SKILL.md").write_text(
             "# Apply\n",
@@ -89,6 +92,32 @@ def run_smoke_checks() -> int:
         )
         (skill_sources_root / "auto-bean-apply" / "agents" / "openai.yaml").write_text(
             'interface:\n  display_name: "Apply"\n  short_description: "Apply changes"\n  default_prompt: "Use $auto-bean-apply."\n',
+            encoding="utf-8",
+        )
+        (skill_sources_root / "auto-bean-import" / "SKILL.md").write_text(
+            "# Import\n",
+            encoding="utf-8",
+        )
+        (skill_sources_root / "auto-bean-import" / "agents" / "openai.yaml").write_text(
+            'interface:\n  display_name: "Import"\n  short_description: "Import statements"\n  default_prompt: "Use $auto-bean-import."\n',
+            encoding="utf-8",
+        )
+        (
+            skill_sources_root
+            / "auto-bean-import"
+            / "references"
+            / "parsed-statement-output.example.json"
+        ).write_text(
+            '{"parse_run_id": "demo", "source_file": "statements/raw/demo.pdf", "source_fingerprint": "sha256:demo", "source_format": "pdf", "parser": {"name": "docling"}, "parse_status": "parsed", "parsed_at": "2026-04-11T09:00:00Z", "warnings": [], "blocking_issues": [], "extracted_records": []}\n',
+            encoding="utf-8",
+        )
+        (
+            skill_sources_root
+            / "auto-bean-import"
+            / "references"
+            / "import-status.example.yml"
+        ).write_text(
+            "version: 1\nstatements: {}\n",
             encoding="utf-8",
         )
         (skill_sources_root / "shared" / "mutation-pipeline.md").write_text(
@@ -103,6 +132,7 @@ def run_smoke_checks() -> int:
         (template_root / "beancount").mkdir(parents=True)
         (template_root / "docs").mkdir(parents=True)
         (template_root / "statements" / "raw").mkdir(parents=True)
+        (template_root / "statements" / "parsed").mkdir(parents=True)
         (template_root / ".auto-bean" / "artifacts").mkdir(parents=True)
         (template_root / ".auto-bean" / "proposals").mkdir(parents=True)
         (template_root / ".agents").mkdir(parents=True)
@@ -116,6 +146,14 @@ def run_smoke_checks() -> int:
             encoding="utf-8",
         )
         (template_root / "docs" / "README.md").write_text("# Docs\n", encoding="utf-8")
+        (template_root / "statements" / "parsed" / ".gitkeep").write_text(
+            "",
+            encoding="utf-8",
+        )
+        (template_root / "statements" / "import-status.yml").write_text(
+            "version: 1\nstatements: {}\n",
+            encoding="utf-8",
+        )
         project_name = f"demo-ledger-{repo_root.name}"
 
         cases = (

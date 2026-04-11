@@ -8,7 +8,7 @@ Right now this repository gives you a supported first session for:
 - creating a separate runtime ledger workspace
 - validating `ledger.beancount`
 - inspecting that ledger in Fava
-- understanding where later statement-import work will enter the workflow
+- normalizing supported statement files into inspectable parsed outputs through a workspace skill
 
 It does not expose a public SDK or external API today. The stable user interface is the coding-agent workflow inside the generated workspace.
 
@@ -49,12 +49,15 @@ On success, `auto-bean` creates a separate runtime Git repository with:
 - `.auto-bean/` for governed runtime artifacts and proposal state
 - `.agents/skills/` for installed runtime skills
 - `AGENTS.md` for workspace operating guidance
-- a workspace-local `.venv` with `beancount` and `fava`
+- a workspace-local `.venv` with `beancount`, `fava`, and `docling`
 - `scripts/validate-ledger.sh` and `scripts/open-fava.sh`
+- `statements/parsed/` for normalized statement parse outputs
+- `statements/import-status.yml` for durable statement parse state
 
 This matters operationally: the product repo is where `auto-bean` is authored, while the generated workspace is where your live ledger, statements, and governed runtime state live.
 
 If `uv` is missing or the machine is unsupported, `auto-bean init` fails immediately with structured remediation details instead of sending you through a separate readiness command.
+If the workspace-local Docling CLI cannot be installed or is not runnable, `auto-bean init` also fails closed instead of claiming statement intake is ready.
 
 ### 3. Move into the workspace and validate the ledger
 
@@ -96,26 +99,44 @@ For trust-sensitive structural ledger changes, use the installed runtime skill u
 
 That runtime skill is materialized into the workspace during `auto-bean init`. In this product repo, the authored source of truth for that behavior lives under `skill_sources/`.
 
-### 6. Understand what comes next
+### 6. Normalize statements through the installed import skill
 
-The next major operating path is statement import, but it is not exposed as a public SDK or finished import command yet.
+Statement intake is now a supported skill-driven workflow inside the generated workspace.
+
+Use the installed runtime skill under:
+
+```text
+.agents/skills/auto-bean-import/
+```
+
+That workflow uses the workspace-local Docling CLI to normalize supported `PDF`, `CSV`, and Excel statement files from `statements/raw/` into inspectable JSON outputs under `statements/parsed/`, while keeping the ledger untouched.
+
+The durable boundaries for this workflow are:
+
+- `statements/raw/`: raw source statements
+- `statements/parsed/`: normalized parse outputs only
+- `statements/import-status.yml`: parse-state index for new, stale, blocked, failed, or parsed files
+- `.agents/skills/auto-bean-import/`: installed runtime skill for statement intake orchestration
+
+Story 2.1 intentionally stops at normalized files and parse diagnostics. It does not create account proposals, reconciliation results, memory, or ledger mutations.
 
 The boundaries that matter now are:
 
 - `ledger.beancount`: stable ledger entrypoint
 - `beancount/`: included ledger files
-- `statements/raw/`: where raw statement files will land
+- `statements/raw/`: where raw statement files land
+- `statements/parsed/`: where normalized parse outputs are written
+- `statements/import-status.yml`: where parse-state tracking lives
 - `.auto-bean/`: governed runtime artifacts and workflow state
 - `.agents/skills/auto-bean-apply/`: installed skill for reviewed structural edits
-
-Later stories will add the normalized import and review workflows that begin from `statements/raw/`. This README intentionally does not document commands or skills that do not exist yet.
+- `.agents/skills/auto-bean-import/`: installed skill for Docling-driven statement normalization
 
 ## Failure and remediation behavior
 
 - If `uv` is missing, `auto-bean init <PROJECT-NAME>` fails with installation guidance.
 - If the machine is not macOS, the workflow fails closed rather than pretending partial support exists.
 - `auto-bean init <PROJECT-NAME>` fails closed when the project name is unsafe, the destination already exists and is non-empty, the workspace template is incomplete, or the requested coding agent is unsupported.
-- `auto-bean init <PROJECT-NAME>` validates the generated `ledger.beancount` and checks that Fava is runnable before it reports success.
+- `auto-bean init <PROJECT-NAME>` validates the generated `ledger.beancount` and checks that both Fava and Docling are runnable before it reports success.
 - `auto-bean init <PROJECT-NAME>` fails if the authored skill sources needed for runtime installation are missing.
 
 ## Repo boundaries

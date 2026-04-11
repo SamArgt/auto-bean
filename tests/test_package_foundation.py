@@ -32,6 +32,7 @@ def test_resource_assets_exist_under_repo_roots() -> None:
     repo_root = Path(__file__).resolve().parents[1]
 
     assert repo_root.joinpath("skill_sources", "auto-bean-apply", "SKILL.md").is_file()
+    assert repo_root.joinpath("skill_sources", "auto-bean-import", "SKILL.md").is_file()
     assert repo_root.joinpath(
         "skill_sources", "shared", "mutation-pipeline.md"
     ).is_file()
@@ -75,7 +76,79 @@ class FakeCommandRunner:
             (cwd / ".venv" / "bin").mkdir(parents=True, exist_ok=True)
             (cwd / ".venv" / "bin" / "bean-check").write_text("", encoding="utf-8")
             (cwd / ".venv" / "bin" / "fava").write_text("", encoding="utf-8")
+            (cwd / ".venv" / "bin" / "docling").write_text("", encoding="utf-8")
         return self.responses.get(tuple(args), CommandResult(returncode=0))
+
+
+def seed_story_2_1_assets(tmp_path: Path) -> None:
+    template_root = tmp_path / "workspace_template"
+    (template_root / "beancount").mkdir(parents=True)
+    (template_root / ".agents").mkdir(parents=True)
+    (template_root / "statements" / "raw").mkdir(parents=True)
+    (template_root / "statements" / "parsed").mkdir(parents=True)
+    (template_root / ".auto-bean" / "artifacts").mkdir(parents=True)
+    (template_root / ".auto-bean" / "proposals").mkdir(parents=True)
+    (template_root / "AGENTS.md").write_text("# Agents\n", encoding="utf-8")
+    (template_root / "ledger.beancount").write_text(
+        'option "title" "Test Ledger"\ninclude "beancount/opening-balances.beancount"\n',
+        encoding="utf-8",
+    )
+    (template_root / "beancount" / "opening-balances.beancount").write_text(
+        "1970-01-01 open Assets:Checking EUR\n1970-01-01 open Equity:Opening-Balances EUR\n",
+        encoding="utf-8",
+    )
+    (template_root / "statements" / "parsed" / ".gitkeep").write_text(
+        "", encoding="utf-8"
+    )
+    (template_root / "statements" / "import-status.yml").write_text(
+        "version: 1\nstatements: {}\n",
+        encoding="utf-8",
+    )
+
+    skill_sources_root = tmp_path / "skill_sources"
+    (skill_sources_root / "auto-bean-apply" / "scripts").mkdir(parents=True)
+    (skill_sources_root / "auto-bean-apply" / "agents").mkdir(parents=True)
+    (skill_sources_root / "auto-bean-import" / "agents").mkdir(parents=True)
+    (skill_sources_root / "auto-bean-import" / "references").mkdir(parents=True)
+    (skill_sources_root / "shared").mkdir(parents=True)
+    (skill_sources_root / "auto-bean-apply" / "SKILL.md").write_text(
+        "# Apply\n", encoding="utf-8"
+    )
+    (skill_sources_root / "auto-bean-apply" / "agents" / "openai.yaml").write_text(
+        'interface:\n  display_name: "Apply"\n  short_description: "Apply changes"\n  default_prompt: "Use $auto-bean-apply."\n',
+        encoding="utf-8",
+    )
+    (skill_sources_root / "auto-bean-import" / "SKILL.md").write_text(
+        "# Import\n", encoding="utf-8"
+    )
+    (skill_sources_root / "auto-bean-import" / "agents" / "openai.yaml").write_text(
+        'interface:\n  display_name: "Import"\n  short_description: "Import statements"\n  default_prompt: "Use $auto-bean-import."\n',
+        encoding="utf-8",
+    )
+    (
+        skill_sources_root
+        / "auto-bean-import"
+        / "references"
+        / "parsed-statement-output.example.json"
+    ).write_text(
+        '{"parse_run_id": "demo", "source_file": "statements/raw/demo.pdf", "source_fingerprint": "sha256:demo", "source_format": "pdf", "parser": {"name": "docling"}, "parse_status": "parsed", "parsed_at": "2026-04-11T09:00:00Z", "warnings": [], "blocking_issues": [], "extracted_records": []}\n',
+        encoding="utf-8",
+    )
+    (
+        skill_sources_root
+        / "auto-bean-import"
+        / "references"
+        / "import-status.example.yml"
+    ).write_text(
+        "version: 1\nstatements: {}\n",
+        encoding="utf-8",
+    )
+    (skill_sources_root / "shared" / "mutation-pipeline.md").write_text(
+        "# Pipeline\n", encoding="utf-8"
+    )
+    (skill_sources_root / "shared" / "mutation-authority-matrix.md").write_text(
+        "# Authority\n", encoding="utf-8"
+    )
 
 
 def make_service(
@@ -137,38 +210,7 @@ def test_init_fails_on_unsupported_os(tmp_path: Path) -> None:
 
 
 def test_init_reports_missing_uv_prerequisite(tmp_path: Path) -> None:
-    template_root = tmp_path / "workspace_template"
-    (template_root / "beancount").mkdir(parents=True)
-    (template_root / ".agents").mkdir(parents=True)
-    (template_root / "statements" / "raw").mkdir(parents=True)
-    (template_root / ".auto-bean" / "artifacts").mkdir(parents=True)
-    (template_root / ".auto-bean" / "proposals").mkdir(parents=True)
-    (template_root / "AGENTS.md").write_text("# Agents\n", encoding="utf-8")
-    (template_root / "ledger.beancount").write_text(
-        'option "title" "Test Ledger"\ninclude "beancount/opening-balances.beancount"\n',
-        encoding="utf-8",
-    )
-    (template_root / "beancount" / "opening-balances.beancount").write_text(
-        "1970-01-01 open Assets:Checking EUR\n1970-01-01 open Equity:Opening-Balances EUR\n",
-        encoding="utf-8",
-    )
-    skill_sources_root = tmp_path / "skill_sources"
-    (skill_sources_root / "auto-bean-apply" / "scripts").mkdir(parents=True)
-    (skill_sources_root / "auto-bean-apply" / "agents").mkdir(parents=True)
-    (skill_sources_root / "shared").mkdir(parents=True)
-    (skill_sources_root / "auto-bean-apply" / "SKILL.md").write_text(
-        "# Apply\n", encoding="utf-8"
-    )
-    (skill_sources_root / "auto-bean-apply" / "agents" / "openai.yaml").write_text(
-        'interface:\n  display_name: "Apply"\n  short_description: "Apply changes"\n  default_prompt: "Use $auto-bean-apply."\n',
-        encoding="utf-8",
-    )
-    (skill_sources_root / "shared" / "mutation-pipeline.md").write_text(
-        "# Pipeline\n", encoding="utf-8"
-    )
-    (skill_sources_root / "shared" / "mutation-authority-matrix.md").write_text(
-        "# Authority\n", encoding="utf-8"
-    )
+    seed_story_2_1_assets(tmp_path)
     service = make_service(tmp_path, tools={})
 
     result = service.init("demo-ledger")
@@ -182,38 +224,7 @@ def test_init_reports_missing_uv_prerequisite(tmp_path: Path) -> None:
 
 def test_init_is_reserved_for_later_workspace_story(tmp_path: Path) -> None:
     project_name = f"demo-ledger-{tmp_path.name[-6:]}"
-    template_root = tmp_path / "workspace_template"
-    (template_root / "beancount").mkdir(parents=True)
-    (template_root / ".agents").mkdir(parents=True)
-    (template_root / "statements" / "raw").mkdir(parents=True)
-    (template_root / ".auto-bean" / "artifacts").mkdir(parents=True)
-    (template_root / ".auto-bean" / "proposals").mkdir(parents=True)
-    (template_root / "AGENTS.md").write_text("# Agents\n", encoding="utf-8")
-    (template_root / "ledger.beancount").write_text(
-        'option "title" "Test Ledger"\ninclude "beancount/opening-balances.beancount"\n',
-        encoding="utf-8",
-    )
-    (template_root / "beancount" / "opening-balances.beancount").write_text(
-        "1970-01-01 open Assets:Checking EUR\n1970-01-01 open Equity:Opening-Balances EUR\n",
-        encoding="utf-8",
-    )
-    skill_sources_root = tmp_path / "skill_sources"
-    (skill_sources_root / "auto-bean-apply" / "scripts").mkdir(parents=True)
-    (skill_sources_root / "auto-bean-apply" / "agents").mkdir(parents=True)
-    (skill_sources_root / "shared").mkdir(parents=True)
-    (skill_sources_root / "auto-bean-apply" / "SKILL.md").write_text(
-        "# Apply\n", encoding="utf-8"
-    )
-    (skill_sources_root / "auto-bean-apply" / "agents" / "openai.yaml").write_text(
-        'interface:\n  display_name: "Apply"\n  short_description: "Apply changes"\n  default_prompt: "Use $auto-bean-apply."\n',
-        encoding="utf-8",
-    )
-    (skill_sources_root / "shared" / "mutation-pipeline.md").write_text(
-        "# Pipeline\n", encoding="utf-8"
-    )
-    (skill_sources_root / "shared" / "mutation-authority-matrix.md").write_text(
-        "# Authority\n", encoding="utf-8"
-    )
+    seed_story_2_1_assets(tmp_path)
     service = make_service(tmp_path)
 
     result = service.init(project_name)

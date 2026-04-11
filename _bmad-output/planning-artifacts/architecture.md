@@ -31,11 +31,11 @@ _This document builds collaboratively through step-by-step discovery. Sections a
 **Functional Requirements:**
 The PRD defines 53 functional requirements across the full lifecycle of a local-first, agent-operated Beancount system. Architecturally, they cluster into nine capability areas.
 
-Environment and setup requirements establish a bootstrap path for a supported macOS environment, local dependency installation, workspace initialization, readiness verification, and quickstart guidance. These imply a setup/orchestration layer with environment checks, install tasks, and repeatable initialization flows.
+Environment and setup requirements establish a bootstrap path for a supported macOS environment, local dependency installation, workspace initialization, readiness verification, and quickstart guidance. These imply a setup/orchestration layer with environment checks, install tasks, and repeatable initialization flows. That bootstrap path should install Docling CLI during workspace initialization so statement import is provisioned before the first intake run.
 
 Ledger creation and structure management requirements establish that the system must create new ledgers, extend existing ledgers, propose structural changes, and require approval before risky structural edits. This implies a ledger-structure service with explicit review and authorization boundaries rather than unconstrained agent mutation.
 
-Statement import and normalization requirements define a multi-format ingestion pipeline for PDF, CSV, TSV, and Excel sources, with support for both importing into existing ledgers and generating starting structure from imported data. Document parsing itself should be delegated to installed Codex document skills/plugins where practical, beginning with the OpenAI curated `pdf` skill for PDFs and `spreadsheet` skill for CSV/TSV/Excel files. auto-bean owns the orchestration workflow, local dependency readiness, normalized parse-output contract, and ledger safety boundaries; it should not own bespoke PDF or spreadsheet parser implementations unless the product is explicitly re-scoped later.
+Statement import and normalization requirements define a multi-format ingestion pipeline for PDF, CSV, TSV, and Excel sources, with support for both importing into existing ledgers and generating starting structure from imported data. Document parsing itself should be delegated to the local Docling CLI where practical, using Docling's supported conversion formats to produce intermediate structured output for downstream normalization. auto-bean owns the orchestration workflow, local dependency readiness, normalized parse-output contract, and ledger safety boundaries; it should not own bespoke PDF or spreadsheet parser implementations unless the product is explicitly re-scoped later.
 
 Transaction interpretation and reconciliation requirements establish account mapping, transfer detection, duplicate detection, unbalanced-state identification, clarification loops, and reuse of corrected interpretations. Architecturally, this is a decisioning and reconciliation layer that must operate conservatively and surface uncertainty explicitly.
 
@@ -66,7 +66,7 @@ This project is high complexity despite being single-user and local-first. Compl
 The most likely major subsystems are:
 1. agent workflow orchestration
 2. environment/bootstrap management
-3. document-skill-driven statement parsing and normalization
+3. Docling-driven statement parsing and normalization
 4. reconciliation and interpretation engine
 5. ledger mutation and structure management
 6. validation/review/safety controls
@@ -81,7 +81,7 @@ Known constraints and dependencies from the PRD and briefs include:
 - Codex skills are the primary user interface
 - Beancount and Fava are required local dependencies
 - git-backed branching, diffing, and rollback are core workflow dependencies
-- statement ingestion must support PDF, CSV, TSV, and Excel inputs through installed document skills/plugins where practical
+- statement ingestion must support PDF, CSV, TSV, and Excel inputs through the local Docling CLI where practical
 - external price data sources are needed for currencies, equities, and crypto
 - the system must preserve a clean separation between stable user-owned assets and evolving tool logic
 - risky edits and structural changes require explicit user approval
@@ -226,7 +226,7 @@ Operational memory will be file-only in MVP. This should cover:
 The memory layer should be designed behind an internal abstraction so implementation code depends on a memory service contract, not directly on flat files. That preserves a clean migration path to PostgreSQL plus vector retrieval in V2 if memory volume, semantic lookup, or ranking quality outgrow file-based retrieval.
 
 **Data Validation Strategy:**
-Use Pydantic v2 models for typed validation at system boundaries where Python support code owns the contract. For parsing-first workflows, a small JSON schema or documented `statements/parsed/` contract may be sufficient if the curated document skills produce the records:
+Use Pydantic v2 models for typed validation at system boundaries where Python support code owns the contract. For parsing-first workflows, a small JSON schema or documented `statements/parsed/` contract may be sufficient if Docling CLI conversion produces the records:
 - normalized parsed statement records
 - reconciliation candidates
 - memory records
@@ -326,7 +326,7 @@ Defer scale-out architecture. MVP should scale by keeping workflows modular and 
 3. define core typed domain models and service boundaries
 4. implement file-backed memory store abstraction
 5. implement ledger mutation planning and validation pipeline
-6. implement statement import orchestration that installs/uses curated document skills and writes normalized outputs under `statements/parsed/`
+6. implement statement import orchestration that installs/uses Docling CLI and writes normalized outputs under `statements/parsed/`
 7. implement reconciliation and approval workflows
 8. wire CLI/skill orchestration to service layer
 
@@ -519,7 +519,7 @@ No agent may skip directly from parsed input to file mutation.
 ### Pattern Examples
 
 **Good Examples:**
-- `skill_sources/auto-bean-import/SKILL.md` delegating PDF parsing to the installed curated `pdf` skill
+- `skill_sources/auto-bean-import/SKILL.md` coordinating Docling CLI conversion and normalized parse-output handling
 - `statements/parsed/<parse_run_id>-<source-stem>.json`
 - `src/auto_bean/memory/file_memory_store.py`
 - `build_mutation_plan(request: ImportRequest) -> MutationPlanResult`
@@ -528,7 +528,7 @@ No agent may skip directly from parsed input to file mutation.
 
 **Anti-Patterns:**
 - CLI command directly opening ledger files and writing changes
-- auto-bean implementing custom PDF/XLSX parsing when installed curated document skills are available
+- auto-bean implementing custom PDF/XLSX parsing when the local Docling CLI path is available
 - storing normalized statement parse results under `.auto-bean/artifacts/` instead of `statements/parsed/`
 - mixed naming styles like `importRunId` inside Python domain models
 - unversioned ad hoc memory JSON blobs spread across the repo
@@ -688,11 +688,11 @@ The mappings below describe the runtime workspace. In the product repo, the auth
   - `.agents/skills/auto-bean-init/`
   - `.agents/skills/auto-bean-init/scripts/`
   - installed auto-bean setup services
+  - workspace-local Docling CLI installation and readiness checks
 - statement import:
   - `.agents/skills/auto-bean-import/`
   - `.agents/skills/auto-bean-import/scripts/`
-  - installed curated `pdf` skill/plugin for PDF parsing
-  - installed curated `spreadsheet` skill/plugin for CSV/TSV/Excel parsing
+  - workspace-local Docling CLI for supported statement conversion
   - workspace-local document parsing dependencies
   - normalized parse outputs under `statements/parsed/`
 - review, approval, rollback:
@@ -742,12 +742,12 @@ Primary flow:
 **External Integrations:**
 - Beancount and Fava via infrastructure adapters or scripts
 - git via infrastructure/git
-- statement parsing via installed curated Codex document skills/plugins, initially `pdf` and `spreadsheet`
+- statement parsing via the local Docling CLI
 - price lookup via infrastructure/pricing
 
 **Data Flow:**
 - source statements are preserved under `statements/raw/`
-- installed document skills parse source statements into normalized files under `statements/parsed/`
+- the local Docling CLI converts source statements into structured output that the import workflow normalizes under `statements/parsed/`
 - normalized parsed statement records flow into account proposal, review, and reconciliation services in later workflow stages
 - mutation plans flow into validation and review
 - approved plans flow into ledger writer + git review pipeline
@@ -813,7 +813,7 @@ Rules:
 - `.agents/skills/**/scripts/` contains skill-local helper scripts usable by that installed skill
 - `beancount/` contains canonical ledger sources
 - `statements/raw/` contains source statements and should not be rewritten
-- `statements/parsed/` contains normalized parse outputs produced from raw statements by installed document skills/plugins
+- `statements/parsed/` contains normalized parse outputs produced from raw statements via the local Docling CLI path
 - `.auto-bean/memory/` contains durable operational memory
 - `.auto-bean/proposals/` contains reviewable proposed changes
 - `.auto-bean/artifacts/` contains diffs, validation reports, and run traces

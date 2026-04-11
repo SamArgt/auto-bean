@@ -55,6 +55,7 @@ class FakeCommandRunner:
             (cwd / ".venv" / "bin").mkdir(parents=True, exist_ok=True)
             (cwd / ".venv" / "bin" / "bean-check").write_text("", encoding="utf-8")
             (cwd / ".venv" / "bin" / "fava").write_text("", encoding="utf-8")
+            (cwd / ".venv" / "bin" / "docling").write_text("", encoding="utf-8")
         return self.responses.get(tuple(args), CommandResult(returncode=0))
 
 
@@ -63,6 +64,7 @@ def seed_workspace_template(repo_root: Path) -> None:
     (template_root / "beancount").mkdir(parents=True)
     (template_root / ".agents").mkdir(parents=True)
     (template_root / "statements" / "raw").mkdir(parents=True)
+    (template_root / "statements" / "parsed").mkdir(parents=True)
     (template_root / ".auto-bean" / "artifacts").mkdir(parents=True)
     (template_root / ".auto-bean" / "proposals").mkdir(parents=True)
     (template_root / "AGENTS.md").write_text("# Agents\n", encoding="utf-8")
@@ -81,16 +83,50 @@ def seed_workspace_template(repo_root: Path) -> None:
         "", encoding="utf-8"
     )
     (template_root / "statements" / "raw" / ".gitkeep").write_text("", encoding="utf-8")
+    (template_root / "statements" / "parsed" / ".gitkeep").write_text(
+        "", encoding="utf-8"
+    )
+    (template_root / "statements" / "import-status.yml").write_text(
+        "version: 1\nstatements: {}\n",
+        encoding="utf-8",
+    )
 
     skill_sources_root = repo_root / "skill_sources"
     (skill_sources_root / "auto-bean-apply" / "scripts").mkdir(parents=True)
     (skill_sources_root / "auto-bean-apply" / "agents").mkdir(parents=True)
+    (skill_sources_root / "auto-bean-import" / "agents").mkdir(parents=True)
+    (skill_sources_root / "auto-bean-import" / "references").mkdir(parents=True)
     (skill_sources_root / "shared").mkdir(parents=True)
     (skill_sources_root / "auto-bean-apply" / "SKILL.md").write_text(
         "# Apply\n", encoding="utf-8"
     )
     (skill_sources_root / "auto-bean-apply" / "agents" / "openai.yaml").write_text(
         'interface:\n  display_name: "Apply"\n  short_description: "Apply changes"\n  default_prompt: "Use $auto-bean-apply."\n',
+        encoding="utf-8",
+    )
+    (skill_sources_root / "auto-bean-import" / "SKILL.md").write_text(
+        "# Import\n", encoding="utf-8"
+    )
+    (skill_sources_root / "auto-bean-import" / "agents" / "openai.yaml").write_text(
+        'interface:\n  display_name: "Import"\n  short_description: "Import statements"\n  default_prompt: "Use $auto-bean-import."\n',
+        encoding="utf-8",
+    )
+    (
+        skill_sources_root
+        / "auto-bean-import"
+        / "references"
+        / "parsed-statement-output.example.json"
+    ).write_text(
+        '{"parse_run_id": "demo", "source_file": "statements/raw/demo.pdf", "source_fingerprint": "sha256:demo", "source_format": "pdf", "parser": {"name": "docling"}, "parse_status": "parsed", "parsed_at": "2026-04-11T09:00:00Z", "warnings": [], "blocking_issues": [], "extracted_records": []}\n',
+        encoding="utf-8",
+    )
+    (
+        skill_sources_root
+        / "auto-bean-import"
+        / "references"
+        / "import-status.example.yml"
+    ).write_text(
+        "version: 1\nstatements: {}\n",
         encoding="utf-8",
     )
     (skill_sources_root / "shared" / "mutation-pipeline.md").write_text(
@@ -171,6 +207,7 @@ def test_init_reports_environment_and_runtime_checks(tmp_path: Path) -> None:
         "workspace_runtime_bootstrapped",
         "ledger_validation",
         "workspace_fava_available",
+        "workspace_docling_available",
         "workspace_git_initial_commit",
     ]
 
@@ -204,6 +241,9 @@ def test_init_creates_workspace_and_reports_created_manifest(tmp_path: Path) -> 
         ".agents", "skills", "auto-bean-apply", "SKILL.md"
     ).is_file()
     assert workspace_root.joinpath(
+        ".agents", "skills", "auto-bean-import", "SKILL.md"
+    ).is_file()
+    assert workspace_root.joinpath(
         ".agents", "skills", "shared", "mutation-pipeline.md"
     ).is_file()
     assert workspace_root.joinpath(".git").is_dir()
@@ -211,6 +251,9 @@ def test_init_creates_workspace_and_reports_created_manifest(tmp_path: Path) -> 
     assert workspace_root.joinpath("scripts", "validate-ledger.sh").is_file()
     assert workspace_root.joinpath(".venv", "bin", "bean-check").is_file()
     assert workspace_root.joinpath(".venv", "bin", "fava").is_file()
+    assert workspace_root.joinpath(".venv", "bin", "docling").is_file()
+    assert workspace_root.joinpath("statements", "parsed", ".gitkeep").is_file()
+    assert workspace_root.joinpath("statements", "import-status.yml").is_file()
     assert result.details["project_name"] == project_name
     assert result.details["coding_agent"] == "Codex"
     assert result.details["target_input_type"] == "name"
@@ -219,6 +262,9 @@ def test_init_creates_workspace_and_reports_created_manifest(tmp_path: Path) -> 
     assert "ledger.beancount" in created_paths
     assert "AGENTS.md" in created_paths
     assert ".agents/skills/auto-bean-apply/SKILL.md" in created_paths
+    assert ".agents/skills/auto-bean-import/SKILL.md" in created_paths
+    assert "statements/parsed/.gitkeep" in created_paths
+    assert "statements/import-status.yml" in created_paths
     assert "scripts/validate-ledger.sh" in created_paths
     assert "scripts/open-fava.sh" in created_paths
     next_steps = cast(list[str], result.details["next_steps"])
@@ -483,6 +529,7 @@ def test_init_rejects_workspace_runtime_bootstrap_failure(tmp_path: Path) -> Non
                 str(tmp_path.parent / project_name / ".venv" / "bin" / "python"),
                 "beancount",
                 "fava",
+                "docling",
             ): CommandResult(returncode=1, stderr="network error"),
         },
     )
@@ -517,6 +564,30 @@ def test_init_rejects_when_workspace_fava_is_not_runnable(tmp_path: Path) -> Non
 
     assert result.status == "failed"
     assert result.error_code == "workspace_fava_unavailable"
+    assert result.error_category is ErrorCategory.VALIDATION_FAILURE
+
+
+def test_init_rejects_when_workspace_docling_is_not_runnable(tmp_path: Path) -> None:
+    seed_workspace_template(tmp_path)
+    project_name = f"missing-docling-{tmp_path.name[-6:]}"
+    workspace_root = tmp_path.parent / project_name
+    service, _ = make_service(
+        tmp_path,
+        responses={
+            (
+                str(workspace_root / ".venv" / "bin" / "docling"),
+                "--version",
+            ): CommandResult(
+                returncode=1,
+                stderr="missing docling",
+            ),
+        },
+    )
+
+    result = service.init(project_name)
+
+    assert result.status == "failed"
+    assert result.error_code == "workspace_docling_unavailable"
     assert result.error_category is ErrorCategory.VALIDATION_FAILURE
     assert not workspace_root.exists()
 

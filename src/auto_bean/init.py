@@ -268,6 +268,8 @@ class InitService:
                     "ledger.beancount",
                     "AGENTS.md",
                     "beancount/opening-balances.beancount",
+                    "statements/parsed/.gitkeep",
+                    "statements/import-status.yml",
                 ),
             ),
             self._check_required_assets(
@@ -279,6 +281,10 @@ class InitService:
                 required_paths=(
                     "auto-bean-apply/SKILL.md",
                     "auto-bean-apply/agents/openai.yaml",
+                    "auto-bean-import/SKILL.md",
+                    "auto-bean-import/agents/openai.yaml",
+                    "auto-bean-import/references/parsed-statement-output.example.json",
+                    "auto-bean-import/references/import-status.example.yml",
                     "shared/mutation-pipeline.md",
                     "shared/mutation-authority-matrix.md",
                 ),
@@ -329,7 +335,9 @@ class InitService:
                 "ledger.beancount",
                 "AGENTS.md",
                 ".agents/skills/auto-bean-apply/SKILL.md",
+                ".agents/skills/auto-bean-import/SKILL.md",
                 ".agents/skills/shared/mutation-pipeline.md",
+                "statements/import-status.yml",
             ],
         }
         self._record(
@@ -410,6 +418,7 @@ class InitService:
             self._bootstrap_workspace_runtime(target_directory),
             self._validate_generated_ledger(target_directory),
             self._check_workspace_fava_available(target_directory),
+            self._check_workspace_docling_available(target_directory),
             self._create_initial_git_commit(target_directory, git_path),
         ):
             self._record(checks, check)
@@ -446,13 +455,18 @@ class InitService:
                     target_directory / ".venv" / "bin" / "bean-check"
                 ),
                 "workspace_fava": str(target_directory / ".venv" / "bin" / "fava"),
+                "workspace_docling": str(
+                    target_directory / ".venv" / "bin" / "docling"
+                ),
                 "validation_status": "passed",
                 "fava_status": "passed",
+                "docling_status": "passed",
                 "next_steps": [
                     f"cd {target_directory}",
                     "Review AGENTS.md for the Codex-first workspace workflow and path guide.",
                     "./scripts/validate-ledger.sh",
                     "./scripts/open-fava.sh",
+                    "Use the installed .agents/skills/auto-bean-import/ workflow when you are ready to normalize statements.",
                 ],
             }
         )
@@ -751,7 +765,7 @@ class InitService:
                 details={
                     "remediation": (
                         "Install uv, then rerun 'auto-bean init <PROJECT-NAME>' so the workspace "
-                        "can install Beancount and Fava locally."
+                        "can install Beancount, Fava, and Docling locally."
                     ),
                 },
             )
@@ -777,6 +791,7 @@ class InitService:
             str(target_directory / ".venv" / "bin" / "python"),
             "beancount",
             "fava",
+            "docling",
         ]
         install_result = self.commands.run(install_command, cwd=target_directory)
         if install_result.returncode != 0:
@@ -784,17 +799,22 @@ class InitService:
                 name="workspace_runtime_bootstrapped",
                 status=CheckStatus.FAIL,
                 error_code="workspace_runtime_bootstrap_failed",
-                message="Failed to install Beancount and Fava into the workspace runtime.",
+                message="Failed to install Beancount, Fava, and Docling into the workspace runtime.",
                 details={
                     "bootstrap_command": " ".join(install_command),
                     "stdout": install_result.stdout,
                     "stderr": install_result.stderr,
+                    "remediation": (
+                        "Docling must be available in the workspace-local runtime before statement "
+                        "intake is ready. Resolve the installation failure, then rerun "
+                        "'auto-bean init <PROJECT-NAME>'."
+                    ),
                 },
             )
         return DiagnosticCheck(
             name="workspace_runtime_bootstrapped",
             status=CheckStatus.PASS,
-            message="Workspace runtime bootstrapped with Beancount and Fava.",
+            message="Workspace runtime bootstrapped with Beancount, Fava, and Docling.",
             details={
                 "bootstrap_commands": [
                     " ".join(venv_command),
@@ -856,6 +876,35 @@ class InitService:
             status=CheckStatus.PASS,
             message="Fava is runnable from the workspace runtime.",
             details={"fava_command": " ".join(command)},
+        )
+
+    def _check_workspace_docling_available(
+        self, target_directory: Path
+    ) -> DiagnosticCheck:
+        command = [str(target_directory / ".venv" / "bin" / "docling"), "--version"]
+        result = self.commands.run(command, cwd=target_directory)
+        if result.returncode != 0:
+            return DiagnosticCheck(
+                name="workspace_docling_available",
+                status=CheckStatus.FAIL,
+                error_code="workspace_docling_unavailable",
+                message="Docling is not runnable from the workspace runtime.",
+                details={
+                    "docling_command": " ".join(command),
+                    "stdout": result.stdout,
+                    "stderr": result.stderr,
+                    "remediation": (
+                        "Statement intake is not ready until the workspace-local Docling CLI is "
+                        "available. Fix the Docling installation, then rerun 'auto-bean init "
+                        "<PROJECT-NAME>'."
+                    ),
+                },
+            )
+        return DiagnosticCheck(
+            name="workspace_docling_available",
+            status=CheckStatus.PASS,
+            message="Docling is runnable from the workspace runtime.",
+            details={"docling_command": " ".join(command)},
         )
 
     def _create_initial_git_commit(
@@ -981,6 +1030,7 @@ class InitService:
             "unsupported_coding_agent",
             "invalid_generated_ledger",
             "workspace_fava_unavailable",
+            "workspace_docling_unavailable",
         }:
             return ErrorCategory.VALIDATION_FAILURE
         return ErrorCategory.EXECUTION_ERROR
