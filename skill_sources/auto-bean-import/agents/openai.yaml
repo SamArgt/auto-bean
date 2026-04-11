@@ -1,7 +1,7 @@
 interface:
   display_name: "Import Statements"
-  short_description: "Normalize raw statements with Docling"
-  default_prompt: "Use $auto-bean-import to discover or re-parse statement files into `statements/parsed/` without mutating the ledger."
+  short_description: "Parse statements and propose first-seen accounts"
+  default_prompt: "Use $auto-bean-import to normalize statement files into `statements/parsed/`, track `statements/import-status.yml`, and prepare reviewable first-seen account proposals without mutating the ledger."
 
 policy:
   allow_implicit_invocation: true

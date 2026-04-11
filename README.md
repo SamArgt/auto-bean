@@ -9,6 +9,7 @@ Right now this repository gives you a supported first session for:
 - validating `ledger.beancount`
 - inspecting that ledger in Fava
 - normalizing supported statement files into inspectable parsed outputs through a workspace skill
+- proposing first-seen ledger accounts from imported statement evidence through the same review boundary
 
 It does not expose a public SDK or external API today. The stable user interface is the coding-agent workflow inside the generated workspace.
 
@@ -45,6 +46,7 @@ On success, `auto-bean` creates a separate runtime Git repository with:
 
 - `ledger.beancount` as the stable ledger entrypoint
 - `beancount/` for included ledger fragments
+- `beancount/accounts.beancount` for durable account `open` directives
 - `statements/raw/` for statement files that later import stories will process
 - `.auto-bean/` for governed runtime artifacts and proposal state
 - `.agents/skills/` for installed runtime skills
@@ -109,7 +111,7 @@ Use the installed runtime skill under:
 .agents/skills/auto-bean-import/
 ```
 
-That workflow uses the workspace-local Docling CLI to normalize supported `PDF`, `CSV`, and Excel statement files from `statements/raw/` into inspectable JSON outputs under `statements/parsed/`, while keeping the ledger untouched.
+That workflow uses the workspace-local Docling CLI to normalize supported `PDF`, `CSV`, and Excel statement files from `statements/raw/` into inspectable JSON outputs under `statements/parsed/`, while keeping the ledger untouched unless a later reviewed apply path is explicitly approved.
 
 The durable boundaries for this workflow are:
 
@@ -118,18 +120,20 @@ The durable boundaries for this workflow are:
 - `statements/import-status.yml`: parse-state index for new, stale, blocked, failed, or parsed files
 - `.agents/skills/auto-bean-import/`: installed runtime skill for statement intake orchestration
 
-Story 2.1 intentionally stops at normalized files and parse diagnostics. It does not create account proposals, reconciliation results, memory, or ledger mutations.
+Story 2.2 extends that workflow so the same import skill can also prepare reviewable first-seen account proposals from parsed statement evidence. Those proposals stay separate from accepted ledger files and must still go through the installed `auto-bean-apply` review boundary before any structural ledger change is treated as accepted.
 
 The boundaries that matter now are:
 
 - `ledger.beancount`: stable ledger entrypoint
 - `beancount/`: included ledger files
+- `beancount/accounts.beancount`: preferred location for account `open` directives
 - `statements/raw/`: where raw statement files land
 - `statements/parsed/`: where normalized parse outputs are written
 - `statements/import-status.yml`: where parse-state tracking lives
 - `.auto-bean/`: governed runtime artifacts and workflow state
+- `.auto-bean/proposals/`: governed proposal artifacts for riskier or deeper review of import-derived account structure
 - `.agents/skills/auto-bean-apply/`: installed skill for reviewed structural edits
-- `.agents/skills/auto-bean-import/`: installed skill for Docling-driven statement normalization
+- `.agents/skills/auto-bean-import/`: installed skill for Docling-driven statement normalization and first-seen account proposals
 
 ## Failure and remediation behavior
 

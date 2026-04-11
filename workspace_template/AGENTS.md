@@ -15,6 +15,7 @@ Treat Codex and the installed workspace skills as the primary interface for oper
 - Prefer explaining actions in terms of `ledger.beancount`, `beancount/`, `statements/raw/`, `.auto-bean/`, and `.agents/skills/`.
 - Use the installed skills as the primary workflow surface for trust-sensitive structural ledger changes.
 - Use the installed `auto-bean-import` skill to normalize raw statement files into inspectable parsed outputs under `statements/parsed/`.
+- Use the installed `auto-bean-import` skill to derive reviewable first-seen account proposals from parsed statements when imported evidence supports it.
 - Suggest validation with `./scripts/validate-ledger.sh` or `./.venv/bin/bean-check ledger.beancount` before presenting ledger edits as ready.
 - Suggest inspection with `./scripts/open-fava.sh` or `./.venv/bin/fava ledger.beancount` when the user wants to inspect the current ledger state.
 - Keep the user informed about what is supported today versus what is planned for later stories.
@@ -24,7 +25,7 @@ Treat Codex and the installed workspace skills as the primary interface for oper
 
 - Do not treat the product repo as the live ledger workspace.
 - Do not invent import commands, APIs, or skills that do not exist in this workspace.
-- Do not describe statement intake as a ledger mutation workflow; this story only normalizes files into `statements/parsed/` and updates `statements/import-status.yml`.
+- Do not describe statement intake as a silent ledger mutation workflow; import may now produce reviewable first-seen account proposals, but accepted ledger edits still require explicit review and approval.
 - Do not claim statement intake is ready if `./.venv/bin/docling` is missing or not runnable.
 - Do not commit structural ledger changes before the user has explicitly approved the validated proposal.
 
@@ -35,6 +36,7 @@ Treat Codex and the installed workspace skills as the primary interface for oper
 |-- AGENTS.md
 |-- ledger.beancount
 |-- beancount/
+|   |-- accounts.beancount
 |   `-- opening-balances.beancount
 |-- statements/
 |   |-- import-status.yml
@@ -57,11 +59,13 @@ Treat Codex and the installed workspace skills as the primary interface for oper
 
 - `ledger.beancount`: stable ledger entrypoint
 - `beancount/`: included ledger fragments
+- `beancount/accounts.beancount`: preferred home for durable account `open` directives
+- `beancount/opening-balances.beancount`: opening balance entries and bootstrap balance context
 - `statements/raw/`: raw statement intake boundary; do not rewrite the source files
 - `statements/parsed/`: normalized parse outputs produced from raw statements
 - `statements/import-status.yml`: durable parse-state index for statement intake
 - `.auto-bean/artifacts/`: governed run artifacts and diagnostics
-- `.auto-bean/proposals/`: proposal documents for riskier or review-heavy changes
+- `.auto-bean/proposals/`: proposal documents for riskier or review-heavy changes, including import-derived account structure when deeper review is needed
 - `.agents/skills/`: installed runtime skills available to the coding agent
 
 ## Operating Notes
@@ -70,4 +74,5 @@ Treat Codex and the installed workspace skills as the primary interface for oper
 - Review structural ledger changes before accepting them into the ledger.
 - Keep governed runtime state under `.auto-bean/` and installed runtime skills under `.agents/skills/`.
 - Statement normalization routes through the workspace-local Docling CLI at `./.venv/bin/docling`.
-- Story 2.1 stops at normalized parse files and parse diagnostics; later stories handle review, account proposals, reconciliation, mutation, and memory.
+- For account discovery, prefer `beancount/accounts.beancount`; fall back to other included ledger files only when needed.
+- Story 2.2 extends import to propose first-seen accounts from parsed evidence, but reconciliation, accepted mutation, and durable memory still belong to later or separate reviewed workflows.

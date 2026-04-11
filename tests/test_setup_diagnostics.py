@@ -69,11 +69,15 @@ def seed_workspace_template(repo_root: Path) -> None:
     (template_root / ".auto-bean" / "proposals").mkdir(parents=True)
     (template_root / "AGENTS.md").write_text("# Agents\n", encoding="utf-8")
     (template_root / "ledger.beancount").write_text(
-        'option "title" "Test Ledger"\ninclude "beancount/opening-balances.beancount"\n',
+        'option "title" "Test Ledger"\ninclude "beancount/accounts.beancount"\ninclude "beancount/opening-balances.beancount"\n',
+        encoding="utf-8",
+    )
+    (template_root / "beancount" / "accounts.beancount").write_text(
+        "1970-01-01 open Assets:Checking EUR\n1970-01-01 open Equity:Opening-Balances EUR\n",
         encoding="utf-8",
     )
     (template_root / "beancount" / "opening-balances.beancount").write_text(
-        "1970-01-01 open Assets:Checking EUR\n1970-01-01 open Equity:Opening-Balances EUR\n",
+        "; Opening balance transactions belong here.\n",
         encoding="utf-8",
     )
     (template_root / ".auto-bean" / "artifacts" / ".gitkeep").write_text(
@@ -109,6 +113,15 @@ def seed_workspace_template(repo_root: Path) -> None:
     )
     (skill_sources_root / "auto-bean-import" / "agents" / "openai.yaml").write_text(
         'interface:\n  display_name: "Import"\n  short_description: "Import statements"\n  default_prompt: "Use $auto-bean-import."\n',
+        encoding="utf-8",
+    )
+    (
+        skill_sources_root
+        / "auto-bean-import"
+        / "references"
+        / "account-proposal.example.json"
+    ).write_text(
+        '{"proposal_run_id": "demo", "proposal_status": "needs_review", "ledger_context": {"baseline_mode": "minimal_generated_baseline", "ledger_entrypoint": "ledger.beancount", "ledger_files_considered": ["ledger.beancount", "beancount/accounts.beancount"], "existing_accounts": ["Assets:Checking"], "existing_operating_currencies": ["EUR"]}, "source_evidence": [], "account_proposals": [{"proposal_kind": "first_seen_candidate", "canonical_account_name": "Assets:Bank:Demo:Checking-1234", "beancount_open_directive": "2026-01-01 open Assets:Bank:Demo:Checking-1234 EUR", "currency_constraints": ["EUR"], "import_derived": true, "evidence_refs": [], "confidence": "high", "issue_notes": [], "review_status": "pending"}], "supporting_directives": {"operating_currency_additions": [], "commodity_declarations": [], "other_structure_notes": []}, "review_handoff": {"apply_skill": ".agents/skills/auto-bean-apply/", "mutation_policy_refs": [], "proposal_artifact_path": ".auto-bean/proposals/demo.json", "would_change_files": ["beancount/accounts.beancount"], "requires_explicit_approval": true, "requires_validation_before_apply": true}, "blocking_inferences": []}\n',
         encoding="utf-8",
     )
     (
@@ -252,6 +265,7 @@ def test_init_creates_workspace_and_reports_created_manifest(tmp_path: Path) -> 
     assert workspace_root.joinpath(".venv", "bin", "bean-check").is_file()
     assert workspace_root.joinpath(".venv", "bin", "fava").is_file()
     assert workspace_root.joinpath(".venv", "bin", "docling").is_file()
+    assert workspace_root.joinpath("beancount", "accounts.beancount").is_file()
     assert workspace_root.joinpath("statements", "parsed", ".gitkeep").is_file()
     assert workspace_root.joinpath("statements", "import-status.yml").is_file()
     assert result.details["project_name"] == project_name
@@ -263,6 +277,11 @@ def test_init_creates_workspace_and_reports_created_manifest(tmp_path: Path) -> 
     assert "AGENTS.md" in created_paths
     assert ".agents/skills/auto-bean-apply/SKILL.md" in created_paths
     assert ".agents/skills/auto-bean-import/SKILL.md" in created_paths
+    assert (
+        ".agents/skills/auto-bean-import/references/account-proposal.example.json"
+        in created_paths
+    )
+    assert "beancount/accounts.beancount" in created_paths
     assert "statements/parsed/.gitkeep" in created_paths
     assert "statements/import-status.yml" in created_paths
     assert "scripts/validate-ledger.sh" in created_paths

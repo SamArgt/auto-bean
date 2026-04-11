@@ -106,6 +106,15 @@ def run_smoke_checks() -> int:
             skill_sources_root
             / "auto-bean-import"
             / "references"
+            / "account-proposal.example.json"
+        ).write_text(
+            '{"proposal_run_id": "demo", "proposal_status": "needs_review", "ledger_context": {"baseline_mode": "minimal_generated_baseline", "ledger_entrypoint": "ledger.beancount", "ledger_files_considered": ["ledger.beancount", "beancount/accounts.beancount"], "existing_accounts": ["Assets:Checking"], "existing_operating_currencies": ["EUR"]}, "source_evidence": [], "account_proposals": [{"proposal_kind": "first_seen_candidate", "canonical_account_name": "Assets:Bank:Demo:Checking-1234", "beancount_open_directive": "2026-01-01 open Assets:Bank:Demo:Checking-1234 EUR", "currency_constraints": ["EUR"], "import_derived": true, "evidence_refs": [], "confidence": "high", "issue_notes": [], "review_status": "pending"}], "supporting_directives": {"operating_currency_additions": [], "commodity_declarations": [], "other_structure_notes": []}, "review_handoff": {"apply_skill": ".agents/skills/auto-bean-apply/", "mutation_policy_refs": [], "proposal_artifact_path": ".auto-bean/proposals/demo.json", "would_change_files": ["beancount/accounts.beancount"], "requires_explicit_approval": true, "requires_validation_before_apply": true}, "blocking_inferences": []}\n',
+            encoding="utf-8",
+        )
+        (
+            skill_sources_root
+            / "auto-bean-import"
+            / "references"
             / "parsed-statement-output.example.json"
         ).write_text(
             '{"parse_run_id": "demo", "source_file": "statements/raw/demo.pdf", "source_fingerprint": "sha256:demo", "source_format": "pdf", "parser": {"name": "docling"}, "parse_status": "parsed", "parsed_at": "2026-04-11T09:00:00Z", "warnings": [], "blocking_issues": [], "extracted_records": []}\n',
@@ -138,11 +147,15 @@ def run_smoke_checks() -> int:
         (template_root / ".agents").mkdir(parents=True)
         (template_root / "AGENTS.md").write_text("# Agents\n", encoding="utf-8")
         (template_root / "ledger.beancount").write_text(
-            'option "title" "Smoke Ledger"\ninclude "beancount/opening-balances.beancount"\n',
+            'option "title" "Smoke Ledger"\ninclude "beancount/accounts.beancount"\ninclude "beancount/opening-balances.beancount"\n',
+            encoding="utf-8",
+        )
+        (template_root / "beancount" / "accounts.beancount").write_text(
+            "1970-01-01 open Assets:Checking EUR\n1970-01-01 open Equity:Opening-Balances EUR\n",
             encoding="utf-8",
         )
         (template_root / "beancount" / "opening-balances.beancount").write_text(
-            "1970-01-01 open Assets:Checking EUR\n1970-01-01 open Equity:Opening-Balances EUR\n",
+            "; Opening balance transactions belong here.\n",
             encoding="utf-8",
         )
         (template_root / "docs" / "README.md").write_text("# Docs\n", encoding="utf-8")

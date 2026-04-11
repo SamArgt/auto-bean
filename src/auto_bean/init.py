@@ -267,6 +267,7 @@ class InitService:
                 required_paths=(
                     "ledger.beancount",
                     "AGENTS.md",
+                    "beancount/accounts.beancount",
                     "beancount/opening-balances.beancount",
                     "statements/parsed/.gitkeep",
                     "statements/import-status.yml",
@@ -283,6 +284,7 @@ class InitService:
                     "auto-bean-apply/agents/openai.yaml",
                     "auto-bean-import/SKILL.md",
                     "auto-bean-import/agents/openai.yaml",
+                    "auto-bean-import/references/account-proposal.example.json",
                     "auto-bean-import/references/parsed-statement-output.example.json",
                     "auto-bean-import/references/import-status.example.yml",
                     "shared/mutation-pipeline.md",

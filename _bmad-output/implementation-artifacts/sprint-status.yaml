@@ -1,5 +1,5 @@
 # generated: 2026-03-31 08:46:40 CEST
-# last_updated: 2026-04-11 13:05:00 CEST
+# last_updated: 2026-04-11 18:54:00 CEST
 # project: auto-bean
 # project_key: NOKEY
 # tracking_system: file-system
@@ -35,7 +35,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2026-03-31 08:46:40 CEST
-last_updated: 2026-04-11 13:05:00 CEST
+last_updated: 2026-04-11 18:54:00 CEST
 project: auto-bean
 project_key: NOKEY
 tracking_system: file-system
@@ -52,7 +52,7 @@ development_status:
   epic-1-retrospective: done
   epic-2: in-progress
   2-1-import-statement-files-into-a-normalized-intake-workflow: review
-  2-2-create-or-extend-a-ledger-from-first-time-imported-account-statements: backlog
+  2-2-create-or-extend-a-ledger-from-first-time-imported-account-statements: review
   2-3-review-import-results-before-accepting-transactions-and-structure-changes: backlog
   2-4-persist-source-specific-import-context-for-repeated-imports: backlog
   epic-2-retrospective: optional
