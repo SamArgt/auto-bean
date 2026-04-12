@@ -16,6 +16,7 @@ Treat Codex and the installed workspace skills as the primary interface for oper
 - Use the installed skills as the primary workflow surface for trust-sensitive structural ledger changes.
 - Use the installed `auto-bean-import` skill to normalize raw statement files into inspectable parsed outputs under `statements/parsed/`.
 - Use the installed `auto-bean-import` skill to create or extend first-seen account structure directly from parsed statements when imported evidence supports it.
+- Use the installed `auto-bean-import` skill to persist repeated-import source context under `.auto-bean/memory/import_sources/` only after trustworthy finalized outcomes, and keep that reused context reviewable.
 - Treat direct working-tree edits plus post-mutation inspection as the standard structural-change flow.
 - For import runs, present parsed statement facts, derived ledger edits, and the validation outcome together before asking about finalization.
 - Suggest validation with `./scripts/validate-ledger.sh` or `./.venv/bin/bean-check ledger.beancount` before presenting structural ledger edits as ready for commit or push.
@@ -82,7 +83,9 @@ Treat Codex and the installed workspace skills as the primary interface for oper
 - Review structural ledger changes after mutation, before accepting them into git history.
 - For import-driven changes, keep parsed statement facts visible as evidence and derived ledger edits visible as the candidate mutation during that review.
 - Keep governed runtime state under `.auto-bean/` and installed runtime skills under `.agents/skills/`.
+- Keep governed runtime memory under `.auto-bean/memory/`, with repeated-import source context stored under `.auto-bean/memory/import_sources/`.
 - Statement normalization routes through the workspace-local Docling CLI at `./.venv/bin/docling`.
 - For account discovery, prefer `beancount/accounts.beancount`; fall back to other included ledger files only when needed.
 - Story 2.2 extends import to mutate first-seen account structure directly from parsed evidence, but reconciliation, transaction posting, and durable memory still belong to later or separate reviewed workflows.
+- Story 2.4 adds repeated-import source context as a narrow exception: source-specific import context may be written under `.auto-bean/memory/import_sources/`, surfaced during later imports as reviewable guidance, and overridden when the current statement evidence no longer fits.
 - When a structural change is committed, prefer git-backed rollback over a separate proposal-application phase.

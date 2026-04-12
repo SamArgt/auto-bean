@@ -34,9 +34,22 @@ def test_resource_assets_exist_under_repo_roots() -> None:
     assert repo_root.joinpath("skill_sources", "auto-bean-apply", "SKILL.md").is_file()
     assert repo_root.joinpath("skill_sources", "auto-bean-import", "SKILL.md").is_file()
     assert repo_root.joinpath(
+        "skill_sources",
+        "auto-bean-import",
+        "references",
+        "import-source-context.example.json",
+    ).is_file()
+    assert repo_root.joinpath(
         "skill_sources", "shared", "mutation-pipeline.md"
     ).is_file()
     assert repo_root.joinpath("workspace_template", "AGENTS.md").is_file()
+    assert repo_root.joinpath(
+        "workspace_template",
+        ".auto-bean",
+        "memory",
+        "import_sources",
+        ".gitkeep",
+    ).is_file()
 
 
 @dataclass
@@ -87,6 +100,7 @@ def seed_story_2_1_assets(tmp_path: Path) -> None:
     (template_root / "statements" / "raw").mkdir(parents=True)
     (template_root / "statements" / "parsed").mkdir(parents=True)
     (template_root / ".auto-bean" / "artifacts").mkdir(parents=True)
+    (template_root / ".auto-bean" / "memory" / "import_sources").mkdir(parents=True)
     (template_root / ".auto-bean" / "proposals").mkdir(parents=True)
     (template_root / "AGENTS.md").write_text("# Agents\n", encoding="utf-8")
     (template_root / "ledger.beancount").write_text(
@@ -104,6 +118,9 @@ def seed_story_2_1_assets(tmp_path: Path) -> None:
     (template_root / "statements" / "parsed" / ".gitkeep").write_text(
         "", encoding="utf-8"
     )
+    (
+        template_root / ".auto-bean" / "memory" / "import_sources" / ".gitkeep"
+    ).write_text("", encoding="utf-8")
     (template_root / "statements" / "import-status.yml").write_text(
         "version: 1\nstatements: {}\n",
         encoding="utf-8",
@@ -136,6 +153,15 @@ def seed_story_2_1_assets(tmp_path: Path) -> None:
         / "account-proposal.example.json"
     ).write_text(
         '{"proposal_run_id": "demo", "proposal_status": "needs_review", "ledger_context": {"baseline_mode": "minimal_generated_baseline", "ledger_entrypoint": "ledger.beancount", "ledger_files_considered": ["ledger.beancount", "beancount/accounts.beancount"], "existing_accounts": ["Assets:Checking"], "existing_operating_currencies": ["EUR"]}, "source_evidence": [], "account_proposals": [{"proposal_kind": "first_seen_candidate", "canonical_account_name": "Assets:Bank:Demo:Checking-1234", "beancount_open_directive": "2026-01-01 open Assets:Bank:Demo:Checking-1234 EUR", "currency_constraints": ["EUR"], "import_derived": true, "evidence_refs": [], "confidence": "high", "issue_notes": [], "review_status": "pending"}], "supporting_directives": {"operating_currency_additions": [], "commodity_declarations": [], "other_structure_notes": []}, "review_handoff": {"apply_skill": ".agents/skills/auto-bean-apply/", "mutation_policy_refs": [], "proposal_artifact_path": ".auto-bean/proposals/demo.json", "would_change_files": ["beancount/accounts.beancount"], "requires_explicit_approval": true, "requires_validation_before_apply": true}, "blocking_inferences": []}\n',
+        encoding="utf-8",
+    )
+    (
+        skill_sources_root
+        / "auto-bean-import"
+        / "references"
+        / "import-source-context.example.json"
+    ).write_text(
+        '{"schema_version": "1.0.0", "context_id": "import-source-context-demo", "source_identity": {"source_slug": "demo", "institution_name": "Demo Bank", "statement_format": "pdf", "account_mask": "1234", "statement_descriptor": "DEMO"}, "reuse_hints": {"statement_shape": {"date_column_labels": ["date"], "amount_column_labels": ["amount"], "balance_column_label": "balance"}, "account_structure": {"primary_account": "Assets:Bank:Demo:Checking-1234", "counterparty_branch": "Expenses:Unknown", "operating_currency": "EUR"}, "parser_guidance": {"preferred_source_format": "pdf", "parse_status_to_reuse": ["parsed"]}}, "review_metadata": {"storage_path": ".auto-bean/memory/import_sources/demo.json", "review_required": true, "derived_from_import_status": true, "reuse_is_advisory_only": true, "last_reviewed_at": "2026-04-12T18:05:00Z"}, "created_at": "2026-04-12T18:00:00Z", "updated_at": "2026-04-12T18:05:00Z"}\n',
         encoding="utf-8",
     )
     (

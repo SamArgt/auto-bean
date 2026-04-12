@@ -79,6 +79,35 @@ def test_account_proposal_contract_example_has_required_keys() -> None:
     )
 
 
+def test_import_source_context_contract_example_is_versioned_and_governed() -> None:
+    contract_path = (
+        REPO_ROOT
+        / "skill_sources"
+        / "auto-bean-import"
+        / "references"
+        / "import-source-context.example.json"
+    )
+
+    payload = json.loads(contract_path.read_text(encoding="utf-8"))
+
+    assert set(payload) >= {
+        "schema_version",
+        "context_id",
+        "source_identity",
+        "reuse_hints",
+        "review_metadata",
+        "created_at",
+        "updated_at",
+    }
+    assert payload["schema_version"].startswith("1.")
+    assert payload["context_id"].startswith("import-source-context-")
+    assert payload["review_metadata"]["storage_path"].startswith(
+        ".auto-bean/memory/import_sources/"
+    )
+    assert payload["review_metadata"]["review_required"] is True
+    assert payload["review_metadata"]["derived_from_import_status"] is True
+
+
 def test_import_skill_documents_docling_status_tracking_direct_mutation_and_bounded_parallelism() -> (
     None
 ):
@@ -111,6 +140,48 @@ def test_import_skill_documents_docling_status_tracking_direct_mutation_and_boun
     assert "ask whether the agent should commit and push" in content
     assert "do not create transaction postings" in content
     assert "keep the mutation deterministic" in content
+
+
+def test_import_skill_references_governed_source_context_memory_contract() -> None:
+    skill_path = REPO_ROOT / "skill_sources" / "auto-bean-import" / "SKILL.md"
+    content = skill_path.read_text(encoding="utf-8")
+
+    assert "import-source-context.example.json" in content
+    assert ".auto-bean/memory/import_sources/" in content
+    assert "snake_case" in content
+    assert "schema_version" in content
+    assert "migration-friendly" in content
+
+
+def test_import_skill_limits_persisted_source_context_to_trustworthy_finalized_runs() -> (
+    None
+):
+    skill_path = REPO_ROOT / "skill_sources" / "auto-bean-import" / "SKILL.md"
+    content = skill_path.read_text(encoding="utf-8")
+
+    assert "write source context only after a trustworthy finalized outcome" in content
+    assert "do not write source context for blocked, ambiguous, rejected" in content
+    assert "source identity" in content
+    assert "statement-shape hints" in content
+    assert "account-structure reuse hints" in content
+    assert "parse or mapping guidance" in content
+    assert "do not persist categorization memory" in content
+    assert "do not persist transaction-posting memory" in content
+    assert "do not persist reconciliation decisions" in content
+    assert "do not persist open-ended user-preference tuning" in content
+
+
+def test_import_skill_reuses_persisted_source_context_as_reviewable_guidance() -> None:
+    skill_path = REPO_ROOT / "skill_sources" / "auto-bean-import" / "SKILL.md"
+    content = skill_path.read_text(encoding="utf-8")
+
+    assert "load matching source context before or during import planning" in content
+    assert "surface what prior context was reused" in content
+    assert "what current statement evidence still matters" in content
+    assert "where the workflow chose not to reuse memory" in content
+    assert "reused context reviewable and overrideable" in content
+    assert "must not silently force acceptance" in content
+    assert "must not silently bypass validation and commit/push review" in content
 
 
 def test_import_skill_optional_diagnostic_proposal_keeps_duplicate_accounts_as_no_change() -> (
@@ -191,13 +262,33 @@ def test_workspace_and_readme_describe_import_review_boundary_truthfully() -> No
     assert "derived ledger edits" in readme
     assert "commit/push approval before the change is accepted into history" in readme
     assert "stop, defer, or reject finalization" in readme
+    assert ".auto-bean/memory/import_sources/" in readme
+    assert "repeated-import source context" in readme
+    assert "governed runtime memory" in readme
 
     assert "parsed statement facts" in workspace_agents
     assert "derived ledger edits" in workspace_agents
     assert "validation outcome" in workspace_agents
     assert "stop, defer, or reject finalization" in workspace_agents
     assert "accepted into git history" in workspace_agents
+    assert ".auto-bean/memory/import_sources/" in workspace_agents
+    assert "repeated-import source context" in workspace_agents
 
     assert "parsed statement facts" in prompt_text
     assert "derived ledger edits" in prompt_text
     assert "validation outcome" in prompt_text
+
+
+def test_shared_mutation_docs_describe_governed_memory_writes() -> None:
+    pipeline = (
+        REPO_ROOT / "skill_sources" / "shared" / "mutation-pipeline.md"
+    ).read_text(encoding="utf-8")
+    matrix = (
+        REPO_ROOT / "skill_sources" / "shared" / "mutation-authority-matrix.md"
+    ).read_text(encoding="utf-8")
+
+    assert "governed operation" in pipeline
+    assert ".auto-bean/memory/import_sources/" in pipeline
+    assert "reviewable" in pipeline
+    assert "source-specific import context" in matrix
+    assert ".auto-bean/memory/import_sources/" in matrix

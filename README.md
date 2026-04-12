@@ -49,6 +49,7 @@ On success, `auto-bean` creates a separate runtime Git repository with:
 - `beancount/accounts.beancount` for durable account `open` directives
 - `statements/raw/` for statement files that later import stories will process
 - `.auto-bean/` for governed runtime artifacts and optional proposal diagnostics
+- `.auto-bean/memory/import_sources/` for governed runtime memory that stores repeated-import source context
 - `.agents/skills/` for installed runtime skills
 - `AGENTS.md` for workspace operating guidance
 - a workspace-local `.venv` with `beancount`, `fava`, and `docling`
@@ -121,6 +122,7 @@ The durable boundaries for this workflow are:
 - `.agents/skills/auto-bean-import/`: installed runtime skill for statement intake orchestration
 
 Story 2.2 extends that workflow so the same import skill can create or extend bounded first-seen account structure directly from parsed statement evidence. Story 2.3 tightens the review boundary: parsed outputs remain intake evidence, derived ledger edits stay unfinalized in the working tree until approval, and the workflow presents a single review surface before asking for explicit commit/push approval before the change is accepted into history.
+Story 2.4 adds governed runtime memory for repeated-import source context: after a trustworthy finalized import outcome, the workflow may persist narrow, reviewable source-specific import context under `.auto-bean/memory/import_sources/` so later runs can reduce setup without silently forcing acceptance.
 
 That review surface should make these distinctions obvious:
 
@@ -138,6 +140,7 @@ The boundaries that matter now are:
 - `statements/parsed/`: where normalized parse outputs are written
 - `statements/import-status.yml`: where parse-state tracking lives
 - `.auto-bean/`: governed runtime artifacts and workflow state
+- `.auto-bean/memory/import_sources/`: governed runtime memory for repeated-import source context
 - `.auto-bean/proposals/`: optional diagnostic proposal artifacts for riskier or deeper review
 - `.agents/skills/auto-bean-apply/`: installed skill for other reviewed structural edits and recovery-oriented workflows
 - `.agents/skills/auto-bean-import/`: installed skill for Docling-driven statement normalization plus direct first-seen account mutation, validation, diff review, and commit/push gating
@@ -170,4 +173,4 @@ uv run pytest
 uv run python scripts/run_smoke_checks.py
 ```
 
-Workflow diagnostics are persisted under `.auto-bean/artifacts/` so maintainers can inspect validation outcomes and troubleshooting context without scraping stack traces.
+Workflow diagnostics are persisted under `.auto-bean/artifacts/` so maintainers can inspect validation outcomes and troubleshooting context without scraping stack traces. Repeated-import source context lives separately under governed runtime memory, not in ledger files or ad hoc statement-side artifacts.

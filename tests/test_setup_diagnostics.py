@@ -68,6 +68,7 @@ def seed_workspace_template(repo_root: Path) -> None:
     (template_root / "statements" / "raw").mkdir(parents=True)
     (template_root / "statements" / "parsed").mkdir(parents=True)
     (template_root / ".auto-bean" / "artifacts").mkdir(parents=True)
+    (template_root / ".auto-bean" / "memory" / "import_sources").mkdir(parents=True)
     (template_root / ".auto-bean" / "proposals").mkdir(parents=True)
     (template_root / "AGENTS.md").write_text("# Agents\n", encoding="utf-8")
     (template_root / "ledger.beancount").write_text(
@@ -85,6 +86,9 @@ def seed_workspace_template(repo_root: Path) -> None:
     (template_root / ".auto-bean" / "artifacts" / ".gitkeep").write_text(
         "", encoding="utf-8"
     )
+    (
+        template_root / ".auto-bean" / "memory" / "import_sources" / ".gitkeep"
+    ).write_text("", encoding="utf-8")
     (template_root / ".auto-bean" / "proposals" / ".gitkeep").write_text(
         "", encoding="utf-8"
     )
@@ -134,6 +138,15 @@ def seed_workspace_template(repo_root: Path) -> None:
         / "account-proposal.example.json"
     ).write_text(
         '{"proposal_run_id": "demo", "proposal_status": "needs_review", "ledger_context": {"baseline_mode": "minimal_generated_baseline", "ledger_entrypoint": "ledger.beancount", "ledger_files_considered": ["ledger.beancount", "beancount/accounts.beancount"], "existing_accounts": ["Assets:Checking"], "existing_operating_currencies": ["EUR"]}, "source_evidence": [], "account_proposals": [{"proposal_kind": "first_seen_candidate", "canonical_account_name": "Assets:Bank:Demo:Checking-1234", "beancount_open_directive": "2026-01-01 open Assets:Bank:Demo:Checking-1234 EUR", "currency_constraints": ["EUR"], "import_derived": true, "evidence_refs": [], "confidence": "high", "issue_notes": [], "review_status": "pending"}], "supporting_directives": {"operating_currency_additions": [], "commodity_declarations": [], "other_structure_notes": []}, "review_handoff": {"apply_skill": ".agents/skills/auto-bean-apply/", "mutation_policy_refs": [], "proposal_artifact_path": ".auto-bean/proposals/demo.json", "would_change_files": ["beancount/accounts.beancount"], "requires_explicit_approval": true, "requires_validation_before_apply": true}, "blocking_inferences": []}\n',
+        encoding="utf-8",
+    )
+    (
+        skill_sources_root
+        / "auto-bean-import"
+        / "references"
+        / "import-source-context.example.json"
+    ).write_text(
+        '{"schema_version": "1.0.0", "context_id": "import-source-context-demo", "source_identity": {"source_slug": "demo", "institution_name": "Demo Bank", "statement_format": "pdf", "account_mask": "1234", "statement_descriptor": "DEMO"}, "reuse_hints": {"statement_shape": {"date_column_labels": ["date"], "amount_column_labels": ["amount"], "balance_column_label": "balance"}, "account_structure": {"primary_account": "Assets:Bank:Demo:Checking-1234", "counterparty_branch": "Expenses:Unknown", "operating_currency": "EUR"}, "parser_guidance": {"preferred_source_format": "pdf", "parse_status_to_reuse": ["parsed"]}}, "review_metadata": {"storage_path": ".auto-bean/memory/import_sources/demo.json", "review_required": true, "derived_from_import_status": true, "reuse_is_advisory_only": true, "last_reviewed_at": "2026-04-12T18:05:00Z"}, "created_at": "2026-04-12T18:00:00Z", "updated_at": "2026-04-12T18:05:00Z"}\n',
         encoding="utf-8",
     )
     (
@@ -283,6 +296,9 @@ def test_init_creates_workspace_and_reports_created_manifest(tmp_path: Path) -> 
     assert workspace_root.joinpath("beancount", "accounts.beancount").is_file()
     assert workspace_root.joinpath("statements", "parsed", ".gitkeep").is_file()
     assert workspace_root.joinpath("statements", "import-status.yml").is_file()
+    assert workspace_root.joinpath(
+        ".auto-bean", "memory", "import_sources", ".gitkeep"
+    ).is_file()
     assert result.details["project_name"] == project_name
     assert result.details["coding_agent"] == "Codex"
     assert result.details["target_input_type"] == "name"
@@ -301,6 +317,7 @@ def test_init_creates_workspace_and_reports_created_manifest(tmp_path: Path) -> 
     assert "beancount/accounts.beancount" in created_paths
     assert "statements/parsed/.gitkeep" in created_paths
     assert "statements/import-status.yml" in created_paths
+    assert ".auto-bean/memory/import_sources/.gitkeep" in created_paths
     assert "scripts/validate-ledger.sh" in created_paths
     assert "scripts/open-fava.sh" in created_paths
     next_steps = cast(list[str], result.details["next_steps"])

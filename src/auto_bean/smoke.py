@@ -134,6 +134,15 @@ def run_smoke_checks() -> int:
             skill_sources_root
             / "auto-bean-import"
             / "references"
+            / "import-source-context.example.json"
+        ).write_text(
+            '{"schema_version": "1.0.0", "context_id": "import-source-context-demo", "source_identity": {"source_slug": "demo", "institution_name": "Demo Bank", "statement_format": "pdf", "account_mask": "1234", "statement_descriptor": "DEMO"}, "reuse_hints": {"statement_shape": {"date_column_labels": ["date"], "amount_column_labels": ["amount"], "balance_column_label": "balance"}, "account_structure": {"primary_account": "Assets:Bank:Demo:Checking-1234", "counterparty_branch": "Expenses:Unknown", "operating_currency": "EUR"}, "parser_guidance": {"preferred_source_format": "pdf", "parse_status_to_reuse": ["parsed"]}}, "review_metadata": {"storage_path": ".auto-bean/memory/import_sources/demo.json", "review_required": true, "derived_from_import_status": true, "reuse_is_advisory_only": true, "last_reviewed_at": "2026-04-12T18:05:00Z"}, "created_at": "2026-04-12T18:00:00Z", "updated_at": "2026-04-12T18:05:00Z"}\n',
+            encoding="utf-8",
+        )
+        (
+            skill_sources_root
+            / "auto-bean-import"
+            / "references"
             / "parsed-statement-output.example.json"
         ).write_text(
             '{"parse_run_id": "demo", "source_file": "statements/raw/demo.pdf", "source_fingerprint": "sha256:demo", "source_format": "pdf", "parser": {"name": "docling"}, "parse_status": "parsed", "parsed_at": "2026-04-11T09:00:00Z", "warnings": [], "blocking_issues": [], "extracted_records": []}\n',
@@ -162,6 +171,7 @@ def run_smoke_checks() -> int:
         (template_root / "statements" / "raw").mkdir(parents=True)
         (template_root / "statements" / "parsed").mkdir(parents=True)
         (template_root / ".auto-bean" / "artifacts").mkdir(parents=True)
+        (template_root / ".auto-bean" / "memory" / "import_sources").mkdir(parents=True)
         (template_root / ".auto-bean" / "proposals").mkdir(parents=True)
         (template_root / ".agents").mkdir(parents=True)
         (template_root / "AGENTS.md").write_text(
@@ -194,6 +204,9 @@ def run_smoke_checks() -> int:
             "",
             encoding="utf-8",
         )
+        (
+            template_root / ".auto-bean" / "memory" / "import_sources" / ".gitkeep"
+        ).write_text("", encoding="utf-8")
         (template_root / "statements" / "import-status.yml").write_text(
             "version: 1\nstatements: {}\n",
             encoding="utf-8",

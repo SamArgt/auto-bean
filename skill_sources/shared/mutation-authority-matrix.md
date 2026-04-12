@@ -3,6 +3,7 @@
 - `auto-bean-import`
   - Direct working-tree mutation: allowed for first-seen account structure and minimal supporting directives derived from parsed statement evidence
   - Re-parsing source statements: allowed only to refresh `statements/parsed/` and `statements/import-status.yml`
+  - Source-specific import context: allowed under `.auto-bean/memory/import_sources/` only for reviewable, source-specific import context after a trustworthy finalized outcome
   - Parsed statement outputs remain intake evidence until commit/push approval accepts any derived ledger mutation into history
   - In other words, parsed statement outputs remain intake evidence and are not accepted ledger history on their own
   - Validation and diff inspection: required after mutation and before any finalization request
@@ -10,7 +11,7 @@
   - Proposal creation: optional under `.auto-bean/proposals/` for deeper review or risky diagnostics
   - Commit/push finalization: allowed only after explicit approval
   - Blocked or rejected outcomes: may be recorded under `.auto-bean/artifacts/` as local audit context without changing accepted ledger history
-  - Out of scope: transaction postings, reconciliation, duplicate handling, transfer handling, and durable memory writes
+  - Out of scope: transaction postings, reconciliation, duplicate handling, transfer handling, categorization memory, transaction-posting memory, reconciliation decisions, and open-ended user-preference tuning
 - `auto-bean-apply`
   - Direct working-tree mutation: allowed for scoped structural changes inside the local workspace
   - Post-mutation validation and summary: required before any finalization claim

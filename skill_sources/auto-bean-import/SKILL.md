@@ -7,6 +7,7 @@ Read these references before acting:
 
 - `.agents/skills/auto-bean-import/references/parsed-statement-output.example.json`
 - `.agents/skills/auto-bean-import/references/import-status.example.yml`
+- `.agents/skills/auto-bean-import/references/import-source-context.example.json`
 
 Read this additional reference only when deeper diagnostic review is warranted:
 
@@ -21,7 +22,10 @@ Follow this workflow:
    - re-parse one specific statement path or filename.
    - if parsed statements already exist, clarify whether the user wants parse-only results or the full direct import-to-ledger account-structure workflow
 2. Preserve trust boundaries:
-   - do not write durable memory under `.auto-bean/memory/**`
+   - keep durable repeated-import source context versioned, migration-friendly, and inspectable via the `schema_version` contract in `.agents/skills/auto-bean-import/references/import-source-context.example.json`
+   - write repeated-import source context only under the governed path `.auto-bean/memory/import_sources/`
+   - write source context only after a trustworthy finalized outcome
+   - do not write source context for blocked, ambiguous, rejected, validation-failed, or explicitly deferred runs
    - do not create transaction postings, reconciliation decisions, or accepted categorization memory
    - keep raw inputs in `statements/raw/`, parsed outputs in `statements/parsed/`, parse state in `statements/import-status.yml`, and optional governed diagnostics under `.auto-bean/proposals/` or `.auto-bean/artifacts/` only when review depth or troubleshooting justifies persistence
    - treat `statements/parsed/*.json` and `statements/import-status.yml` as intake evidence, not as accepted ledger changes
@@ -29,6 +33,9 @@ Follow this workflow:
    - read `statements/import-status.yml` first
    - scan `statements/raw/` for supported inputs: `.pdf`, `.csv`, `.xlsx`, `.xls`
    - compute a deterministic source fingerprint such as `sha256`
+   - load matching source context before or during import planning when the same or similar source is recognized from the current statement evidence
+   - surface what prior context was reused, what current statement evidence still matters, and where the workflow chose not to reuse memory because it no longer fits
+   - keep reused context reviewable and overrideable; it must not silently force acceptance and must not silently bypass validation and commit/push review
    - in discover mode, parse only files that are new, stale, failed, blocked, or explicitly requested
    - in targeted re-parse mode, process only the requested statement and leave unrelated files untouched
 4. Invoke Docling through the local CLI instead of writing bespoke parsers:
@@ -90,6 +97,8 @@ Follow this workflow:
    - state explicitly that commit/push remains the final approval boundary even when the working tree has already changed
    - show a git-backed diff for the changed files
    - ask whether the agent should commit and push only after the mutation and validation result are available
+   - if the user approves finalization and the run ends in a trustworthy finalized outcome, write bounded source context under `.auto-bean/memory/import_sources/` using the governed contract and include only source identity, statement-shape hints, account-structure reuse hints, and parse or mapping guidance derived from the accepted outcome
+   - do not persist categorization memory, do not persist transaction-posting memory, do not persist reconciliation decisions, and do not persist open-ended user-preference tuning in this workflow
 12. Fail closed for ambiguity or risky structure:
    - block finalization when the evidence does not support a stable top-level Beancount branch or otherwise leaves the structural inference unclear
    - block finalization when the mutation target is unclear, duplicate-sensitive, or would extend the ledger beyond bounded account structure
@@ -113,12 +122,14 @@ Follow this workflow:
    - whether validation passed
    - whether the result is ready for commit/push approval
    - whether the user chose to stop, defer, or reject finalization
+   - whether source context was written under `.auto-bean/memory/import_sources/` or deliberately skipped because the run was not trustworthy and finalized
    - any blocked or failed statements or ambiguous inferences that still need user attention
 
 Guardrails:
 
 - Keep all contract keys in `snake_case`.
 - Keep parsed-statement artifacts narrow: extracted statement facts and diagnostics only.
+- Keep persisted source context narrow: source identity, statement-shape hints, account-structure reuse hints, parse or mapping guidance, review metadata, and timestamps only.
 - Keep optional proposal artifacts narrow: diagnostic review context only, not the default success path.
 - Do not overwrite prior parse outputs silently unless the user explicitly asks for overwrite behavior.
 - Do not claim the import succeeded when evidence is ambiguous, structurally risky, or validation fails.

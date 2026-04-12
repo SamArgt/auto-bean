@@ -1,0 +1,46 @@
+{
+  "schema_version": "1.0.0",
+  "context_id": "import-source-context-chase-checking-1234",
+  "source_identity": {
+    "source_slug": "chase-checking",
+    "institution_name": "Chase",
+    "statement_format": "pdf",
+    "account_mask": "1234",
+    "statement_descriptor": "CHASE TOTAL CHECKING"
+  },
+  "reuse_hints": {
+    "statement_shape": {
+      "date_column_labels": [
+        "posting_date",
+        "transaction_date"
+      ],
+      "amount_column_labels": [
+        "amount",
+        "debit",
+        "credit"
+      ],
+      "balance_column_label": "running_balance"
+    },
+    "account_structure": {
+      "primary_account": "Assets:Bank:Chase:Checking-1234",
+      "counterparty_branch": "Expenses:Unknown",
+      "operating_currency": "USD"
+    },
+    "parser_guidance": {
+      "preferred_source_format": "pdf",
+      "parse_status_to_reuse": [
+        "parsed",
+        "parsed_with_warnings"
+      ]
+    }
+  },
+  "review_metadata": {
+    "storage_path": ".auto-bean/memory/import_sources/chase-checking-1234.json",
+    "review_required": true,
+    "derived_from_import_status": true,
+    "reuse_is_advisory_only": true,
+    "last_reviewed_at": "2026-04-12T18:05:00Z"
+  },
+  "created_at": "2026-04-12T18:00:00Z",
+  "updated_at": "2026-04-12T18:05:00Z"
+}

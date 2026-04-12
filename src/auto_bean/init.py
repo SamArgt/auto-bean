@@ -269,6 +269,7 @@ class InitService:
                     "AGENTS.md",
                     "beancount/accounts.beancount",
                     "beancount/opening-balances.beancount",
+                    ".auto-bean/memory/import_sources/.gitkeep",
                     "statements/parsed/.gitkeep",
                     "statements/import-status.yml",
                 ),
@@ -285,6 +286,7 @@ class InitService:
                     "auto-bean-import/SKILL.md",
                     "auto-bean-import/agents/openai.yaml",
                     "auto-bean-import/references/account-proposal.example.json",
+                    "auto-bean-import/references/import-source-context.example.json",
                     "auto-bean-import/references/parsed-statement-output.example.json",
                     "auto-bean-import/references/import-status.example.yml",
                     "shared/mutation-pipeline.md",
@@ -339,6 +341,7 @@ class InitService:
                 ".agents/skills/auto-bean-apply/SKILL.md",
                 ".agents/skills/auto-bean-import/SKILL.md",
                 ".agents/skills/shared/mutation-pipeline.md",
+                ".auto-bean/memory/import_sources/.gitkeep",
                 "statements/import-status.yml",
             ],
         }
