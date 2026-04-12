@@ -121,3 +121,36 @@ def test_import_skill_keeps_ambiguous_or_duplicate_account_cases_review_only() -
         for proposal in proposals
     )
     assert payload["blocking_inferences"] == []
+
+
+def test_apply_skill_documents_direct_mutation_diff_approval_and_audit_flow() -> None:
+    skill_path = REPO_ROOT / "skill_sources" / "auto-bean-apply" / "SKILL.md"
+    content = skill_path.read_text(encoding="utf-8")
+
+    assert "working tree" in content
+    assert "post-mutation validation" in content
+    assert "git diff" in content
+    assert "commit or push" in content
+    assert ".auto-bean/proposals/" in content
+    assert "optional review aids" in content
+    assert "unfinalized" in content
+
+
+def test_shared_mutation_policy_prefers_direct_mutation_with_commit_gated_finalization() -> (
+    None
+):
+    pipeline = (
+        REPO_ROOT / "skill_sources" / "shared" / "mutation-pipeline.md"
+    ).read_text(encoding="utf-8")
+    matrix = (
+        REPO_ROOT / "skill_sources" / "shared" / "mutation-authority-matrix.md"
+    ).read_text(encoding="utf-8")
+
+    assert "Apply the scoped mutation in the local working tree" in pipeline
+    assert "summary plus `git diff`" in pipeline
+    assert "approval is denied" in pipeline
+    assert "accepted into history" in pipeline
+    assert "Direct working-tree mutation" in matrix
+    assert "Diff inspection" in matrix
+    assert "Commit/push finalization" in matrix
+    assert "high-scrutiny operation" in matrix

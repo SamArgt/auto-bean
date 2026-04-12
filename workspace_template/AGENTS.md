@@ -16,10 +16,13 @@ Treat Codex and the installed workspace skills as the primary interface for oper
 - Use the installed skills as the primary workflow surface for trust-sensitive structural ledger changes.
 - Use the installed `auto-bean-import` skill to normalize raw statement files into inspectable parsed outputs under `statements/parsed/`.
 - Use the installed `auto-bean-import` skill to derive reviewable first-seen account proposals from parsed statements when imported evidence supports it.
-- Suggest validation with `./scripts/validate-ledger.sh` or `./.venv/bin/bean-check ledger.beancount` before presenting ledger edits as ready.
+- Treat direct working-tree edits plus post-mutation inspection as the standard structural-change flow.
+- Suggest validation with `./scripts/validate-ledger.sh` or `./.venv/bin/bean-check ledger.beancount` before presenting structural ledger edits as ready for commit or push.
+- Show a concise summary plus `git diff` before asking whether to commit or push a structural change.
 - Suggest inspection with `./scripts/open-fava.sh` or `./.venv/bin/fava ledger.beancount` when the user wants to inspect the current ledger state.
 - Keep the user informed about what is supported today versus what is planned for later stories.
-- Ask for explicit approval before committing changes to `ledger.beancount` or files under `beancount/`.
+- Ask for explicit approval before committing or pushing changes to `ledger.beancount` or files under `beancount/`.
+
 
 ## What The Coding Agent Should Not Do
 
@@ -27,7 +30,8 @@ Treat Codex and the installed workspace skills as the primary interface for oper
 - Do not invent import commands, APIs, or skills that do not exist in this workspace.
 - Do not describe statement intake as a silent ledger mutation workflow; import may now produce reviewable first-seen account proposals, but accepted ledger edits still require explicit review and approval.
 - Do not claim statement intake is ready if `./.venv/bin/docling` is missing or not runnable.
-- Do not commit structural ledger changes before the user has explicitly approved the validated proposal.
+- Do not describe a working-tree mutation as accepted before validation succeeds and the user explicitly approves commit or push finalization.
+- Do not treat proposal artifacts as mandatory for every structural edit; they are optional for deeper review and unusually risky changes.
 
 ## Workspace Tree
 
@@ -65,14 +69,15 @@ Treat Codex and the installed workspace skills as the primary interface for oper
 - `statements/parsed/`: normalized parse outputs produced from raw statements
 - `statements/import-status.yml`: durable parse-state index for statement intake
 - `.auto-bean/artifacts/`: governed run artifacts and diagnostics
-- `.auto-bean/proposals/`: proposal documents for riskier or review-heavy changes, including import-derived account structure when deeper review is needed
+- `.auto-bean/proposals/`: optional proposal documents for riskier or review-heavy changes, including import-derived account structure when deeper review is needed
 - `.agents/skills/`: installed runtime skills available to the coding agent
 
 ## Operating Notes
 
 - Use Git in this workspace to inspect diffs, review history, and create approved commits.
-- Review structural ledger changes before accepting them into the ledger.
+- Review structural ledger changes after mutation, before accepting them into git history.
 - Keep governed runtime state under `.auto-bean/` and installed runtime skills under `.agents/skills/`.
 - Statement normalization routes through the workspace-local Docling CLI at `./.venv/bin/docling`.
 - For account discovery, prefer `beancount/accounts.beancount`; fall back to other included ledger files only when needed.
 - Story 2.2 extends import to propose first-seen accounts from parsed evidence, but reconciliation, accepted mutation, and durable memory still belong to later or separate reviewed workflows.
+- When a structural change is committed, prefer git-backed rollback over a separate proposal-application phase.

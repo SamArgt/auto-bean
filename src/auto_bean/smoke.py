@@ -87,7 +87,17 @@ def run_smoke_checks() -> int:
         (skill_sources_root / "auto-bean-import" / "references").mkdir(parents=True)
         (skill_sources_root / "shared").mkdir(parents=True)
         (skill_sources_root / "auto-bean-apply" / "SKILL.md").write_text(
-            "# Apply\n",
+            "\n".join(
+                [
+                    "# Apply",
+                    "Apply scoped structural changes directly in the working tree.",
+                    "Run validation after mutation.",
+                    "Show git diff before asking whether to commit or push.",
+                    "If validation fails or approval is denied, leave the change unfinalized.",
+                    "Record audit artifacts under .auto-bean/artifacts/.",
+                    "",
+                ]
+            ),
             encoding="utf-8",
         )
         (skill_sources_root / "auto-bean-apply" / "agents" / "openai.yaml").write_text(
@@ -145,7 +155,19 @@ def run_smoke_checks() -> int:
         (template_root / ".auto-bean" / "artifacts").mkdir(parents=True)
         (template_root / ".auto-bean" / "proposals").mkdir(parents=True)
         (template_root / ".agents").mkdir(parents=True)
-        (template_root / "AGENTS.md").write_text("# Agents\n", encoding="utf-8")
+        (template_root / "AGENTS.md").write_text(
+            "\n".join(
+                [
+                    "# Agents",
+                    "Use direct working-tree edits plus post-mutation validation as the default structural-change flow.",
+                    "Show git diff before commit or push approval.",
+                    "Require explicit approval before finalization.",
+                    "Use git-backed rollback after approved commits.",
+                    "",
+                ]
+            ),
+            encoding="utf-8",
+        )
         (template_root / "ledger.beancount").write_text(
             'option "title" "Smoke Ledger"\ninclude "beancount/accounts.beancount"\ninclude "beancount/opening-balances.beancount"\n',
             encoding="utf-8",
@@ -186,6 +208,44 @@ def run_smoke_checks() -> int:
                 with patch("sys.stdout", buffer):
                     exit_code = main(argv)
             payload = json.loads(buffer.getvalue())
+            if name == "init-success":
+                workspace_root = repo_root.parent / project_name
+                agents_text = workspace_root.joinpath("AGENTS.md").read_text(
+                    encoding="utf-8"
+                )
+                apply_skill_text = workspace_root.joinpath(
+                    ".agents", "skills", "auto-bean-apply", "SKILL.md"
+                ).read_text(encoding="utf-8")
+                required_agents_phrases = (
+                    "direct working-tree edits",
+                    "git diff before commit or push approval",
+                    "explicit approval before finalization",
+                    "git-backed rollback",
+                )
+                required_apply_phrases = (
+                    "working tree",
+                    "validation after mutation",
+                    "git diff before asking whether to commit or push",
+                    "approval is denied",
+                    ".auto-bean/artifacts/",
+                )
+                if not all(
+                    phrase in agents_text for phrase in required_agents_phrases
+                ) or not all(
+                    phrase in apply_skill_text for phrase in required_apply_phrases
+                ):
+                    print(
+                        json.dumps(
+                            {
+                                "status": "failed",
+                                "reason": "structural_change_guidance_missing",
+                                "results": results,
+                            },
+                            indent=2,
+                            sort_keys=True,
+                        )
+                    )
+                    return 1
             results.append(
                 {
                     "name": name,

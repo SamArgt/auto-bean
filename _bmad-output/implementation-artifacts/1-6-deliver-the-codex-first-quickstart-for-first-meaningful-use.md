@@ -113,7 +113,7 @@ so that I can become operational in the first session without needing a public S
 - [Epic breakdown](/Users/sam/Projects/auto-bean/_bmad-output/planning-artifacts/epics.md)
 - [Architecture](/Users/sam/Projects/auto-bean/_bmad-output/planning-artifacts/architecture.md)
 - [PRD](/Users/sam/Projects/auto-bean/_bmad-output/planning-artifacts/prd.md)
-- [Previous story](/Users/sam/Projects/auto-bean/_bmad-output/implementation-artifacts/1-5-review-and-approve-structural-ledger-changes-through-the-agent-workflow.md)
+- [Previous story](/Users/sam/Projects/auto-bean/_bmad-output/implementation-artifacts/1-5-inspect-and-finalize-structural-ledger-changes-through-the-agent-workflow.md)
 - [Story 1.4](/Users/sam/Projects/auto-bean/_bmad-output/implementation-artifacts/1-4-create-a-new-base-beancount-ledger-workspace.md)
 - [Sprint status](/Users/sam/Projects/auto-bean/_bmad-output/implementation-artifacts/sprint-status.yaml)
 - [README](/Users/sam/Projects/auto-bean/README.md)

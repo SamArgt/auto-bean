@@ -18,6 +18,8 @@ from auto_bean.init import (
     ProjectPaths,
 )
 
+REPO_ROOT = Path(__file__).resolve().parents[1]
+
 
 @dataclass
 class FakePlatformProbe:
@@ -749,3 +751,14 @@ def test_cli_reports_unexpected_execution_errors_as_structured_output(
     assert payload["error_category"] == "execution_error"
     assert payload["details"]["exception_type"] == "RuntimeError"
     assert payload["details"]["exception_message"] == "boom"
+
+
+def test_workspace_agents_template_describes_direct_mutation_review_boundary() -> None:
+    agents_path = REPO_ROOT / "workspace_template" / "AGENTS.md"
+    content = agents_path.read_text(encoding="utf-8")
+
+    assert "direct working-tree edits plus post-mutation inspection" in content
+    assert "git diff" in content
+    assert "committing or pushing" in content
+    assert ".auto-bean/artifacts/" in content
+    assert "git-backed rollback" in content
