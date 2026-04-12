@@ -27,7 +27,7 @@ FR6: A user can create a new Beancount ledger through the agent workflow.
 FR7: A user can define or confirm account structures needed for their personal finance setup.
 FR8: A user can add new accounts to an existing ledger when new institutions or asset types appear.
 FR9: A user can maintain a linked ledger covering all relevant financial accounts.
-FR10: A user can review proposed ledger-structure changes before they are applied.
+FR10: A user can inspect import-derived or agent-made ledger-structure changes through git-backed diffs and workflow summaries after direct mutation, then approve whether the agent should commit and push the result.
 FR11: A user can approve or reject risky structural changes proposed by the agent.
 FR12: A user can import financial statements from PDF files into the ledger workflow.
 FR13: A user can import financial statements from CSV files into the ledger workflow.
@@ -35,7 +35,7 @@ FR14: A user can import financial statements from Excel files into the ledger wo
 FR15: A user can import data from multiple statement sources into the same ledger.
 FR16: A user can import statements into an existing ledger without recreating the ledger from scratch.
 FR17: A user can use the system to create a new ledger from imported account data when needed.
-FR18: A user can review imported results before accepting them into the ledger.
+FR18: A user can inspect imported results, resulting ledger edits, validation outcomes, and a git-backed diff in a direct import workflow before approving commit and push.
 FR19: The system can preserve source-to-ledger mapping context across repeated imports from similar sources.
 FR20: A user can have imported transactions mapped into appropriate ledger accounts.
 FR21: A user can have likely transfers between accounts identified during import and review.
@@ -52,9 +52,9 @@ FR31: A user can inspect learned operational memory that affects future behavior
 FR32: A user can correct or refine learned memory when prior decisions are no longer desired.
 FR33: A user can improve system behavior over time through repeated supervised use rather than one-off scripting.
 FR34: A user can validate ledger integrity after imports and edits.
-FR35: A user can review meaningful ledger changes before final acceptance.
-FR36: A user can view differences between prior and proposed ledger state.
-FR37: A user can require explicit approval before risky or uncertain changes are applied.
+FR35: A user can inspect meaningful ledger changes and their validation outcomes immediately after mutation, approve commit and push only after that inspection, and recover prior known-good state by reverting the commit when needed.
+FR36: A user can view differences between prior and resulting ledger state.
+FR37: A user can require explicit approval before risky or uncertain changes are committed or pushed.
 FR38: A user can have risky actions surfaced distinctly from routine low-risk actions.
 FR39: A user can preserve an auditable history of ledger changes.
 FR40: A user can roll back undesired changes and recover a prior known-good state.
@@ -95,7 +95,7 @@ NFR6: Re-running the same import workflow on the same inputs shall produce deter
 - There is no public API in MVP; internal Python service interfaces and CLI commands should be used instead.
 - CLI commands may emit machine-readable JSON for agent orchestration, but that output is an internal automation interface rather than a stable external API.
 - Git-backed branching, diffing, review, rollback, and audit history are mandatory workflow infrastructure rather than optional utilities.
-- Risky edits and structural changes require explicit user approval before ledger mutation.
+- Risky edits and structural changes require user approval before commit/push finalization, with direct mutation results surfaced through validation and git-backed inspection.
 - Validation must run after each meaningful ledger-changing action.
 - Structured local logging should capture workflow traces, validation outcomes, import decisions, and recovery diagnostics.
 - GitHub Actions should provide the CI baseline for lint, typecheck, tests, and deterministic workflow verification.
@@ -112,7 +112,7 @@ NFR6: Re-running the same import workflow on the same inputs shall produce deter
 
 ### UX Design Requirements
 
-No UX design document was found in the planning artifacts, and this course correction does not introduce one. Trust-sensitive interaction expectations must therefore remain explicit in story acceptance criteria for quickstart, review, clarification, approval, rollback, and troubleshooting flows.
+No UX design document was found in the planning artifacts, and this course correction does not introduce one. Trust-sensitive interaction expectations must therefore remain explicit in story acceptance criteria for quickstart, direct mutation summaries, `git diff` inspection, commit/push approval, rollback, and troubleshooting flows.
 
 ### FR Coverage Map
 
@@ -125,7 +125,7 @@ FR6: Epic 1 - create a new Beancount ledger through the agent workflow
 FR7: Epic 2 - define or confirm account structures principally through first-time statement account import
 FR8: Epic 2 - add new accounts to an existing ledger when new institutions or asset types appear through import
 FR9: Epic 1 - maintain a linked ledger covering all relevant financial accounts
-FR10: Epic 1 - review proposed ledger-structure changes before they are applied
+FR10: Epic 1 - inspect direct structural changes before commit/push finalization
 FR11: Epic 1 - approve or reject risky structural changes proposed by the agent
 FR12: Epic 2 - import financial statements from PDF files
 FR13: Epic 2 - import financial statements from CSV files
@@ -133,7 +133,7 @@ FR14: Epic 2 - import financial statements from Excel files
 FR15: Epic 2 - import data from multiple statement sources into the same ledger
 FR16: Epic 2 - import statements into an existing ledger without recreating the ledger from scratch
 FR17: Epic 2 - create a new ledger from imported account data when needed
-FR18: Epic 2 - review imported results before accepting them into the ledger
+FR18: Epic 2 - inspect imported results and direct ledger edits before commit/push
 FR19: Epic 2 - preserve source-to-ledger mapping context across repeated imports
 FR20: Epic 3 - map imported transactions into appropriate ledger accounts
 FR21: Epic 3 - identify likely transfers during import and review
@@ -150,9 +150,9 @@ FR31: Epic 4 - inspect learned operational memory that affects future behavior
 FR32: Epic 4 - correct or refine learned memory when prior decisions are no longer desired
 FR33: Epic 4 - improve system behavior through repeated supervised use
 FR34: Epic 3 - validate ledger integrity after imports and edits
-FR35: Epic 3 - review meaningful ledger changes before final acceptance
-FR36: Epic 3 - view differences between prior and proposed ledger state
-FR37: Epic 3 - require explicit approval before risky or uncertain changes are applied
+FR35: Epic 3 - inspect meaningful ledger changes after mutation and before commit/push
+FR36: Epic 3 - view differences between prior and resulting ledger state
+FR37: Epic 3 - require explicit approval before risky or uncertain changes are committed or pushed
 FR38: Epic 3 - surface risky actions distinctly from routine low-risk actions
 FR39: Epic 3 - preserve an auditable history of ledger changes
 FR40: Epic 3 - roll back undesired changes and recover a prior known-good state
@@ -173,16 +173,16 @@ FR53: Epic 1 - use the product as an evolving local tool within an existing repo
 ## Epic List
 
 ### Epic 1: Bootstrap a Safe Local Ledger Workspace
-Users can install auto-bean, initialize a local workspace, create the base Beancount ledger, and operate through a guided Codex-first workflow with review gates from day one.
+Users can install auto-bean, initialize a local workspace, create the base Beancount ledger, and operate through a guided Codex-first workflow with validation, git-backed inspection, and commit/push approval from day one.
 **FRs covered:** FR1, FR2, FR3, FR4, FR5, FR6, FR9, FR10, FR11, FR45, FR51, FR52, FR53
 **Primary NFR support:** NFR4, NFR5, NFR6
 
 ### Epic 2: Import Statements and Introduce New Accounts Through Import
-Users can import PDF, CSV, and Excel statements into a new or existing ledger, normalize statement data into a reviewable intake result, have first-seen accounts proposed through the import flow, review intake and structure proposals before reconciliation, and preserve source-specific context for repeat use.
+Users can import PDF, CSV, and Excel statements into a new or existing ledger, normalize statement data into a reviewable intake result, let the agent write routine import-derived ledger updates directly when confidence is sufficient, inspect the result through validation and git-backed workflow controls, and preserve source-specific context for repeat use.
 **FRs covered:** FR7, FR8, FR12, FR13, FR14, FR15, FR16, FR17, FR18, FR19
 
-### Epic 3: Reconcile and Approve Ledger Changes Safely
-Users can turn imported data into trustworthy ledger updates by mapping transactions, handling transfers and duplicates, resolving ambiguity, validating results, reviewing diffs, and rolling back when needed.
+### Epic 3: Reconcile and Finalize Ledger Changes Safely
+Users can turn imported data into trustworthy ledger updates by mapping transactions, handling transfers and duplicates, resolving ambiguity, validating results, inspecting diffs before commit/push, and rolling back when needed.
 **FRs covered:** FR20, FR21, FR22, FR23, FR24, FR25, FR26, FR34, FR35, FR36, FR37, FR38, FR39, FR40, FR46, FR47, FR48, FR49
 
 ### Epic 4: Learn User Decisions and Improve Over Time
@@ -195,7 +195,7 @@ Users can enrich their ledger workflow with external price data for currencies, 
 
 ## Epic 1: Bootstrap a Safe Local Ledger Workspace
 
-Users can install auto-bean, initialize a local workspace, create the base Beancount ledger, and operate through a guided Codex-first workflow with review gates from day one.
+Users can install auto-bean, initialize a local workspace, create the base Beancount ledger, and operate through a guided Codex-first workflow with validation, git-backed inspection, and commit/push approval from day one.
 
 ### Story 1.1: Initialize the packaged auto-bean project foundation
 
@@ -270,27 +270,27 @@ So that I can start operating a linked personal-finance ledger without manual fi
 **And** the created workspace is compatible with validation and Fava inspection
 
 **Given** the base ledger workspace has been created
-**When** the user reviews the proposed structure
+**When** the user reviews the created structure
 **Then** the user can inspect what was created before risky structural changes are finalized
 **And** the resulting ledger workspace supports later imports into the same linked ledger
 
-### Story 1.5: Review and approve structural ledger changes through the agent workflow
+### Story 1.5: Inspect and finalize structural ledger changes through the agent workflow
 
 As a trust-conscious user,
-I want structural ledger changes to go through explicit review and approval,
-So that the agent cannot silently alter the meaning of my ledger.
+I want structural ledger changes summarized and shown through git-backed inspection before they are committed,
+So that the agent cannot silently finalize changes that alter the meaning of my ledger.
 
 **Acceptance Criteria:**
 
-**Given** a proposed structural change to the ledger or workspace
-**When** the change is classified as risky or materially meaningful
-**Then** the system presents the proposed change for review before applying it
-**And** the user can explicitly approve or reject it
+**Given** a direct structural change to the ledger or workspace
+**When** the workflow finishes mutating and validating the result
+**Then** the system presents a concise summary plus `git diff` before commit/push finalization
+**And** the user can explicitly approve or reject the commit/push step
 
-**Given** a structural change is approved and applied
+**Given** a structural change is approved for commit/push
 **When** the workflow completes
 **Then** the resulting change is captured in inspectable history with diff visibility
-**And** the system preserves an auditable trail for later review or rollback
+**And** the system preserves an auditable trail for later revert-based rollback
 
 ### Story 1.6: Deliver the Codex-first quickstart for first meaningful use
 
@@ -312,7 +312,7 @@ So that I can become operational in the first session without needing a public S
 
 ## Epic 2: Import Statements and Introduce New Accounts Through Import
 
-Users can import PDF, CSV, and Excel statements into a new or existing ledger, have first-seen accounts proposed through the import flow, review the resulting structure and transactions, and preserve source-specific context for repeat use.
+Users can import PDF, CSV, and Excel statements into a new or existing ledger, normalize statement data into a reviewable intake result, let the agent write routine import-derived ledger updates directly when confidence is sufficient, inspect the result through validation and git-backed workflow controls, and preserve source-specific context for repeat use.
 
 ### Story 2.1: Import statement files into a normalized intake workflow
 
@@ -336,39 +336,40 @@ So that different statement formats can enter the ledger pipeline consistently.
 ### Story 2.2: Create or extend a ledger from first-time imported account statements
 
 As a first-time or expanding ledger user,
-I want first-seen accounts to be proposed through statement import,
+I want the agent to create or extend the ledger directly from first-time imported account statements when the evidence is sufficient,
 So that account creation happens principally from real imported account evidence rather than separate manual setup.
 
 **Acceptance Criteria:**
 
 **Given** a statement from an account not yet represented in the ledger
 **When** the import workflow analyzes the source
-**Then** the system proposes the new account structure needed for that imported account as part of the import result
-**And** the proposal makes clear that the account is first-seen and import-derived
+**Then** the system writes the new account structure needed for that imported account directly into the ledger as part of the import workflow
+**And** the workflow makes clear that the account was first-seen and import-derived
 
 **Given** the user is starting from no existing ledger or from an incomplete ledger
 **When** imported account data provides enough information to proceed
 **Then** the system can create a new ledger baseline or extend the existing ledger from that imported account data
 **And** standalone account creation is not required for the normal first-seen account path
+**And** the workflow shows the resulting diff and asks whether the agent should commit and push the validated change
 
-### Story 2.3: Review normalized import results and first-seen account proposals before reconciliation
+### Story 2.3: Review normalized import results before finalizing direct ledger edits
 
 As a trust-conscious user,
-I want to review normalized import results and first-seen account proposals before reconciliation,
-So that I stay in control of what enters the posting workflow and ledger plan.
+I want to review normalized import results, direct ledger edits, and validation outcomes in one import workflow,
+So that I stay in control of what enters my ledger before the agent commits and pushes the result.
 
 **Acceptance Criteria:**
 
-**Given** a completed import run with normalized statement records and proposed account additions
+**Given** a completed import run with normalized statement records and direct ledger edits derived from them
 **When** the system presents the import result
-**Then** the user can review the normalized intake result before any candidate ledger postings are generated
-**And** the review surface distinguishes parsed transaction records from structure changes such as first-seen account proposals
-**And** the workflow makes clear that transaction-to-posting conversion happens in the later reconciliation stage
+**Then** the user can review the normalized intake result, validation outcome, and resulting diff before commit/push
+**And** the review surface distinguishes parsed transaction records from the ledger changes derived from them
+**And** the workflow makes clear that commit/push remains the final approval boundary
 
-**Given** an import result contains issues, uncertainty, or low-confidence proposals
+**Given** an import result contains issues, uncertainty, low-confidence inferences, or failed validation
 **When** the user reviews the result
-**Then** the workflow surfaces those concerns clearly before reconciliation or ledger mutation proceeds
-**And** the user can reject or defer acceptance without corrupting existing ledger state
+**Then** the workflow surfaces those concerns clearly before commit/push proceeds
+**And** the user can reject or defer finalization without corrupting existing ledger state
 
 ### Story 2.4: Persist source-specific import context for repeated imports
 
@@ -388,26 +389,26 @@ So that repeated imports from the same or similar sources require less setup ove
 **Then** the system can reuse relevant prior source context to reduce repetitive setup or mapping work
 **And** reused context remains reviewable rather than silently forcing an outcome
 
-## Epic 3: Reconcile and Approve Ledger Changes Safely
+## Epic 3: Reconcile and Finalize Ledger Changes Safely
 
 Users can turn imported data into trustworthy ledger updates by mapping transactions, handling transfers and duplicates, resolving ambiguity, validating results, reviewing diffs, and rolling back when needed.
 
-### Story 3.1: Transform normalized import results into candidate ledger postings
+### Story 3.1: Transform normalized import results into direct ledger postings with commit-gated acceptance
 
 As a user importing real financial activity,
-I want normalized imported transactions transformed into candidate ledger postings,
-So that reviewed statement data can be turned into reviewable accounting changes.
+I want normalized imported transactions transformed into direct ledger postings,
+So that reviewed statement data can be turned into validated accounting changes that I can inspect before commit/push.
 
 **Acceptance Criteria:**
 
 **Given** normalized imported transactions that have passed the Epic 2 import review and an existing ledger context
 **When** the reconciliation workflow runs
-**Then** the system produces candidate ledger postings mapped to appropriate ledger accounts
-**And** the result remains a proposal until later review and approval steps complete
+**Then** the system transforms the imported transactions into ledger postings mapped to appropriate ledger accounts
+**And** the resulting change is summarized and shown through git-backed diff before commit/push
 
 **Given** imported transactions include patterns seen before
 **When** the mapping workflow evaluates them
-**Then** relevant prior mappings may be reused to improve candidate postings
+**Then** relevant prior mappings may be reused to improve the resulting postings
 **And** reused mappings remain attributable and reviewable
 
 ### Story 3.2: Detect transfers, duplicates, and unbalanced outcomes during reconciliation
@@ -446,41 +447,41 @@ So that I can correct the result without losing trust in the workflow.
 **Then** the system applies the clarification to the current reconciliation result
 **And** the corrected interpretation can later be reused through the governed memory path
 
-### Story 3.4: Review, validate, and approve proposed ledger mutations
+### Story 3.4: Validate, inspect, approve, and recover ledger mutations safely
 
 As a trust-conscious user,
-I want proposed ledger mutations reviewed and validated before acceptance,
-So that only trustworthy changes reach my ledger.
+I want direct ledger mutations validated and inspected before they are committed,
+So that only trustworthy changes are finalized in my ledger history.
 
 **Acceptance Criteria:**
 
-**Given** a proposed set of ledger mutations from reconciliation
-**When** the review workflow is presented
-**Then** the user can inspect meaningful diffs between prior and proposed ledger state
+**Given** a set of ledger mutations from reconciliation has already been applied locally
+**When** the inspection workflow is presented
+**Then** the user can inspect meaningful diffs between prior and resulting ledger state
 **And** risky or uncertain changes are surfaced distinctly from routine low-risk changes
 
-**Given** a proposed mutation set is approved for application
-**When** the workflow executes the mutation
+**Given** a mutation set has been applied locally
+**When** the workflow completes validation
 **Then** post-change validation runs before the result is treated as accepted
 **And** validation failures are surfaced clearly without being misrepresented as success
-**And** the workflow writes an inspectable validation artifact and review trace for the accepted or blocked run
+**And** the agent asks whether to commit and push after showing the summary and diff
 
-### Story 3.5: Preserve audit history and rollback for accepted or rejected changes
+### Story 3.5: Preserve audit history and rollback for committed or rejected changes
 
 As a user protecting the integrity of my ledger,
-I want accepted changes recorded and reversible,
+I want committed changes recorded and reversible,
 So that I can recover a prior known-good state if something goes wrong.
 
 **Acceptance Criteria:**
 
-**Given** a ledger mutation is accepted or rejected through the workflow
+**Given** a ledger mutation is committed or rejected through the workflow
 **When** the workflow completes
 **Then** the result is captured in auditable history with enough detail to understand what happened
-**And** review artifacts and diffs remain inspectable after the fact
+**And** diffs and commit history remain inspectable after the fact
 
-**Given** an accepted change later proves undesirable
+**Given** a committed change later proves undesirable
 **When** the user invokes recovery or rollback
-**Then** the system can restore a prior known-good ledger state
+**Then** the system can restore a prior known-good ledger state by reverting the recorded commit
 **And** the recovery path preserves trust by making the rollback visible and inspectable
 
 ### Story 3.6: Troubleshoot suspicious or failed imports with guided diagnostics

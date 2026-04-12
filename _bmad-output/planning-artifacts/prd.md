@@ -80,7 +80,7 @@ A first-time user can complete setup, create a new ledger, and import multiple s
 The default quality baseline is measurable rather than implied:
 - readiness checks for a correctly configured workspace complete in under 2 minutes on the supported macOS environment
 - a typical single-statement import plus review preparation completes in under 3 minutes before final approval
-- every ledger-changing workflow emits an inspectable validation result and review artifact before acceptance
+- every ledger-changing workflow emits an inspectable validation result, a git-backed diff, and a concise change summary before commit/push approval
 - the main CI workflow passes lint, type validation, automated tests, and deterministic workflow smoke checks on every proposed change to workflow logic
 
 The strongest V1 acceptance criterion is practical self-use: the system is stable and accurate enough to rely on for managing personal finances.
@@ -143,7 +143,7 @@ There are no formal regulatory or certification requirements for V1 because this
 
 ### Technical Constraints
 
-The system must preserve clear git history for all meaningful ledger changes so the user can inspect, compare, and revert work when needed. It must require user approval before creating new structures or making risky edits, especially when the agent is uncertain or a change could materially alter ledger meaning.
+The system must preserve clear git history for all meaningful ledger changes so the user can inspect, compare, and revert work when needed. It must present direct mutations through a concise summary and `git diff`, then require user approval before commit/push finalization, especially when the agent is uncertain or a change could materially alter ledger meaning.
 
 ### Integration Requirements
 
@@ -151,7 +151,7 @@ V1 does not require formal integrations beyond local statement-file handling and
 
 ### Risk Mitigations
 
-The main domain risk is erosion of user trust caused by incorrect imports, unsafe edits, or poor explanation of ambiguous results. The product should default to inspectable workflows, validation after edits and imports, explicit approval before risky changes, and recovery paths that make rollback straightforward.
+The main domain risk is erosion of user trust caused by incorrect imports, unsafe edits, or poor explanation of ambiguous results. The product should default to inspectable workflows, validation after edits and imports, approval before commit/push finalization, and recovery paths that make rollback straightforward.
 
 ## Innovation & Novel Patterns
 
@@ -269,7 +269,7 @@ Readiness risk is also mitigated by making workflow integrity explicit in planni
 - FR7: A user can define or confirm account structures needed for their personal finance setup.
 - FR8: A user can add new accounts to an existing ledger when new institutions or asset types appear.
 - FR9: A user can maintain a linked ledger covering all relevant financial accounts.
-- FR10: A user can review proposed ledger-structure changes before they are applied.
+- FR10: A user can inspect import-derived or agent-made ledger-structure changes through git-backed diffs and workflow summaries after direct mutation, then approve whether the agent should commit and push the result.
 - FR11: A user can approve or reject risky structural changes proposed by the agent.
 
 ### Statement Import & Normalization
@@ -280,7 +280,7 @@ Readiness risk is also mitigated by making workflow integrity explicit in planni
 - FR15: A user can import data from multiple statement sources into the same ledger.
 - FR16: A user can import statements into an existing ledger without recreating the ledger from scratch.
 - FR17: A user can use the system to create a new ledger from imported account data when needed.
-- FR18: A user can review imported results before accepting them into the ledger.
+- FR18: A user can inspect imported results, resulting ledger edits, validation outcomes, and a git-backed diff in a direct import workflow before approving commit and push.
 - FR19: The system can preserve source-to-ledger mapping context across repeated imports from similar sources.
 
 ### Transaction Interpretation & Reconciliation
@@ -306,9 +306,9 @@ Readiness risk is also mitigated by making workflow integrity explicit in planni
 ### Validation, Review & Safe Change Control
 
 - FR34: A user can validate ledger integrity after imports and edits.
-- FR35: A user can review meaningful ledger changes before final acceptance.
-- FR36: A user can view differences between prior and proposed ledger state.
-- FR37: A user can require explicit approval before risky or uncertain changes are applied.
+- FR35: A user can inspect meaningful ledger changes and their validation outcomes immediately after mutation, approve commit and push only after that inspection, and recover prior known-good state by reverting the commit when needed.
+- FR36: A user can view differences between prior and resulting ledger state.
+- FR37: A user can require explicit approval before risky or uncertain changes are committed or pushed.
 - FR38: A user can have risky actions surfaced distinctly from routine low-risk actions.
 - FR39: A user can preserve an auditable history of ledger changes.
 - FR40: A user can roll back undesired changes and recover a prior known-good state.
@@ -350,7 +350,7 @@ The system shall keep ledger data and operational context local to the user’s 
 
 The system shall not silently corrupt ledger state. All meaningful ledger-changing operations shall be validated before acceptance, and failures shall be surfaced clearly to the user. Re-running the same import workflow on the same inputs shall produce deterministic results unless the user intentionally changes configuration, mappings, or memory that affect the outcome.
 
-Every ledger-changing workflow shall produce an inspectable validation artifact and review artifact before the result is treated as accepted. CI shall verify linting, type validation, automated tests, and deterministic workflow smoke checks for workflow logic that can mutate ledger state.
+Every ledger-changing workflow shall produce an inspectable validation result, a git-backed diff, and enough local audit context to explain what changed before the agent asks whether to commit and push the result. CI shall verify linting, type validation, automated tests, and deterministic workflow smoke checks for workflow logic that can mutate ledger state.
 
 ### Observability & Diagnostics
 

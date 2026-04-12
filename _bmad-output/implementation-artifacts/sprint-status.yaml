@@ -47,21 +47,21 @@ development_status:
   1-2-bootstrap-local-dependencies-and-readiness-checks-on-macos: done
   1-3-establish-the-ci-workflow-verification-and-diagnostics-baseline: done
   1-4-create-a-new-base-beancount-ledger-workspace: done
-  1-5-review-and-approve-structural-ledger-changes-through-the-agent-workflow: done
+  1-5-inspect-and-finalize-structural-ledger-changes-through-the-agent-workflow: backlog
   1-6-deliver-the-codex-first-quickstart-for-first-meaningful-use: done
   epic-1-retrospective: done
   epic-2: in-progress
   2-1-import-statement-files-into-a-normalized-intake-workflow: review
-  2-2-create-or-extend-a-ledger-from-first-time-imported-account-statements: review
-  2-3-review-import-results-before-accepting-transactions-and-structure-changes: backlog
+  2-2-create-or-extend-a-ledger-from-first-time-imported-account-statements: backlog
+  2-3-review-normalized-import-results-before-finalizing-direct-ledger-edits: backlog
   2-4-persist-source-specific-import-context-for-repeated-imports: backlog
   epic-2-retrospective: optional
   epic-3: backlog
-  3-1-map-imported-transactions-into-candidate-ledger-postings: backlog
+  3-1-transform-normalized-import-results-into-direct-ledger-postings-with-commit-gated-acceptance: backlog
   3-2-detect-transfers-duplicates-and-unbalanced-outcomes-during-reconciliation: backlog
   3-3-run-clarification-workflows-for-ambiguous-or-unfamiliar-transaction-patterns: backlog
-  3-4-review-validate-and-approve-proposed-ledger-mutations: backlog
-  3-5-preserve-audit-history-and-rollback-for-accepted-or-rejected-changes: backlog
+  3-4-validate-inspect-approve-and-recover-ledger-mutations-safely: backlog
+  3-5-preserve-audit-history-and-rollback-for-committed-or-rejected-changes: backlog
   3-6-troubleshoot-suspicious-or-failed-imports-with-guided-diagnostics: backlog
   epic-3-retrospective: optional
   epic-4: backlog

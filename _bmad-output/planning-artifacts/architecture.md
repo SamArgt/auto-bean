@@ -33,7 +33,7 @@ The PRD defines 53 functional requirements across the full lifecycle of a local-
 
 Environment and setup requirements establish a bootstrap path for a supported macOS environment, local dependency installation, workspace initialization, readiness verification, and quickstart guidance. These imply a setup/orchestration layer with environment checks, install tasks, and repeatable initialization flows. That bootstrap path should install Docling CLI during workspace initialization so statement import is provisioned before the first intake run.
 
-Ledger creation and structure management requirements establish that the system must create new ledgers, extend existing ledgers, propose structural changes, and require approval before risky structural edits. This implies a ledger-structure service with explicit review and authorization boundaries rather than unconstrained agent mutation.
+Ledger creation and structure management requirements establish that the system must create new ledgers and extend existing ledgers directly through agent workflows, then summarize the result and ask the user whether to commit and push the validated change. This implies a ledger-structure service with explicit validation, inspection, and finalization boundaries rather than unconstrained agent mutation.
 
 Statement import and normalization requirements define a multi-format ingestion pipeline for PDF, CSV, TSV, and Excel sources, with support for both importing into existing ledgers and generating starting structure from imported data. Document parsing itself should be delegated to the local Docling CLI where practical, using Docling's supported conversion formats to produce intermediate structured output for downstream normalization. auto-bean owns the orchestration workflow, local dependency readiness, normalized parse-output contract, and ledger safety boundaries; it should not own bespoke PDF or spreadsheet parser implementations unless the product is explicitly re-scoped later.
 
@@ -84,7 +84,7 @@ Known constraints and dependencies from the PRD and briefs include:
 - statement ingestion must support PDF, CSV, TSV, and Excel inputs through the local Docling CLI where practical
 - external price data sources are needed for currencies, equities, and crypto
 - the system must preserve a clean separation between stable user-owned assets and evolving tool logic
-- risky edits and structural changes require explicit user approval
+- risky edits and structural changes require user approval before commit/push finalization, with direct mutation results surfaced through validation and git-backed inspection
 - deterministic behavior is expected for repeated imports unless memory or config changes
 
 ### Cross-Cutting Concerns Identified
@@ -483,21 +483,20 @@ Rules:
 There is no frontend loading-state system in MVP. For long-running CLI workflows:
 - report stage-based progress messages
 - keep progress text deterministic and concise
-- never imply that a mutation has been applied before approval and validation succeed
+- never imply that a mutation has been finalized before validation succeeds and the user approves commit/push
 
 **Ledger Mutation Pattern:**
 All ledger-changing workflows must follow the same pipeline:
 1. read inputs
 2. normalize into typed records
 3. build mutation plan
-4. produce diff/review artifact
-5. validate plan and resulting ledger state
-6. request explicit approval if risk or uncertainty exists
-7. apply mutation
-8. run post-apply validation
-9. record audit outcome
+4. apply mutation in the local workspace
+5. run post-apply validation
+6. produce diff and concise change summary
+7. ask whether to commit and push the result
+8. record audit outcome
 
-No agent may skip directly from parsed input to file mutation.
+No agent may mutate the ledger from parsed input without first deriving a structured mutation intent, validating the result, presenting the resulting diff and summary, and obtaining user approval before commit/push finalization.
 
 ### Enforcement Guidelines
 
@@ -748,9 +747,9 @@ Primary flow:
 **Data Flow:**
 - source statements are preserved under `statements/raw/`
 - the local Docling CLI converts source statements into structured output that the import workflow normalizes under `statements/parsed/`
-- normalized parsed statement records flow into account proposal, review, and reconciliation services in later workflow stages
-- mutation plans flow into validation and review
-- approved plans flow into ledger writer + git review pipeline
+- normalized parsed statement records flow into account inference and reconciliation services
+- high-confidence results flow directly into ledger writer + validation
+- validated results flow into git-backed inspection, approval for commit/push, and recovery support
 - learned outcomes flow into governed memory files through approved memory update paths
 
 ### Product-to-Workspace Installation Model
@@ -802,7 +801,6 @@ my-ledger/
 ├── docs/
 └── .auto-bean/
     ├── memory/
-    ├── proposals/
     ├── artifacts/
     ├── state/
     └── cache/
@@ -815,7 +813,6 @@ Rules:
 - `statements/raw/` contains source statements and should not be rewritten
 - `statements/parsed/` contains normalized parse outputs produced from raw statements via the local Docling CLI path
 - `.auto-bean/memory/` contains durable operational memory
-- `.auto-bean/proposals/` contains reviewable proposed changes
 - `.auto-bean/artifacts/` contains diffs, validation reports, and run traces
 - `.auto-bean/state/` contains lightweight workspace metadata
 - `.auto-bean/cache/` is disposable and non-canonical
@@ -830,10 +827,10 @@ Operating model:
 
 Authority boundaries:
 - installed `.agents/skills/**` may be changed by upgrade workflows, not routine ledger workflows
-- only approved apply/recovery paths may modify `beancount/**`
+- import and recovery workflows may modify `beancount/**` when they follow the standard mutation pipeline
 - only the memory skill may modify `.auto-bean/memory/**`
 - import parsing workflows may write `statements/parsed/**`
-- import review and mutation-planning workflows may write `.auto-bean/proposals/**` and `.auto-bean/artifacts/**`
+- import and recovery workflows may write `.auto-bean/artifacts/**`
 - query workflows are read-only across the repo
 
 ### File Organization Patterns
@@ -882,7 +879,7 @@ There is no traditional frontend build. The effective build output is:
 The architecture is coherent. The technology choices, workflow model, and trust boundaries align with the actual operating model: a local-first, skill-driven Beancount workflow with Python support code. The revised structure resolves the earlier bias toward a conventional Python app and treats markdown skills as first-class product assets.
 
 **Pattern Consistency:**
-The patterns support the decisions well. Naming conventions, result envelopes, mutation pipeline rules, and authority boundaries all reinforce the CLI-and-skill model. The distinction between proposal-producing skills and mutation-authority skills is consistent across decisions, patterns, and structure.
+The patterns support the decisions well. Naming conventions, result envelopes, mutation pipeline rules, and authority boundaries all reinforce the CLI-and-skill model. The distinction between direct-mutation workflows, read-only workflows, and recovery workflows is consistent across decisions, patterns, and structure.
 
 **Structure Alignment:**
 The structure supports the architecture. Skill directories own user-facing behavior, shared markdown files own cross-cutting policy, Python application code supports reusable execution logic, and governed local state is clearly separated into ledger files, raw statements, parsed statement outputs, memory files, and workflow artifacts.
