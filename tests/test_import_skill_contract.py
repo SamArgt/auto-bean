@@ -74,9 +74,12 @@ def test_account_proposal_contract_example_has_required_keys() -> None:
         proposal["proposal_kind"] == "first_seen_candidate"
         for proposal in payload["account_proposals"]
     )
+    assert payload["review_handoff"]["proposal_artifact_path"].startswith(
+        ".auto-bean/proposals/"
+    )
 
 
-def test_import_skill_documents_docling_status_tracking_review_handoff_and_bounded_parallelism() -> (
+def test_import_skill_documents_docling_status_tracking_direct_mutation_and_bounded_parallelism() -> (
     None
 ):
     skill_path = REPO_ROOT / "skill_sources" / "auto-bean-import" / "SKILL.md"
@@ -85,6 +88,7 @@ def test_import_skill_documents_docling_status_tracking_review_handoff_and_bound
     assert "statements/import-status.yml" in content
     assert "statements/parsed/" in content
     assert ".auto-bean/proposals/" in content
+    assert ".auto-bean/artifacts/" in content
     assert "docling" in content.casefold()
     assert "./.venv/bin/docling" in content
     assert "--to json --output" in content
@@ -96,12 +100,17 @@ def test_import_skill_documents_docling_status_tracking_review_handoff_and_bound
     assert "Equity:Opening-Balances" in content
     assert "beancount/accounts.beancount" in content
     assert "inspect `beancount/accounts.beancount` first" in content
-    assert ".agents/skills/auto-bean-apply/" in content
-    assert "do not silently edit `ledger.beancount` or `beancount/**`" in content
-    assert "do not mutate `ledger.beancount` or `beancount/**`" in content
+    assert "create bounded first-seen ledger account structure directly" in content
+    assert "run the standard ledger validation gate after direct mutation" in content
+    assert "show a git-backed diff" in content
+    assert "ask whether the agent should commit and push" in content
+    assert "do not create transaction postings" in content
+    assert "keep the mutation deterministic" in content
 
 
-def test_import_skill_keeps_ambiguous_or_duplicate_account_cases_review_only() -> None:
+def test_import_skill_optional_diagnostic_proposal_keeps_duplicate_accounts_as_no_change() -> (
+    None
+):
     proposal_path = (
         REPO_ROOT
         / "skill_sources"
@@ -147,9 +156,11 @@ def test_shared_mutation_policy_prefers_direct_mutation_with_commit_gated_finali
     ).read_text(encoding="utf-8")
 
     assert "Apply the scoped mutation in the local working tree" in pipeline
+    assert "Keep the mutation bounded to the workflow's scope" in pipeline
     assert "summary plus `git diff`" in pipeline
     assert "approval is denied" in pipeline
     assert "accepted into history" in pipeline
+    assert "auto-bean-import" in matrix
     assert "Direct working-tree mutation" in matrix
     assert "Diff inspection" in matrix
     assert "Commit/push finalization" in matrix

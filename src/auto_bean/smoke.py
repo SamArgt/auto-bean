@@ -105,7 +105,16 @@ def run_smoke_checks() -> int:
             encoding="utf-8",
         )
         (skill_sources_root / "auto-bean-import" / "SKILL.md").write_text(
-            "# Import\n",
+            "\n".join(
+                [
+                    "# Import",
+                    "Normalize raw statements into statements/parsed/ artifacts.",
+                    "Derive bounded first-seen account structure directly from parsed evidence.",
+                    "Validate the ledger after mutation.",
+                    "Show git diff before asking whether to commit or push.",
+                    "",
+                ]
+            ),
             encoding="utf-8",
         )
         (skill_sources_root / "auto-bean-import" / "agents" / "openai.yaml").write_text(
@@ -216,6 +225,9 @@ def run_smoke_checks() -> int:
                 apply_skill_text = workspace_root.joinpath(
                     ".agents", "skills", "auto-bean-apply", "SKILL.md"
                 ).read_text(encoding="utf-8")
+                import_skill_text = workspace_root.joinpath(
+                    ".agents", "skills", "auto-bean-import", "SKILL.md"
+                ).read_text(encoding="utf-8")
                 required_agents_phrases = (
                     "direct working-tree edits",
                     "git diff before commit or push approval",
@@ -229,10 +241,21 @@ def run_smoke_checks() -> int:
                     "approval is denied",
                     ".auto-bean/artifacts/",
                 )
-                if not all(
-                    phrase in agents_text for phrase in required_agents_phrases
-                ) or not all(
-                    phrase in apply_skill_text for phrase in required_apply_phrases
+                required_import_phrases = (
+                    "statements/parsed/",
+                    "first-seen account structure directly",
+                    "Validate the ledger after mutation",
+                    "git diff before asking whether to commit or push",
+                )
+                if (
+                    not all(phrase in agents_text for phrase in required_agents_phrases)
+                    or not all(
+                        phrase in apply_skill_text for phrase in required_apply_phrases
+                    )
+                    or not all(
+                        phrase in import_skill_text
+                        for phrase in required_import_phrases
+                    )
                 ):
                     print(
                         json.dumps(

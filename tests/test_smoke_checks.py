@@ -46,5 +46,6 @@ def test_run_smoke_checks_covers_success_and_blocked_paths(
         "init-success",
         "init-blocked",
     ]
+    assert all(result["status"] in {"ok", "failed"} for result in results)
     assert results[0]["error_code"] is None
     assert results[1]["error_code"] == "unsafe_project_name"

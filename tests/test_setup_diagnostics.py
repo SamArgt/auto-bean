@@ -111,7 +111,17 @@ def seed_workspace_template(repo_root: Path) -> None:
         encoding="utf-8",
     )
     (skill_sources_root / "auto-bean-import" / "SKILL.md").write_text(
-        "# Import\n", encoding="utf-8"
+        "\n".join(
+            [
+                "# Import",
+                "Normalize raw statements into statements/parsed/ artifacts.",
+                "Derive bounded first-seen account structure directly from parsed evidence.",
+                "Validate the ledger after mutation.",
+                "Show git diff before asking whether to commit or push.",
+                "",
+            ]
+        ),
+        encoding="utf-8",
     )
     (skill_sources_root / "auto-bean-import" / "agents" / "openai.yaml").write_text(
         'interface:\n  display_name: "Import"\n  short_description: "Import statements"\n  default_prompt: "Use $auto-bean-import."\n',
@@ -258,6 +268,9 @@ def test_init_creates_workspace_and_reports_created_manifest(tmp_path: Path) -> 
     assert workspace_root.joinpath(
         ".agents", "skills", "auto-bean-import", "SKILL.md"
     ).is_file()
+    import_skill_text = workspace_root.joinpath(
+        ".agents", "skills", "auto-bean-import", "SKILL.md"
+    ).read_text(encoding="utf-8")
     assert workspace_root.joinpath(
         ".agents", "skills", "shared", "mutation-pipeline.md"
     ).is_file()
@@ -283,6 +296,8 @@ def test_init_creates_workspace_and_reports_created_manifest(tmp_path: Path) -> 
         ".agents/skills/auto-bean-import/references/account-proposal.example.json"
         in created_paths
     )
+    assert "first-seen account structure directly" in import_skill_text
+    assert "Validate the ledger after mutation" in import_skill_text
     assert "beancount/accounts.beancount" in created_paths
     assert "statements/parsed/.gitkeep" in created_paths
     assert "statements/import-status.yml" in created_paths

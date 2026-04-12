@@ -1,5 +1,12 @@
 # Mutation Authority Matrix
 
+- `auto-bean-import`
+  - Direct working-tree mutation: allowed for first-seen account structure and minimal supporting directives derived from parsed statement evidence
+  - Re-parsing source statements: allowed only to refresh `statements/parsed/` and `statements/import-status.yml`
+  - Validation and diff inspection: required after mutation and before any finalization request
+  - Proposal creation: optional under `.auto-bean/proposals/` for deeper review or risky diagnostics
+  - Commit/push finalization: allowed only after explicit approval
+  - Out of scope: transaction postings, reconciliation, duplicate handling, transfer handling, and durable memory writes
 - `auto-bean-apply`
   - Direct working-tree mutation: allowed for scoped structural changes inside the local workspace
   - Post-mutation validation and summary: required before any finalization claim

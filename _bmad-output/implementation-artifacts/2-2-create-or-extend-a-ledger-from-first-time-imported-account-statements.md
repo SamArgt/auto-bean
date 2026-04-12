@@ -1,6 +1,6 @@
 # Story 2.2: Create or extend a ledger from first-time imported account statements
 
-Status: ready-for-dev
+Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -18,30 +18,30 @@ so that account creation happens principally from real imported account evidence
 
 ## Tasks / Subtasks
 
-- [ ] Rewrite the authored import workflow around direct mutation for first-seen accounts. (AC: 1, 2, 3)
-  - [ ] Update `skill_sources/auto-bean-import/SKILL.md` so Story 2.2 no longer stops at proposal-only account structure for the normal first-seen path.
-  - [ ] Keep the primary implementation surface in `skill_sources/` and use Python helpers only when markdown guidance cannot keep the workflow deterministic.
-  - [ ] Remove or rewrite instructions that currently require `.auto-bean/proposals/` or `auto-bean-apply` as the mandatory path for routine import-derived account creation.
-- [ ] Derive direct account-structure edits from Story 2.1 parsed outputs and current ledger state. (AC: 1, 2, 3)
-  - [ ] Reuse `statements/parsed/` outputs and `statements/import-status.yml` rather than re-parsing source statements or inventing a second evidence contract.
-  - [ ] Inspect `beancount/accounts.beancount`, `ledger.beancount`, and included `beancount/**` files to distinguish existing accounts from first-seen candidates.
-  - [ ] Infer Beancount-safe account names, optional currency constraints, and any minimal supporting directives only when the parsed evidence justifies them.
-- [ ] Write direct ledger mutations safely and keep them bounded to account structure. (AC: 1, 2, 3)
-  - [ ] Prefer adding or extending account-opening structure in `beancount/accounts.beancount` when that file is present, while preserving the current workspace layout.
-  - [ ] Allow creation or extension of a usable baseline ledger from imported account evidence without requiring separate manual account setup first.
-  - [ ] Do not create transaction postings, reconciliation outcomes, duplicate handling, transfer handling, or durable memory writes in this story.
-- [ ] Validate immediately after mutation and present inspectable change context. (AC: 2, 3)
-  - [ ] Run the standard ledger validation gate after direct mutation and never present a failed validation result as success.
-  - [ ] Summarize which files changed, what account structure was inferred, and why that inference was made from the imported statement evidence.
-  - [ ] Show a git-backed diff and ask whether the agent should commit and push only after the direct mutation and validation result are available.
-- [ ] Fail closed for ambiguity, risky structure, or invalid results. (AC: 3)
-  - [ ] Block finalization when the evidence does not support a stable top-level Beancount branch or otherwise leaves the structural inference unclear.
-  - [ ] Block finalization when validation fails, while preserving enough local audit context for inspection and troubleshooting.
-  - [ ] Use `.auto-bean/proposals/` or `.auto-bean/artifacts/` only as optional diagnostics when deeper review or troubleshooting is warranted, not as the default workflow boundary.
-- [ ] Update tests, smoke coverage, and docs for the direct-mutation import path. (AC: 1, 2, 3)
-  - [ ] Replace proposal-first contract assertions in `tests/test_import_skill_contract.py` with direct-mutation, validation, and commit-gated inspection assertions.
-  - [ ] Update `tests/test_setup_diagnostics.py`, `tests/test_smoke_checks.py`, and any focused smoke scaffolding if workspace guidance or safety expectations change.
-  - [ ] Update `README.md` and `workspace_template/AGENTS.md` so they describe direct import-derived ledger mutation truthfully, including validation, diff inspection, and commit/push approval.
+- [x] Rewrite the authored import workflow around direct mutation for first-seen accounts. (AC: 1, 2, 3)
+  - [x] Update `skill_sources/auto-bean-import/SKILL.md` so Story 2.2 no longer stops at proposal-only account structure for the normal first-seen path.
+  - [x] Keep the primary implementation surface in `skill_sources/` and use Python helpers only when markdown guidance cannot keep the workflow deterministic.
+  - [x] Remove or rewrite instructions that currently require `.auto-bean/proposals/` or `auto-bean-apply` as the mandatory path for routine import-derived account creation.
+- [x] Derive direct account-structure edits from Story 2.1 parsed outputs and current ledger state. (AC: 1, 2, 3)
+  - [x] Reuse `statements/parsed/` outputs and `statements/import-status.yml` rather than re-parsing source statements or inventing a second evidence contract.
+  - [x] Inspect `beancount/accounts.beancount`, `ledger.beancount`, and included `beancount/**` files to distinguish existing accounts from first-seen candidates.
+  - [x] Infer Beancount-safe account names, optional currency constraints, and any minimal supporting directives only when the parsed evidence justifies them.
+- [x] Write direct ledger mutations safely and keep them bounded to account structure. (AC: 1, 2, 3)
+  - [x] Prefer adding or extending account-opening structure in `beancount/accounts.beancount` when that file is present, while preserving the current workspace layout.
+  - [x] Allow creation or extension of a usable baseline ledger from imported account evidence without requiring separate manual account setup first.
+  - [x] Do not create transaction postings, reconciliation outcomes, duplicate handling, transfer handling, or durable memory writes in this story.
+- [x] Validate immediately after mutation and present inspectable change context. (AC: 2, 3)
+  - [x] Run the standard ledger validation gate after direct mutation and never present a failed validation result as success.
+  - [x] Summarize which files changed, what account structure was inferred, and why that inference was made from the imported statement evidence.
+  - [x] Show a git-backed diff and ask whether the agent should commit and push only after the direct mutation and validation result are available.
+- [x] Fail closed for ambiguity, risky structure, or invalid results. (AC: 3)
+  - [x] Block finalization when the evidence does not support a stable top-level Beancount branch or otherwise leaves the structural inference unclear.
+  - [x] Block finalization when validation fails, while preserving enough local audit context for inspection and troubleshooting.
+  - [x] Use `.auto-bean/proposals/` or `.auto-bean/artifacts/` only as optional diagnostics when deeper review or troubleshooting is warranted, not as the default workflow boundary.
+- [x] Update tests, smoke coverage, and docs for the direct-mutation import path. (AC: 1, 2, 3)
+  - [x] Replace proposal-first contract assertions in `tests/test_import_skill_contract.py` with direct-mutation, validation, and commit-gated inspection assertions.
+  - [x] Update `tests/test_setup_diagnostics.py`, `tests/test_smoke_checks.py`, and any focused smoke scaffolding if workspace guidance or safety expectations change.
+  - [x] Update `README.md` and `workspace_template/AGENTS.md` so they describe direct import-derived ledger mutation truthfully, including validation, diff inspection, and commit/push approval.
 
 ## Dev Notes
 
@@ -146,6 +146,8 @@ GPT-5 Codex
 - Story 2.2 rewritten on 2026-04-12 to align with the approved sprint change proposal that shifts Epic 2 from proposal-first account creation to direct mutation plus validation and git-backed inspection.
 - Context synthesized from the latest sprint change proposal, current `epics.md`, `prd.md`, `architecture.md`, `sprint-status.yaml`, Story 2.1, Story 1.5, current authored skill sources, and recent git history.
 - Replaced stale proposal-only guidance with bounded direct-mutation guidance while preserving safety through validation, diff inspection, and commit/push approval.
+- Updated smoke and setup diagnostics fixtures so the packaged workspace checks now cover import-driven direct mutation guidance as well as the apply workflow boundary.
+- Verified the implementation with `uv run ruff check /Users/sam/Projects/auto-bean`, `uv run ruff format /Users/sam/Projects/auto-bean`, `uv run mypy /Users/sam/Projects/auto-bean/src /Users/sam/Projects/auto-bean/tests`, and `uv run pytest /Users/sam/Projects/auto-bean/tests`.
 
 ### Completion Notes List
 
@@ -153,12 +155,25 @@ GPT-5 Codex
 - Kept scope bounded to account structure, validation, inspection, and commit/push approval.
 - Explicitly blocked ambiguous, risky, or invalid outcomes from being finalized.
 - Marked proposal artifacts as optional diagnostics instead of the default workflow boundary.
+- Updated the import skill UI metadata, shared mutation policy, workspace guidance, and README so the direct-mutation trust model is described consistently.
+- Extended smoke/setup test coverage so generated workspaces are checked for the new import guidance instead of only the apply guidance.
 
 ### File List
 
 - _bmad-output/implementation-artifacts/2-2-create-or-extend-a-ledger-from-first-time-imported-account-statements.md
 - _bmad-output/implementation-artifacts/sprint-status.yaml
+- README.md
+- skill_sources/auto-bean-import/SKILL.md
+- skill_sources/auto-bean-import/agents/openai.yaml
+- skill_sources/shared/mutation-authority-matrix.md
+- skill_sources/shared/mutation-pipeline.md
+- src/auto_bean/smoke.py
+- tests/test_import_skill_contract.py
+- tests/test_setup_diagnostics.py
+- tests/test_smoke_checks.py
+- workspace_template/AGENTS.md
 
 ## Change Log
 
 - 2026-04-12: Rewrote Story 2.2 to match the approved direct-mutation sprint change proposal and reset the story to ready-for-dev.
+- 2026-04-12: Implemented the direct-mutation import workflow rewrite, updated shared/workspace docs, and refreshed smoke plus contract coverage for commit-gated inspection.
