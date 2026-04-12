@@ -9,7 +9,7 @@ Right now this repository gives you a supported first session for:
 - validating `ledger.beancount`
 - inspecting that ledger in Fava
 - normalizing supported statement files into inspectable parsed outputs through a workspace skill
-- creating or extending first-seen ledger account structure directly from imported statement evidence, then validating and reviewing the diff before commit or push
+- creating or extending first-seen ledger account structure directly from imported statement evidence, then reviewing parsed statement facts, derived ledger edits, validation output, and the diff together before commit or push
 
 It does not expose a public SDK or external API today. The stable user interface is the coding-agent workflow inside the generated workspace.
 
@@ -111,7 +111,7 @@ Use the installed runtime skill under:
 .agents/skills/auto-bean-import/
 ```
 
-That workflow uses the workspace-local Docling CLI to normalize supported `PDF`, `CSV`, and Excel statement files from `statements/raw/` into inspectable JSON outputs under `statements/parsed/`, then, when the imported evidence is strong enough, extend ledger account structure directly in the workspace before validation and diff review.
+That workflow uses the workspace-local Docling CLI to normalize supported `PDF`, `CSV`, and Excel statement files from `statements/raw/` into inspectable JSON outputs under `statements/parsed/`, then, when the imported evidence is strong enough, extend ledger account structure directly in the workspace before presenting a single review surface that shows parsed statement facts, derived ledger edits, validation output, and the diff together.
 
 The durable boundaries for this workflow are:
 
@@ -120,7 +120,14 @@ The durable boundaries for this workflow are:
 - `statements/import-status.yml`: parse-state index for new, stale, blocked, failed, or parsed files
 - `.agents/skills/auto-bean-import/`: installed runtime skill for statement intake orchestration
 
-Story 2.2 extends that workflow so the same import skill can create or extend bounded first-seen account structure directly from parsed statement evidence. The trust boundary now sits after mutation: the workflow validates immediately, shows a git-backed diff, and asks for explicit commit or push approval before the change is accepted into history.
+Story 2.2 extends that workflow so the same import skill can create or extend bounded first-seen account structure directly from parsed statement evidence. Story 2.3 tightens the review boundary: parsed outputs remain intake evidence, derived ledger edits stay unfinalized in the working tree until approval, and the workflow presents a single review surface before asking for explicit commit/push approval before the change is accepted into history.
+
+That review surface should make these distinctions obvious:
+
+- parsed statement facts under `statements/parsed/` and `statements/import-status.yml` are inspectable evidence, not accepted ledger history
+- derived ledger edits under `ledger.beancount` or `beancount/**` are the candidate mutation produced from that evidence
+- validation outcome, warnings, blocked inferences, and `git diff` appear before any finalization request
+- the user can stop, defer, or reject finalization without corrupting prior accepted ledger history
 
 The boundaries that matter now are:
 

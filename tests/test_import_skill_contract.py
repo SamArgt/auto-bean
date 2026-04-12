@@ -102,6 +102,11 @@ def test_import_skill_documents_docling_status_tracking_direct_mutation_and_boun
     assert "inspect `beancount/accounts.beancount` first" in content
     assert "create bounded first-seen ledger account structure directly" in content
     assert "run the standard ledger validation gate after direct mutation" in content
+    assert "single post-mutation review surface" in content
+    assert "parsed statement facts" in content
+    assert "derived ledger edits" in content
+    assert "commit/push remains the final approval boundary" in content
+    assert "stop, defer, or reject finalization" in content
     assert "show a git-backed diff" in content
     assert "ask whether the agent should commit and push" in content
     assert "do not create transaction postings" in content
@@ -159,9 +164,40 @@ def test_shared_mutation_policy_prefers_direct_mutation_with_commit_gated_finali
     assert "Keep the mutation bounded to the workflow's scope" in pipeline
     assert "summary plus `git diff`" in pipeline
     assert "approval is denied" in pipeline
+    assert "review package" in pipeline
+    assert "parsed evidence" in pipeline
+    assert "derived ledger mutation" in pipeline
     assert "accepted into history" in pipeline
     assert "auto-bean-import" in matrix
     assert "Direct working-tree mutation" in matrix
+    assert "parsed statement outputs remain intake evidence" in matrix
+    assert "Blocked or rejected outcomes" in matrix
     assert "Diff inspection" in matrix
     assert "Commit/push finalization" in matrix
     assert "high-scrutiny operation" in matrix
+
+
+def test_workspace_and_readme_describe_import_review_boundary_truthfully() -> None:
+    readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
+    workspace_agents = (REPO_ROOT / "workspace_template" / "AGENTS.md").read_text(
+        encoding="utf-8"
+    )
+    prompt_text = (
+        REPO_ROOT / "skill_sources" / "auto-bean-import" / "agents" / "openai.yaml"
+    ).read_text(encoding="utf-8")
+
+    assert "single review surface" in readme
+    assert "parsed statement facts" in readme
+    assert "derived ledger edits" in readme
+    assert "commit/push approval before the change is accepted into history" in readme
+    assert "stop, defer, or reject finalization" in readme
+
+    assert "parsed statement facts" in workspace_agents
+    assert "derived ledger edits" in workspace_agents
+    assert "validation outcome" in workspace_agents
+    assert "stop, defer, or reject finalization" in workspace_agents
+    assert "accepted into git history" in workspace_agents
+
+    assert "parsed statement facts" in prompt_text
+    assert "derived ledger edits" in prompt_text
+    assert "validation outcome" in prompt_text

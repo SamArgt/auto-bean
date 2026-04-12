@@ -1,6 +1,6 @@
 ---
 name: auto-bean-import
-description: Normalize raw statement files into inspectable parsed outputs through the local Docling CLI, then create bounded first-seen ledger account structure directly from those parsed statements when the evidence is strong enough. Use when Codex needs to discover new statement files in `statements/raw/`, re-parse a specific statement, update `statements/import-status.yml`, preserve outputs under `statements/parsed/`, inspect current ledger structure, write direct account-opening mutations under `beancount/**` or `ledger.beancount`, run validation, show a git-backed diff, and ask whether to commit or push the result.
+description: Normalize raw statement files into inspectable parsed outputs through the local Docling CLI, then create bounded first-seen ledger account structure directly from those parsed statements when the evidence is strong enough. Use when Codex needs to discover new statement files in `statements/raw/`, re-parse a specific statement, update `statements/import-status.yml`, preserve outputs under `statements/parsed/`, inspect current ledger structure, write direct account-opening mutations under `beancount/**` or `ledger.beancount`, run validation, present a single post-mutation review surface, show a git-backed diff, and ask whether to commit or push the result.
 ---
 
 Read these references before acting:
@@ -24,6 +24,7 @@ Follow this workflow:
    - do not write durable memory under `.auto-bean/memory/**`
    - do not create transaction postings, reconciliation decisions, or accepted categorization memory
    - keep raw inputs in `statements/raw/`, parsed outputs in `statements/parsed/`, parse state in `statements/import-status.yml`, and optional governed diagnostics under `.auto-bean/proposals/` or `.auto-bean/artifacts/` only when review depth or troubleshooting justifies persistence
+   - treat `statements/parsed/*.json` and `statements/import-status.yml` as intake evidence, not as accepted ledger changes
 3. Load and compare parse state before choosing work:
    - read `statements/import-status.yml` first
    - scan `statements/raw/` for supported inputs: `.pdf`, `.csv`, `.xlsx`, `.xls`
@@ -81,13 +82,19 @@ Follow this workflow:
    - run the standard ledger validation gate after direct mutation and never present a failed validation result as success
    - if validation fails, stop before any finalization claim, keep the working-tree change unfinalized, and preserve enough local audit context under `.auto-bean/artifacts/` for inspection and troubleshooting
 11. Present inspectable change context before any finalization:
+   - present a single post-mutation review surface before any commit/push request
+   - separate parsed statement facts from derived ledger edits so the user can see which normalized records came from statement parsing versus which `ledger.beancount` or `beancount/**` changes were inferred from those records
    - summarize which files changed
    - summarize what account structure was inferred and why that inference was made from the imported statement evidence
+   - include the validation outcome, warnings, blocked inferences, low-confidence edits, and any ambiguous results directly in that review package
+   - state explicitly that commit/push remains the final approval boundary even when the working tree has already changed
    - show a git-backed diff for the changed files
    - ask whether the agent should commit and push only after the mutation and validation result are available
 12. Fail closed for ambiguity or risky structure:
    - block finalization when the evidence does not support a stable top-level Beancount branch or otherwise leaves the structural inference unclear
    - block finalization when the mutation target is unclear, duplicate-sensitive, or would extend the ledger beyond bounded account structure
+   - let the user stop, defer, or reject finalization without corrupting prior accepted ledger history
+   - when finalization is blocked, deferred, or rejected, record narrow local audit context under `.auto-bean/artifacts/` when durable troubleshooting evidence will help later inspection
    - create `.auto-bean/proposals/` diagnostics only when the user asks for deeper review or when the change is risky enough that a durable diagnostic artifact will help inspection
 13. Use parallel workers only when platform policy permits and the user explicitly asks for parallelism or bounded delegation:
    - assign each worker one raw statement by default
@@ -100,9 +107,12 @@ Follow this workflow:
    - which statements were processed
    - which were skipped and why
    - which outputs were written under `statements/parsed/`
+   - which parsed statement facts were reviewed before any ledger acceptance decision
    - which account mutations were applied, skipped, or blocked
+   - which derived ledger edits remain unfinalized pending user approval
    - whether validation passed
    - whether the result is ready for commit/push approval
+   - whether the user chose to stop, defer, or reject finalization
    - any blocked or failed statements or ambiguous inferences that still need user attention
 
 Guardrails:
@@ -113,4 +123,5 @@ Guardrails:
 - Do not overwrite prior parse outputs silently unless the user explicitly asks for overwrite behavior.
 - Do not claim the import succeeded when evidence is ambiguous, structurally risky, or validation fails.
 - Do not create a second approval system beyond validation plus explicit commit/push approval.
+- Keep the review package deterministic, concise, and stage-based so long-running CLI work stays inspectable.
 - Prefer local shell tools and the workspace runtime over adding new product Python modules.
