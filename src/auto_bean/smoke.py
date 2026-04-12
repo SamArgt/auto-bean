@@ -83,6 +83,7 @@ def run_smoke_checks() -> int:
         skill_sources_root = repo_root / "skill_sources"
         (skill_sources_root / "auto-bean-apply" / "scripts").mkdir(parents=True)
         (skill_sources_root / "auto-bean-apply" / "agents").mkdir(parents=True)
+        (skill_sources_root / "auto-bean-apply" / "references").mkdir(parents=True)
         (skill_sources_root / "auto-bean-import" / "agents").mkdir(parents=True)
         (skill_sources_root / "auto-bean-import" / "references").mkdir(parents=True)
         (skill_sources_root / "shared").mkdir(parents=True)
@@ -91,7 +92,9 @@ def run_smoke_checks() -> int:
                 [
                     "# Apply",
                     "Apply scoped structural changes directly in the working tree.",
+                    "Turn reviewed parsed statement evidence into candidate Beancount postings when needed.",
                     "Run validation after mutation.",
+                    "Keep parsed statement facts separate from derived ledger edits.",
                     "Show git diff before asking whether to commit or push.",
                     "If validation fails or approval is denied, leave the change unfinalized.",
                     "Record audit artifacts under .auto-bean/artifacts/.",
@@ -104,12 +107,22 @@ def run_smoke_checks() -> int:
             'interface:\n  display_name: "Apply"\n  short_description: "Apply changes"\n  default_prompt: "Use $auto-bean-apply."\n',
             encoding="utf-8",
         )
+        (
+            skill_sources_root
+            / "auto-bean-apply"
+            / "references"
+            / "posting-plan.example.json"
+        ).write_text(
+            '{"schema_version": "1.0.0", "plan_run_id": "demo", "posting_plan_status": "needs_review", "generated_at": "2026-04-12T19:05:00Z", "source_evidence": [], "ledger_context": {"ledger_entrypoint": "ledger.beancount", "ledger_files_considered": ["ledger.beancount", "beancount/accounts.beancount"], "existing_accounts": ["Assets:Checking"], "declared_currencies": ["EUR"]}, "reused_source_context": [], "candidate_transactions": [], "candidate_mutation": {"target_files": ["ledger.beancount"], "derived_postings_are_unfinalized": true, "validation_required": true}, "review_handoff": {"apply_skill": ".agents/skills/auto-bean-apply/", "mutation_policy_refs": [], "requires_validation_before_apply": true, "requires_explicit_approval": true, "review_surface": ["parsed statement facts", "derived ledger edits", "validation outcome"]}, "blocking_items": []}\n',
+            encoding="utf-8",
+        )
         (skill_sources_root / "auto-bean-import" / "SKILL.md").write_text(
             "\n".join(
                 [
                     "# Import",
                     "Normalize raw statements into statements/parsed/ artifacts.",
                     "Derive bounded first-seen account structure directly from parsed evidence.",
+                    "Hand reviewed normalized evidence to auto-bean-apply for transaction postings.",
                     "Validate the ledger after mutation.",
                     "Show git diff before asking whether to commit or push.",
                     "",
@@ -249,6 +262,7 @@ def run_smoke_checks() -> int:
                 )
                 required_apply_phrases = (
                     "working tree",
+                    "parsed statement facts separate from derived ledger edits",
                     "validation after mutation",
                     "git diff before asking whether to commit or push",
                     "approval is denied",
@@ -257,6 +271,7 @@ def run_smoke_checks() -> int:
                 required_import_phrases = (
                     "statements/parsed/",
                     "first-seen account structure directly",
+                    "reviewed normalized evidence to auto-bean-apply",
                     "Validate the ledger after mutation",
                     "git diff before asking whether to commit or push",
                 )

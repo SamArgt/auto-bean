@@ -283,6 +283,7 @@ class InitService:
                 required_paths=(
                     "auto-bean-apply/SKILL.md",
                     "auto-bean-apply/agents/openai.yaml",
+                    "auto-bean-apply/references/posting-plan.example.json",
                     "auto-bean-import/SKILL.md",
                     "auto-bean-import/agents/openai.yaml",
                     "auto-bean-import/references/account-proposal.example.json",

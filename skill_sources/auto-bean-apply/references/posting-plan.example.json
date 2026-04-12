@@ -1,0 +1,98 @@
+{
+  "schema_version": "1.0.0",
+  "plan_run_id": "20260412T190500Z-checking-postings",
+  "posting_plan_status": "needs_review",
+  "generated_at": "2026-04-12T19:05:00Z",
+  "source_evidence": [
+    {
+      "parse_run_id": "20260411T090000Z-checking-jan-2026",
+      "source_file": "statements/raw/checking/jan-2026.pdf",
+      "parsed_output_path": "statements/parsed/checking-jan-2026--1ef7e13f--20260411T090000Z.json",
+      "source_fingerprint": "sha256:1ef7e13fdb0f1f282ea6f8a8d3e59b84c55b57f4a9f0c9eb9b0cf2a3e64b2d12",
+      "record_refs": [
+        "page-1-row-1"
+      ]
+    }
+  ],
+  "ledger_context": {
+    "ledger_entrypoint": "ledger.beancount",
+    "ledger_files_considered": [
+      "ledger.beancount",
+      "beancount/accounts.beancount",
+      "beancount/opening-balances.beancount"
+    ],
+    "existing_accounts": [
+      "Assets:Bank:ExampleBank:Checking-1234",
+      "Expenses:Coffee",
+      "Equity:Opening-Balances"
+    ],
+    "declared_currencies": [
+      "EUR"
+    ]
+  },
+  "reused_source_context": [
+    {
+      "context_path": ".auto-bean/memory/import_sources/example-bank-checking-1234.json",
+      "reuse_kind": "advisory_mapping_hint",
+      "reused_fields": [
+        "account_structure.primary_account",
+        "account_structure.counterparty_branch"
+      ],
+      "applied_to_records": [
+        "page-1-row-1"
+      ],
+      "ignored_fields": [],
+      "review_required": true
+    }
+  ],
+  "candidate_transactions": [
+    {
+      "transaction_id": "txn-2026-01-03-coffee-shop",
+      "transaction_date": "2026-01-03",
+      "flag": "*",
+      "payee": "COFFEE SHOP",
+      "narration": "Imported from normalized statement evidence",
+      "source_refs": [
+        "page-1-row-1"
+      ],
+      "confidence": "medium",
+      "postings": [
+        {
+          "account": "Expenses:Coffee",
+          "amount": "4.50",
+          "currency": "EUR"
+        },
+        {
+          "account": "Assets:Bank:ExampleBank:Checking-1234",
+          "amount": "-4.50",
+          "currency": "EUR"
+        }
+      ],
+      "explanation": "Current statement evidence provides the amount and merchant. Advisory source-context hints suggested the primary bank account and default expense branch."
+    }
+  ],
+  "candidate_mutation": {
+    "target_files": [
+      "ledger.beancount"
+    ],
+    "derived_postings_are_unfinalized": true,
+    "validation_required": true
+  },
+  "review_handoff": {
+    "apply_skill": ".agents/skills/auto-bean-apply/",
+    "mutation_policy_refs": [
+      ".agents/skills/shared/mutation-pipeline.md",
+      ".agents/skills/shared/mutation-authority-matrix.md"
+    ],
+    "requires_validation_before_apply": true,
+    "requires_explicit_approval": true,
+    "review_surface": [
+      "parsed statement facts",
+      "reused source-context hints",
+      "derived ledger edits",
+      "validation outcome",
+      "git diff"
+    ]
+  },
+  "blocking_items": []
+}

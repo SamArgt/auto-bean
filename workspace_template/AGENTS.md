@@ -1,91 +1,75 @@
 # Workspace Agents
 
-This ledger workspace is prepared for Codex-driven workflows.
-This workspace is initialized as a Git repository during `auto-bean init`.
+This workspace is the runtime home for a user-owned ledger.
+Keep product-code work in the `auto-bean` product repository.
+Keep ledger files, statements, governed runtime state, and installed skills in this workspace.
 
-## Purpose
+Treat Codex as the orchestrator.
+Treat the installed skills under `.agents/skills/` as the execution surface for trust-sensitive work.
 
-This workspace is the runtime home for a user-owned ledger. Keep product-code changes in the `auto-bean` product repository and keep runtime ledger data, imported statements, and generated artifacts inside this workspace.
+## Import Workflow
 
-Treat Codex and the installed workspace skills as the primary interface for operating here. The coding agent should answer user questions directly, explain what it is doing in workspace terms, and guide the user toward the supported local workflow instead of suggesting a public SDK or external API.
+Use one explicit two-step workflow for import-driven ledger changes:
 
-## What The Coding Agent Should Do
+1. `auto-bean-import`
+   - normalize raw statements into reviewed evidence under `statements/parsed/`
+   - update `statements/import-status.yml`
+   - create first-seen account structure only when the evidence is strong enough
+   - prepare the evidence handoff for posting work
+2. `auto-bean-apply`
+   - take already-reviewed evidence from `statements/parsed/`
+   - derive candidate ledger postings
+   - validate, summarize, and show `git diff`
+   - ask for explicit approval before commit or push
 
-- Answer questions about this workspace using the current files and commands in this repo.
-- Prefer explaining actions in terms of `ledger.beancount`, `beancount/`, `statements/raw/`, `.auto-bean/`, and `.agents/skills/`.
-- Use the installed skills as the primary workflow surface for trust-sensitive structural ledger changes.
-- Use the installed `auto-bean-import` skill to normalize raw statement files into inspectable parsed outputs under `statements/parsed/`.
-- Use the installed `auto-bean-import` skill to create or extend first-seen account structure directly from parsed statements when imported evidence supports it.
-- Use the installed `auto-bean-import` skill to persist repeated-import source context under `.auto-bean/memory/import_sources/` only after trustworthy finalized outcomes, and keep that reused context reviewable.
-- Treat direct working-tree edits plus post-mutation inspection as the standard structural-change flow.
-- For import runs, present parsed statement facts, derived ledger edits, and the validation outcome together before asking about finalization.
-- Suggest validation with `./scripts/validate-ledger.sh` or `./.venv/bin/bean-check ledger.beancount` before presenting structural ledger edits as ready for commit or push.
-- Show a concise summary plus `git diff` before asking whether to commit or push a structural change.
-- Let the user stop, defer, or reject finalization while keeping any derived ledger edits out of accepted git history.
-- Keep that review boundary explicit until the user approves the change to be accepted into git history.
-- Suggest inspection with `./scripts/open-fava.sh` or `./.venv/bin/fava ledger.beancount` when the user wants to inspect the current ledger state.
-- Keep the user informed about what is supported today versus what is planned for later stories.
-- Ask for explicit approval before committing or pushing changes to `ledger.beancount` or files under `beancount/`.
+Do not blur those responsibilities.
+`auto-bean-import` prepares evidence.
+`auto-bean-apply` performs reviewed posting mutation.
 
+## Worker Handoff
 
-## What The Coding Agent Should Not Do
+When the import job is large, the main agent may use a worker to run the staged process:
 
-- Do not treat the product repo as the live ledger workspace.
-- Do not invent import commands, APIs, or skills that do not exist in this workspace.
-- Do not describe statement intake as a silent ledger mutation workflow; import may mutate bounded account structure, but accepted ledger edits still require validation plus explicit review and approval at the commit/push boundary.
-- Do not blur parsed statement facts together with derived ledger edits; users should be able to inspect the evidence boundary separately from the mutation.
-- Do not claim statement intake is ready if `./.venv/bin/docling` is missing or not runnable.
-- Do not describe a working-tree mutation as accepted before validation succeeds and the user explicitly approves commit or push finalization.
-- Do not treat proposal artifacts as mandatory for every structural edit; they are optional for deeper review and unusually risky changes.
+1. one worker handles the `auto-bean-import` stage
+2. one worker handles the `auto-bean-apply` stage
 
-## Workspace Tree
+Keep the handoff explicit between those two stages.
+Keep final review, validation interpretation, memory writes, and commit/push approval with the main agent.
 
-```text
-.
-|-- AGENTS.md
-|-- ledger.beancount
-|-- beancount/
-|   |-- accounts.beancount
-|   `-- opening-balances.beancount
-|-- statements/
-|   |-- import-status.yml
-|   |-- parsed/
-|   `-- raw/
-|-- scripts/
-|   |-- open-fava.sh
-|   `-- validate-ledger.sh
-|-- .agents/
-|   `-- skills/
-|       |-- auto-bean-apply/
-|       |-- auto-bean-import/
-|       `-- shared/
-`-- .auto-bean/
-    |-- artifacts/
-    `-- proposals/
-```
+## Memory Ownership
 
-## Path Guide
+Skills may suggest useful repeated-import memory.
+The orchestrator decides whether that memory should actually be written.
+
+Write repeated-import source context only under `.auto-bean/memory/import_sources/` and only after a trustworthy finalized outcome.
+Do not write memory for blocked, rejected, validation-failed, ambiguous, or deferred runs.
+Treat reused memory as advisory guidance, never silent authority.
+
+## Review Boundary
+
+Before any commit or push for ledger mutations:
+
+- keep parsed statement facts separate from derived ledger edits
+- show the validation outcome
+- show `git diff`
+- make it clear the working tree may have changed without being accepted into git history
+
+The user may stop, defer, or reject finalization.
+
+## Workspace Paths
 
 - `ledger.beancount`: stable ledger entrypoint
 - `beancount/`: included ledger fragments
-- `beancount/accounts.beancount`: preferred home for durable account `open` directives
-- `beancount/opening-balances.beancount`: opening balance entries and bootstrap balance context
-- `statements/raw/`: raw statement intake boundary; do not rewrite the source files
-- `statements/parsed/`: normalized parse outputs produced from raw statements
-- `statements/import-status.yml`: durable parse-state index for statement intake
-- `.auto-bean/artifacts/`: governed run artifacts and diagnostics
-- `.auto-bean/proposals/`: optional proposal documents for riskier or review-heavy changes when deeper inspection is needed
-- `.agents/skills/`: installed runtime skills available to the coding agent
+- `statements/raw/`: raw statement intake boundary
+- `statements/parsed/`: reviewed normalized statement evidence
+- `statements/import-status.yml`: parse-state index
+- `.auto-bean/artifacts/`: diagnostics and audit artifacts
+- `.auto-bean/memory/import_sources/`: orchestrator-owned repeated-import source context
+- `.agents/skills/`: installed runtime skills
 
-## Operating Notes
+## Guardrails
 
-- Use Git in this workspace to inspect diffs, review history, and create approved commits.
-- Review structural ledger changes after mutation, before accepting them into git history.
-- For import-driven changes, keep parsed statement facts visible as evidence and derived ledger edits visible as the candidate mutation during that review.
-- Keep governed runtime state under `.auto-bean/` and installed runtime skills under `.agents/skills/`.
-- Keep governed runtime memory under `.auto-bean/memory/`, with repeated-import source context stored under `.auto-bean/memory/import_sources/`.
-- Statement normalization routes through the workspace-local Docling CLI at `./.venv/bin/docling`.
-- For account discovery, prefer `beancount/accounts.beancount`; fall back to other included ledger files only when needed.
-- Story 2.2 extends import to mutate first-seen account structure directly from parsed evidence, but reconciliation, transaction posting, and durable memory still belong to later or separate reviewed workflows.
-- Story 2.4 adds repeated-import source context as a narrow exception: source-specific import context may be written under `.auto-bean/memory/import_sources/`, surfaced during later imports as reviewable guidance, and overridden when the current statement evidence no longer fits.
-- When a structural change is committed, prefer git-backed rollback over a separate proposal-application phase.
+- Do not treat the product repo as the live ledger workspace.
+- Do not invent workflows, commands, or skills that are not present here.
+- Do not describe a working-tree mutation as accepted before validation succeeds and the user approves finalization.
+- Do not make proposal artifacts mandatory for routine changes.

@@ -10,6 +10,7 @@ Right now this repository gives you a supported first session for:
 - inspecting that ledger in Fava
 - normalizing supported statement files into inspectable parsed outputs through a workspace skill
 - creating or extending first-seen ledger account structure directly from imported statement evidence, then reviewing parsed statement facts, derived ledger edits, validation output, and the diff together before commit or push
+- turning reviewed normalized statement evidence into candidate Beancount postings through a separate apply workflow, with advisory reuse of repeated-import source context and the same commit-gated review boundary
 
 It does not expose a public SDK or external API today. The stable user interface is the coding-agent workflow inside the generated workspace.
 
@@ -123,10 +124,12 @@ The durable boundaries for this workflow are:
 
 Story 2.2 extends that workflow so the same import skill can create or extend bounded first-seen account structure directly from parsed statement evidence. Story 2.3 tightens the review boundary: parsed outputs remain intake evidence, derived ledger edits stay unfinalized in the working tree until approval, and the workflow presents a single review surface before asking for explicit commit/push approval before the change is accepted into history.
 Story 2.4 adds governed runtime memory for repeated-import source context: after a trustworthy finalized import outcome, the workflow may persist narrow, reviewable source-specific import context under `.auto-bean/memory/import_sources/` so later runs can reduce setup without silently forcing acceptance.
+Story 3.1 keeps that evidence boundary and uses the separate `auto-bean-apply` workflow to transform already-reviewed normalized imports into candidate Beancount transaction postings. Reused source-context hints stay advisory, reviewable, and subordinate to current statement evidence, validation, and explicit approval.
 
 That review surface should make these distinctions obvious:
 
 - parsed statement facts under `statements/parsed/` and `statements/import-status.yml` are inspectable evidence, not accepted ledger history
+- reused source-context hints under `.auto-bean/memory/import_sources/` are advisory guidance, not silent authority
 - derived ledger edits under `ledger.beancount` or `beancount/**` are the candidate mutation produced from that evidence
 - validation outcome, warnings, blocked inferences, and `git diff` appear before any finalization request
 - the user can stop, defer, or reject finalization without corrupting prior accepted ledger history
@@ -143,7 +146,8 @@ The boundaries that matter now are:
 - `.auto-bean/memory/import_sources/`: governed runtime memory for repeated-import source context
 - `.auto-bean/proposals/`: optional diagnostic proposal artifacts for riskier or deeper review
 - `.agents/skills/auto-bean-apply/`: installed skill for other reviewed structural edits and recovery-oriented workflows
-- `.agents/skills/auto-bean-import/`: installed skill for Docling-driven statement normalization plus direct first-seen account mutation, validation, diff review, and commit/push gating
+- `.agents/skills/auto-bean-import/`: installed skill for Docling-driven statement normalization, first-seen account mutation, and reviewed evidence handoff
+- `.agents/skills/auto-bean-apply/`: installed skill for turning reviewed evidence into candidate transaction postings or other reviewed structural mutations
 
 ## Failure and remediation behavior
 

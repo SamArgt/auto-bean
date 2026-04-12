@@ -104,6 +104,7 @@ def seed_workspace_template(repo_root: Path) -> None:
     skill_sources_root = repo_root / "skill_sources"
     (skill_sources_root / "auto-bean-apply" / "scripts").mkdir(parents=True)
     (skill_sources_root / "auto-bean-apply" / "agents").mkdir(parents=True)
+    (skill_sources_root / "auto-bean-apply" / "references").mkdir(parents=True)
     (skill_sources_root / "auto-bean-import" / "agents").mkdir(parents=True)
     (skill_sources_root / "auto-bean-import" / "references").mkdir(parents=True)
     (skill_sources_root / "shared").mkdir(parents=True)
@@ -112,6 +113,15 @@ def seed_workspace_template(repo_root: Path) -> None:
     )
     (skill_sources_root / "auto-bean-apply" / "agents" / "openai.yaml").write_text(
         'interface:\n  display_name: "Apply"\n  short_description: "Apply changes"\n  default_prompt: "Use $auto-bean-apply."\n',
+        encoding="utf-8",
+    )
+    (
+        skill_sources_root
+        / "auto-bean-apply"
+        / "references"
+        / "posting-plan.example.json"
+    ).write_text(
+        '{"schema_version": "1.0.0", "plan_run_id": "demo", "posting_plan_status": "needs_review", "generated_at": "2026-04-12T19:05:00Z", "source_evidence": [], "ledger_context": {"ledger_entrypoint": "ledger.beancount", "ledger_files_considered": ["ledger.beancount", "beancount/accounts.beancount"], "existing_accounts": ["Assets:Checking"], "declared_currencies": ["EUR"]}, "reused_source_context": [], "candidate_transactions": [], "candidate_mutation": {"target_files": ["ledger.beancount"], "derived_postings_are_unfinalized": true, "validation_required": true}, "review_handoff": {"apply_skill": ".agents/skills/auto-bean-apply/", "mutation_policy_refs": [], "requires_validation_before_apply": true, "requires_explicit_approval": true, "review_surface": ["parsed statement facts", "derived ledger edits", "validation outcome"]}, "blocking_items": []}\n',
         encoding="utf-8",
     )
     (skill_sources_root / "auto-bean-import" / "SKILL.md").write_text(
@@ -789,8 +799,13 @@ def test_workspace_agents_template_describes_direct_mutation_review_boundary() -
     agents_path = REPO_ROOT / "workspace_template" / "AGENTS.md"
     content = agents_path.read_text(encoding="utf-8")
 
-    assert "direct working-tree edits plus post-mutation inspection" in content
+    assert "Import Workflow" in content
+    assert "`auto-bean-import`" in content
+    assert "`auto-bean-apply`" in content
     assert "git diff" in content
-    assert "committing or pushing" in content
+    assert "commit or push" in content
     assert ".auto-bean/artifacts/" in content
-    assert "git-backed rollback" in content
+    assert (
+        "The orchestrator decides whether that memory should actually be written."
+        in content
+    )

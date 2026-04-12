@@ -79,6 +79,44 @@ def test_account_proposal_contract_example_has_required_keys() -> None:
     )
 
 
+def test_posting_plan_contract_example_has_required_keys() -> None:
+    contract_path = (
+        REPO_ROOT
+        / "skill_sources"
+        / "auto-bean-apply"
+        / "references"
+        / "posting-plan.example.json"
+    )
+
+    payload = json.loads(contract_path.read_text(encoding="utf-8"))
+
+    assert set(payload) >= {
+        "schema_version",
+        "plan_run_id",
+        "posting_plan_status",
+        "generated_at",
+        "source_evidence",
+        "ledger_context",
+        "reused_source_context",
+        "candidate_transactions",
+        "candidate_mutation",
+        "review_handoff",
+        "blocking_items",
+    }
+    assert payload["schema_version"].startswith("1.")
+    assert payload["posting_plan_status"] == "needs_review"
+    assert payload["candidate_mutation"]["derived_postings_are_unfinalized"] is True
+    assert payload["candidate_mutation"]["validation_required"] is True
+    assert payload["review_handoff"]["requires_explicit_approval"] is True
+    assert payload["review_handoff"]["requires_validation_before_apply"] is True
+    assert "parsed statement facts" in payload["review_handoff"]["review_surface"]
+    assert "derived ledger edits" in payload["review_handoff"]["review_surface"]
+    assert "validation outcome" in payload["review_handoff"]["review_surface"]
+    assert isinstance(payload["candidate_transactions"], list)
+    assert isinstance(payload["reused_source_context"], list)
+    assert isinstance(payload["blocking_items"], list)
+
+
 def test_import_source_context_contract_example_is_versioned_and_governed() -> None:
     contract_path = (
         REPO_ROOT
@@ -159,8 +197,18 @@ def test_import_skill_limits_persisted_source_context_to_trustworthy_finalized_r
     skill_path = REPO_ROOT / "skill_sources" / "auto-bean-import" / "SKILL.md"
     content = skill_path.read_text(encoding="utf-8")
 
-    assert "write source context only after a trustworthy finalized outcome" in content
-    assert "do not write source context for blocked, ambiguous, rejected" in content
+    assert (
+        "suggest source-context create or update actions only after a trustworthy finalized outcome"
+        in content
+    )
+    assert (
+        "let the orchestrator decide whether to actually write the source-context file"
+        in content
+    )
+    assert (
+        "do not suggest source-context writes for blocked, ambiguous, rejected"
+        in content
+    )
     assert "source identity" in content
     assert "statement-shape hints" in content
     assert "account-structure reuse hints" in content
@@ -176,6 +224,10 @@ def test_import_skill_reuses_persisted_source_context_as_reviewable_guidance() -
     content = skill_path.read_text(encoding="utf-8")
 
     assert "load matching source context before or during import planning" in content
+    assert (
+        "return a concrete suggestion for the orchestrator instead of writing it directly"
+        in content
+    )
     assert "surface what prior context was reused" in content
     assert "what current statement evidence still matters" in content
     assert "where the workflow chose not to reuse memory" in content
@@ -213,12 +265,19 @@ def test_apply_skill_documents_direct_mutation_diff_approval_and_audit_flow() ->
     content = skill_path.read_text(encoding="utf-8")
 
     assert "working tree" in content
+    assert "posting-plan.example.json" in content
+    assert "reviewed `statements/parsed/*.json` inputs" in content
+    assert "keep parsed statement facts separate from derived ledger edits" in content
+    assert ".auto-bean/memory/import_sources/" in content
+    assert "Context7" in content
     assert "post-mutation validation" in content
     assert "git diff" in content
     assert "commit or push" in content
     assert ".auto-bean/proposals/" in content
     assert "optional review aids" in content
     assert "unfinalized" in content
+    assert "validation fails" in content
+    assert "low confidence" in content
 
 
 def test_shared_mutation_policy_prefers_direct_mutation_with_commit_gated_finalization() -> (
@@ -238,10 +297,13 @@ def test_shared_mutation_policy_prefers_direct_mutation_with_commit_gated_finali
     assert "review package" in pipeline
     assert "parsed evidence" in pipeline
     assert "derived ledger mutation" in pipeline
+    assert "structured posting plan" in pipeline
     assert "accepted into history" in pipeline
     assert "auto-bean-import" in matrix
     assert "Direct working-tree mutation" in matrix
     assert "parsed statement outputs remain intake evidence" in matrix
+    assert "Reviewed import posting plans" in matrix
+    assert "advisory only" in matrix
     assert "Blocked or rejected outcomes" in matrix
     assert "Diff inspection" in matrix
     assert "Commit/push finalization" in matrix
@@ -266,17 +328,26 @@ def test_workspace_and_readme_describe_import_review_boundary_truthfully() -> No
     assert "repeated-import source context" in readme
     assert "governed runtime memory" in readme
 
-    assert "parsed statement facts" in workspace_agents
-    assert "derived ledger edits" in workspace_agents
+    assert "Import Workflow" in workspace_agents
+    assert "1. `auto-bean-import`" in workspace_agents
+    assert "2. `auto-bean-apply`" in workspace_agents
+    assert "Worker Handoff" in workspace_agents
+    assert "one worker handles the `auto-bean-import` stage" in workspace_agents
+    assert "one worker handles the `auto-bean-apply` stage" in workspace_agents
     assert "validation outcome" in workspace_agents
     assert "stop, defer, or reject finalization" in workspace_agents
     assert "accepted into git history" in workspace_agents
     assert ".auto-bean/memory/import_sources/" in workspace_agents
-    assert "repeated-import source context" in workspace_agents
+    assert "Skills may suggest useful repeated-import memory." in workspace_agents
+    assert (
+        "The orchestrator decides whether that memory should actually be written."
+        in workspace_agents
+    )
+    assert "`auto-bean-import` prepares evidence." in workspace_agents
+    assert "`auto-bean-apply` performs reviewed posting mutation." in workspace_agents
 
     assert "parsed statement facts" in prompt_text
-    assert "derived ledger edits" in prompt_text
-    assert "validation outcome" in prompt_text
+    assert "$auto-bean-apply" in prompt_text
 
 
 def test_shared_mutation_docs_describe_governed_memory_writes() -> None:
@@ -292,3 +363,16 @@ def test_shared_mutation_docs_describe_governed_memory_writes() -> None:
     assert "reviewable" in pipeline
     assert "source-specific import context" in matrix
     assert ".auto-bean/memory/import_sources/" in matrix
+
+
+def test_init_requires_and_smoke_materializes_posting_plan_assets() -> None:
+    init_text = (REPO_ROOT / "src" / "auto_bean" / "init.py").read_text(
+        encoding="utf-8"
+    )
+    smoke_text = (REPO_ROOT / "src" / "auto_bean" / "smoke.py").read_text(
+        encoding="utf-8"
+    )
+
+    assert "auto-bean-apply/references/posting-plan.example.json" in init_text
+    assert "posting-plan.example.json" in smoke_text
+    assert "reviewed normalized evidence to auto-bean-apply" in smoke_text
