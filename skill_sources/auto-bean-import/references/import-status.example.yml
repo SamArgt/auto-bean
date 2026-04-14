@@ -4,6 +4,7 @@ statements:
     source_path: statements/raw/checking/jan-2026.pdf
     source_fingerprint: sha256:1ef7e13fdb0f1f282ea6f8a8d3e59b84c55b57f4a9f0c9eb9b0cf2a3e64b2d12
     source_format: pdf
+    # allowed values: ready, parsed, parsed_with_warnings, in_review, done
     current_status: parsed_with_warnings
     latest_parse_output: statements/parsed/checking-jan-2026--1ef7e13f--20260411T090000Z.json
     latest_parse_run_id: 20260411T090000Z-checking-jan-2026

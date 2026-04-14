@@ -1,147 +1,100 @@
 ---
 name: auto-bean-import
-description: Normalize raw statement files into inspectable parsed outputs through the local Docling CLI, then create bounded first-seen ledger account structure directly from those parsed statements when the evidence is strong enough. Use when Codex needs to discover new statement files in `statements/raw/`, re-parse a specific statement, update `statements/import-status.yml`, preserve outputs under `statements/parsed/`, inspect current ledger structure, write direct account-opening mutations under `beancount/**` or `ledger.beancount`, preserve reviewable repeated-import source context, or prepare reviewed normalized evidence for the separate posting-and-apply workflow.
+description: Normalize raw statement files into inspectable parsed outputs through the local Docling CLI, then create bounded first-seen ledger account structure directly from those parsed statements when the evidence is strong enough.
 ---
 
 Read these references before acting:
 
+- `.agents/skills/shared/beancount-syntax-and-best-practices.md` when inferring Beancount account names, `open` directives, currency constraints, or other ledger syntax
 - `.agents/skills/auto-bean-import/references/parsed-statement-output.example.json`
 - `.agents/skills/auto-bean-import/references/import-status.example.yml`
-- `.agents/skills/auto-bean-import/references/import-source-context.example.json`
-
-Read this additional reference only when deeper diagnostic review is warranted:
-
-- `.agents/skills/auto-bean-import/references/account-proposal.example.json`
-
-Load `.agents/skills/shared/mutation-pipeline.md` and `.agents/skills/shared/mutation-authority-matrix.md` before mutating ledger structure.
 
 Follow this workflow:
 
-1. Confirm the request in workspace terms:
-   - discover new or stale raw statements under `statements/raw/`, or
-   - re-parse one specific statement path or filename.
-   - if parsed statements already exist, clarify whether the user wants parse-only results, direct import-to-ledger account-structure updates, or the reviewed handoff into `auto-bean-apply` for transaction postings
-2. Preserve trust boundaries:
-   - keep durable repeated-import source context versioned, migration-friendly, and inspectable via the `schema_version` contract in `.agents/skills/auto-bean-import/references/import-source-context.example.json`
-   - load repeated-import source context only from the governed path `.auto-bean/memory/import_sources/`
-   - suggest source-context create or update actions only after a trustworthy finalized outcome
-   - let the orchestrator decide whether to actually write the source-context file
-   - do not suggest source-context writes for blocked, ambiguous, rejected, validation-failed, or explicitly deferred runs
-   - do not create transaction postings, reconciliation decisions, or accepted categorization memory
-   - keep raw inputs in `statements/raw/`, parsed outputs in `statements/parsed/`, parse state in `statements/import-status.yml`, and optional governed diagnostics under `.auto-bean/proposals/` or `.auto-bean/artifacts/` only when review depth or troubleshooting justifies persistence
-   - treat `statements/parsed/*.json` and `statements/import-status.yml` as intake evidence, not as accepted ledger changes
-3. Load and compare parse state before choosing work:
-   - read `statements/import-status.yml` first
-   - scan `statements/raw/` for supported inputs: `.pdf`, `.csv`, `.xlsx`, `.xls`
-   - compute a deterministic source fingerprint such as `sha256`
-   - load matching source context before or during import planning when the same or similar source is recognized from the current statement evidence
-   - if a source-context file should be created or updated, return a concrete suggestion for the orchestrator instead of writing it directly
-   - surface what prior context was reused, what current statement evidence still matters, and where the workflow chose not to reuse memory because it no longer fits
-   - keep reused context reviewable and overrideable; it must not silently force acceptance and must not silently bypass validation and commit/push review
-   - in discover mode, parse only files that are new, stale, failed, blocked, or explicitly requested
-   - in targeted re-parse mode, process only the requested statement and leave unrelated files untouched
-4. Invoke Docling through the local CLI instead of writing bespoke parsers:
-   - use the assigned raw statement path as the only input
-   - call `./.venv/bin/docling` directly instead of doing a separate readiness preflight
-   - request JSON output and write Docling's raw output to a temporary staging location first
-   - make the staging directory or filename unique per source file and parse run so parallel workers do not collide; include values such as `parse_run_id`, a short source slug, and a short fingerprint fragment
-   - translate the Docling result into the normalized contract from the reference file
-   - remove the staged Docling JSON file and any worker-specific temp directory after the normalized `statements/parsed/` artifact is safely written, or after a failed run when the temp files are no longer needed for debugging
-   - if the Docling command fails because the CLI or a required local dependency is missing, report that concrete failure and stop for that file instead of masking it behind an extra readiness check
-   - if the source is a scanned or textless PDF and Docling cannot extract usable text, record a structured `blocked` result instead of guessing
-5. Use these CLI patterns as the default starting point and adapt only when the source format or Docling version requires it:
-   - single-file PDF to staged JSON:
-     - `./.venv/bin/docling statements/raw/bank/jan-2026.pdf --to json --output .auto-bean/tmp/docling-20260411T090000Z-jan-2026-1ef7e13f`
-   - single-file CSV to staged JSON:
-     - `./.venv/bin/docling statements/raw/cards/2026-01.csv --to json --output .auto-bean/tmp/docling-20260411T090000Z-2026-01-csv-a82c91d4`
-   - single-file Excel to staged JSON:
-     - `./.venv/bin/docling statements/raw/brokerage/holdings-2026-01.xlsx --to json --output .auto-bean/tmp/docling-20260411T090000Z-holdings-2026-01-6cb2e40a`
-   - bounded batch for a worker assigned multiple files:
-     - `./.venv/bin/docling ./worker-input --from pdf --from csv --from xlsx --to json --output .auto-bean/tmp/docling-batch-worker-02-20260411T090000Z`
-   - after Docling writes its JSON output, translate that staged file into the normalized `statements/parsed/` contract rather than exposing raw Docling output as the final artifact
-   - once the normalized artifact is committed to `statements/parsed/`, delete the staged Docling JSON and temp directory unless you intentionally need to retain them for an active debugging handoff
-6. Persist normalized outputs under `statements/parsed/`:
-   - write one JSON output per source file or parse run using deterministic, source-preserving names
-   - keep paths workspace-relative where practical
-   - include `parse_run_id`, `source_fingerprint`, parser details, warnings, blocking issues, and extracted records
-   - preserve prior parse context on re-parse by writing a new versioned output and marking the new output as superseding the previous run when applicable
-7. Keep `statements/import-status.yml` synchronized after every parse attempt:
-   - update status for `parsed`, `parsed_with_warnings`, `blocked`, `failed`, `stale`, or `superseded`
-   - record the latest parse output path, latest parse run id, parser identifier, timestamps, warnings, and blocking issues
-   - do not infer durable status from conversation history alone
-8. Derive direct account-structure edits only from normalized parsed outputs and current ledger state:
-   - inspect the relevant `statements/parsed/*.json` outputs before inferring structure; do not re-parse raw statements just to infer accounts
-   - inspect `beancount/accounts.beancount` first when it exists, because that is the preferred workspace location for durable account `open` directives
-   - then inspect `ledger.beancount` and any other included `beancount/**` files to find existing `open` directives, existing `option "operating_currency"` declarations, and the current baseline structure
-   - treat account-level evidence as a combination of institution name, masked account number, statement title, account type hints, statement currency, and any explicit labels in the parsed records
-   - classify each inferred account as exactly one of: `existing_account`, `first_seen_candidate`, or `blocked_inference`
-   - fail closed when the evidence does not support a stable top-level Beancount branch such as `Assets` or `Liabilities`
-   - infer Beancount-safe account names, optional currency constraints, and minimal supporting directives only when the parsed evidence supports them
-   - prefer adding new account-opening structure in `beancount/accounts.beancount`; if the workspace does not yet have that file, explain the fallback path before mutating another target
-   - add `option "operating_currency" "XYZ"` only when the imported evidence introduces a currency the ledger does not already declare
-   - add `Equity:Opening-Balances` support only when the ledger baseline or imported account path actually needs it and avoid duplicating an existing directive
-   - when the workspace still uses the minimal generated baseline ledger, enrich that baseline from imported evidence instead of sending the user to manual account setup
-   - when related account structure already exists, write only the missing additions and explain why duplicates were skipped
-9. Apply direct ledger mutations safely and keep them bounded:
-   - mutate only account-opening structure and minimal supporting directives needed for that structure
-   - do not create transaction postings, transfer detection, duplicate handling, reconciliation outcomes, or durable memory writes in this workflow
-   - preserve the current workspace layout and mutate the smallest viable set of files
-   - keep the mutation deterministic for the same parsed inputs and ledger state
-10. Validate immediately after mutation:
-   - run the standard ledger validation gate after direct mutation and never present a failed validation result as success
-   - if validation fails, stop before any finalization claim, keep the working-tree change unfinalized, and preserve enough local audit context under `.auto-bean/artifacts/` for inspection and troubleshooting
-11. Present inspectable change context before any finalization:
-   - present a single post-mutation review surface before any commit/push request
-   - separate parsed statement facts from derived ledger edits so the user can see which normalized records came from statement parsing versus which `ledger.beancount` or `beancount/**` changes were inferred from those records
-   - summarize which files changed
-   - summarize what account structure was inferred and why that inference was made from the imported statement evidence
-   - include the validation outcome, warnings, blocked inferences, low-confidence edits, and any ambiguous results directly in that review package
-   - state explicitly that commit/push remains the final approval boundary even when the working tree has already changed
-   - show a git-backed diff for the changed files
-   - ask whether the agent should commit and push only after the mutation and validation result are available
-   - if the user approves finalization and the run ends in a trustworthy finalized outcome, suggest bounded source-context create or update actions for `.auto-bean/memory/import_sources/` using the governed contract and include only source identity, statement-shape hints, account-structure reuse hints, and parse or mapping guidance derived from the accepted outcome
-   - let the orchestrator decide whether to perform the actual file write
-   - do not persist categorization memory, do not persist transaction-posting memory, do not persist reconciliation decisions, and do not persist open-ended user-preference tuning in this workflow
-12. When the user wants transaction postings from already-reviewed normalized imports:
-   - treat `statements/parsed/*.json` and `statements/import-status.yml` as the evidence handoff into `.agents/skills/auto-bean-apply/`
-   - load bounded `.auto-bean/memory/import_sources/` hints only as advisory, reviewable guidance for mapping or narration defaults
-   - keep canonical posting edits on the `auto-bean-apply` path so parsed statement facts, derived ledger edits, validation outcome, and `git diff` stay in one explicit review surface
-   - do not generate or apply transaction postings inside `auto-bean-import`; this skill owns normalized inputs, first-seen account structure, and governed import-source memory
-13. Fail closed for ambiguity or risky structure:
-   - block finalization when the evidence does not support a stable top-level Beancount branch or otherwise leaves the structural inference unclear
-   - block finalization when the mutation target is unclear, duplicate-sensitive, or would extend the ledger beyond bounded account structure
-   - let the user stop, defer, or reject finalization without corrupting prior accepted ledger history
-   - when finalization is blocked, deferred, or rejected, record narrow local audit context under `.auto-bean/artifacts/` when durable troubleshooting evidence will help later inspection
-   - create `.auto-bean/proposals/` diagnostics only when the user asks for deeper review or when the change is risky enough that a durable diagnostic artifact will help inspection
-14. Use parallel workers only when platform policy permits and the user explicitly asks for parallelism or bounded delegation:
-   - assign each worker one raw statement by default
-   - use a small batch only when the file count is higher than the practical worker cap
-   - require each worker to return a structured result with source path, parse status, normalized output path, warnings, and blocking issues
-   - if workers also contribute account evidence, require them to return only bounded evidence summaries; final account classification, mutation, validation, and diff review stay with the parent agent
-   - keep each worker bounded to its assigned source file and parse-output target
-   - consolidate all worker results in the parent summary and fail closed for any worker that times out, errors, or needs approval that cannot be surfaced
-15. End with a concise import summary:
-   - which statements were processed
-   - which were skipped and why
-   - which outputs were written under `statements/parsed/`
-   - which parsed statement facts were reviewed before any ledger acceptance decision
-   - which account mutations were applied, skipped, or blocked
-   - which derived ledger edits remain unfinalized pending user approval
+1. Confirm scope in workspace terms:
+   - discover new or stale files in `statements/raw/`, or
+   - re-parse a specific file.
+   - if parsed outputs already exist, distinguish parse-only, account-structure import, or handoff to `auto-bean-apply` for postings.
+2. Preserve boundaries:
+   - raw inputs stay in `statements/raw/`
+   - normalized outputs stay in `statements/parsed/`
+   - parse state stays in `statements/import-status.yml`
+   - use only these workflow statuses in `statements/import-status.yml`:
+     - `ready`: no actions have been taken yet; ready for import
+     - `parsed`: parsed and written under `statements/parsed/`, but no transactions have been posted to the workspace
+     - `parsed_with_warnings`: parsed and written under `statements/parsed/`, but warnings still need review before transactions are ready to post
+     - `in_review`: import-derived transactions have been written in the workspace, but the result has not been validated and finalized yet
+     - `done`: the full import/apply workflow is complete
+   - source-context memory is advisory only and comes from `.auto-bean/memory/import_sources/`
+   - do not create postings, reconciliation outcomes, categorization memory, or open-ended preference memory here
+3. Plan from current state:
+   - read `statements/import-status.yml`
+   - scan `statements/raw/` for `.pdf`, `.csv`, `.xlsx`, `.xls`
+   - compute a deterministic fingerprint such as `sha256`
+   - in discover mode, process files that are missing from the status file, still `ready`, or explicitly requested
+   - in targeted mode, touch only the requested file
+   - reuse matching source context only when it still fits the current evidence; otherwise explain why it was ignored
+4. Parse with the local Docling CLI:
+   - call `./.venv/bin/docling` directly on the assigned source
+   - request JSON output into a unique temp path under `.auto-bean/tmp/`
+   - default CLI patterns:
+     - PDF: `./.venv/bin/docling statements/raw/bank/jan-2026.pdf --to json --output .auto-bean/tmp/docling-20260411T090000Z-jan-2026-1ef7e13f`
+     - CSV: `./.venv/bin/docling statements/raw/cards/2026-01.csv --to json --output .auto-bean/tmp/docling-20260411T090000Z-2026-01-csv-a82c91d4`
+     - Excel: `./.venv/bin/docling statements/raw/brokerage/holdings-2026-01.xlsx --to json --output .auto-bean/tmp/docling-20260411T090000Z-holdings-2026-01-6cb2e40a`
+     - bounded batch: `./.venv/bin/docling ./worker-input --from pdf --from csv --from xlsx --to json --output .auto-bean/tmp/docling-batch-worker-02-20260411T090000Z`
+   - translate Docling output into the normalized contract from the references
+   - delete temp artifacts after the normalized output is safely written unless active debugging needs them
+   - if unsure about Docling CLI flags, supported formats, or dependency behavior, use Context7 to check the relevant docs before adapting the command
+   - if Docling or a required local dependency is missing, report the concrete failure and stop for that file
+   - if a scanned or textless PDF cannot be extracted, do not guess; leave the statement at `ready` and record the issue clearly for follow-up
+5. Persist normalized outputs:
+   - write one deterministic JSON artifact per source or parse run under `statements/parsed/`
+   - include `parse_run_id`, `source_fingerprint`, parser details, `status`, warnings, blocking issues, and extracted records
+   - on re-parse, write a new versioned output and refresh the same statement entry in `statements/import-status.yml`
+6. Keep `statements/import-status.yml` in sync after every attempt:
+   - set `status: ready` before any import work has succeeded yet, and also when an attempted parse still needs manual follow-up before trustworthy parsed evidence exists
+   - set `status: parsed` when the normalized output is written and there are no warnings blocking posting work
+   - set `status: parsed_with_warnings` when the normalized output is written but warnings still need review before posting work
+   - never set `status: in_review` or `status: done` during `auto-bean-import`; those belong to the posting/finalization stage
+   - record output path, parse run id, parser identifier, timestamps, warnings, and blocking issues alongside the status
+7. Derive first seen account structure only from normalized outputs plus current ledger state:
+   - inspect `statements/parsed/*.json` before inferring structure
+   - inspect `beancount/accounts.beancount` and `.auto-bean/memory/import_sources/` first, then `ledger.beancount` and included `beancount/**` files for `open` directives and existing account names.
+   - classify each inferred account as `existing_account`, `first_seen_candidate`, or `blocked_inference`
+   - consider only banking, credit card, loans, cash, and investment account types for first-seen structure inference; do not infer structure for expenses account types or others that are more mutable and less likely to have strong identity evidence.
+   - infer Beancount-safe account names and minimal supporting directives only when institution, account identity, type hints, and currency provide strong evidence
+   - fail closed when the top-level branch, mutation target, or duplicate risk is unclear
+8. Apply only bounded ledger mutations:
+   - mutate only account-opening structure and minimal supporting directives such as missing operating currencies
+   - prefer `beancount/accounts.beancount`; explain any fallback target before mutating it
+   - avoid duplicate directives and keep the mutation deterministic for the same parsed inputs and ledger state
+9. Validate immediately after any ledger mutation:
+   - run `./scripts/validate-ledger.sh` or `./.venv/bin/bean-check ledger.beancount`
+   - if validation fails, stop before any success claim and preserve local audit context
+10. Present one review surface before finalization:
+   - separate parsed statement facts from inferred ledger edits
+   - summarize changed files, inferred accounts, warnings, blocked inferences, and validation outcome
+   - show a git-backed diff for changed files
+   - state that commit/push remains the final approval boundary
+   - suggest source-context create or update only after a trustworthy finalized outcome; let the orchestrator decide whether to write it
+11. Handoff postings to `auto-bean-apply`:
+   - use `statements/parsed/*.json` and `statements/import-status.yml` as the evidence handoff
+   - only hand off statements whose status is `parsed` or `parsed_with_warnings`
+   - do not generate or apply transaction postings inside `auto-bean-import`
+12. End with a concise import summary:
+   - processed and skipped statements
+   - outputs written under `statements/parsed/`
+   - account mutations applied, skipped, or blocked
    - whether validation passed
    - whether the result is ready for commit/push approval
-   - whether the user chose to stop, defer, or reject finalization
-   - whether source-context create or update was suggested for `.auto-bean/memory/import_sources/`, and whether the orchestrator wrote it or deliberately skipped it
-   - any blocked or failed statements or ambiguous inferences that still need user attention
+   - any suggested source-context updates
+   - any blocked or failed statements that still need attention
 
 Guardrails:
 
 - Keep all contract keys in `snake_case`.
-- Keep parsed-statement artifacts narrow: extracted statement facts and diagnostics only.
-- Keep persisted source context narrow: source identity, statement-shape hints, account-structure reuse hints, parse or mapping guidance, review metadata, and timestamps only.
-- Keep optional proposal artifacts narrow: diagnostic review context only, not the default success path.
+- Keep source context narrow: source identity, statement-shape hints, account-structure reuse hints, parse or mapping guidance, review metadata, and timestamps only.
 - Do not overwrite prior parse outputs silently unless the user explicitly asks for overwrite behavior.
-- Do not claim the import succeeded when evidence is ambiguous, structurally risky, or validation fails.
-- Do not create a second approval system beyond validation plus explicit commit/push approval.
-- Do not blur this skill's authority boundary with transaction-posting mutation; hand reviewed posting work to `auto-bean-apply`.
-- Keep the review package deterministic, concise, and stage-based so long-running CLI work stays inspectable.
-- Prefer local shell tools and the workspace runtime over adding new product Python modules.
+- Do not claim success when evidence is ambiguous, structure is risky, or validation fails.
+- Do not introduce a second approval system beyond validation plus explicit commit/push approval.
+- Keep the review package deterministic, concise, and stage-based.

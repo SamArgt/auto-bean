@@ -290,8 +290,6 @@ class InitService:
                     "auto-bean-import/references/import-source-context.example.json",
                     "auto-bean-import/references/parsed-statement-output.example.json",
                     "auto-bean-import/references/import-status.example.yml",
-                    "shared/mutation-pipeline.md",
-                    "shared/mutation-authority-matrix.md",
                 ),
             ),
             self._check_tool(
@@ -341,7 +339,6 @@ class InitService:
                 "AGENTS.md",
                 ".agents/skills/auto-bean-apply/SKILL.md",
                 ".agents/skills/auto-bean-import/SKILL.md",
-                ".agents/skills/shared/mutation-pipeline.md",
                 ".auto-bean/memory/import_sources/.gitkeep",
                 "statements/import-status.yml",
             ],
