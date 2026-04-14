@@ -68,8 +68,8 @@ Treat reused memory as advisory guidance, never silent authority.
 Before any commit or push for ledger mutations:
 
 - keep parsed statement facts separate from derived ledger edits
-- show the validation outcome
-- show `git diff`
+- Validate the ledger integrity with `./scripts/validate-ledger.sh` or `./.venv/bin/bean-check ledger.beancount` and show the validation outcome
+- summarize what changed, why, and which files are affected
 - make it clear the working tree may have changed without being accepted into git history
 
 The user may stop, defer, or reject finalization.
