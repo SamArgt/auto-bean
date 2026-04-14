@@ -31,9 +31,7 @@ Follow this workflow:
    - read `statements/import-status.yml`
    - scan `statements/raw/` for `.pdf`, `.csv`, `.xlsx`, `.xls`
    - compute a deterministic fingerprint such as `sha256`
-   - in discover mode, process files that are missing from the status file, still `ready`, or explicitly requested
-   - in targeted mode, touch only the requested file
-   - reuse matching source context only when it still fits the current evidence; otherwise explain why it was ignored
+   - scan the first 30 lines of `.auto-bean/memory/import_sources/` for any relevant source-context hints that match the current source identity, statement shape, or account structure. If it matches, read the whole file and keep it in mind as advisory guidance but not authority. Do not skip current-evidence checks, validation, or approval just because of memory hints.
 4. Parse with the local Docling CLI:
    - call `./.venv/bin/docling` directly on the assigned source
    - request JSON output into a unique temp path under `.auto-bean/tmp/`
@@ -59,7 +57,7 @@ Follow this workflow:
    - record output path, parse run id, parser identifier, timestamps, warnings, and blocking issues alongside the status
 7. Derive first seen account structure only from normalized outputs plus current ledger state:
    - inspect `statements/parsed/*.json` before inferring structure
-   - inspect `beancount/accounts.beancount` and `.auto-bean/memory/import_sources/` first, then `ledger.beancount` and included `beancount/**` files for `open` directives and existing account names.
+   - inspect `beancount/accounts.beancount` first, then `ledger.beancount` and included `beancount/**` files for `open` directives and existing account names.
    - classify each inferred account as `existing_account`, `first_seen_candidate`, or `blocked_inference`
    - consider only banking, credit card, loans, cash, and investment account types for first-seen structure inference; do not infer structure for expenses account types or others that are more mutable and less likely to have strong identity evidence.
    - infer Beancount-safe account names and minimal supporting directives only when institution, account identity, type hints, and currency provide strong evidence
