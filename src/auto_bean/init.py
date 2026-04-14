@@ -282,14 +282,8 @@ class InitService:
                 root=Path(context.skill_sources_directory),
                 required_paths=(
                     "auto-bean-apply/SKILL.md",
-                    "auto-bean-apply/agents/openai.yaml",
-                    "auto-bean-apply/references/posting-plan.example.json",
                     "auto-bean-import/SKILL.md",
-                    "auto-bean-import/agents/openai.yaml",
-                    "auto-bean-import/references/account-proposal.example.json",
-                    "auto-bean-import/references/import-source-context.example.json",
-                    "auto-bean-import/references/parsed-statement-output.example.json",
-                    "auto-bean-import/references/import-status.example.yml",
+                    "shared/beancount-syntax-and-best-practices.md",
                 ),
             ),
             self._check_tool(
