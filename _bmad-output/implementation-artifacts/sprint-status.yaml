@@ -35,7 +35,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2026-03-31 08:46:40 CEST
-last_updated: 2026-04-12 19:17:00 CEST
+last_updated: 2026-04-14 19:40:00 CEST
 project: auto-bean
 project_key: NOKEY
 tracking_system: file-system
@@ -58,7 +58,7 @@ development_status:
   epic-2-retrospective: optional
   epic-3: in-progress
   3-1-transform-normalized-import-results-into-direct-ledger-postings-with-commit-gated-acceptance: review
-  3-2-detect-transfers-duplicates-and-unbalanced-outcomes-during-reconciliation: backlog
+  3-2-detect-transfers-duplicates-and-unbalanced-outcomes-during-reconciliation: review
   3-3-run-clarification-workflows-for-ambiguous-or-unfamiliar-transaction-patterns: backlog
   3-4-validate-inspect-approve-and-recover-ledger-mutations-safely: backlog
   3-5-preserve-audit-history-and-rollback-for-committed-or-rejected-changes: backlog

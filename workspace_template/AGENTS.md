@@ -22,10 +22,11 @@ Use one explicit two-step workflow for import-driven ledger changes:
    - prepare the evidence handoff for posting work
 2. `auto-bean-apply`
    - take already-reviewed evidence from `statements/parsed/`
-   - derive candidate ledger postings
+   - draft candidate ledger postings directly into the workspace
+   - run reconciliation checks for likely transfers, possible duplicates, unbalanced outcomes, currency risk, and possible future transfers
    - update `statements/import-status.yml` to `in_review` after writing import-derived Beancount transactions
-   - validate, summarize, and show `git diff`
-   - ask for explicit approval before commit or push, then move finalized statements to `done`
+   - validate, summarize, show findings plus suggested actions, and show `git diff`
+   - ask the user for a decision on each finding, apply those decisions, then ask for explicit final approval before commit or push
 
 Do not blur those responsibilities.
 `auto-bean-import` prepares evidence.
@@ -68,6 +69,7 @@ Treat reused memory as advisory guidance, never silent authority.
 Before any commit or push for ledger mutations:
 
 - keep parsed statement facts separate from derived ledger edits
+- keep reconciliation findings explicit, with one user decision required for each finding before action is taken
 - Validate the ledger integrity with `./scripts/validate-ledger.sh` or `./.venv/bin/bean-check ledger.beancount` and show the validation outcome
 - summarize what changed, why, and which files are affected
 - make it clear the working tree may have changed without being accepted into git history

@@ -447,44 +447,8 @@ So that I can correct the result without losing trust in the workflow.
 **Then** the system applies the clarification to the current reconciliation result
 **And** the corrected interpretation can later be reused through the governed memory path
 
-### Story 3.4: Validate, inspect, approve, and recover ledger mutations safely
 
-As a trust-conscious user,
-I want direct ledger mutations validated and inspected before they are committed,
-So that only trustworthy changes are finalized in my ledger history.
-
-**Acceptance Criteria:**
-
-**Given** a set of ledger mutations from reconciliation has already been applied locally
-**When** the inspection workflow is presented
-**Then** the user can inspect meaningful diffs between prior and resulting ledger state
-**And** risky or uncertain changes are surfaced distinctly from routine low-risk changes
-
-**Given** a mutation set has been applied locally
-**When** the workflow completes validation
-**Then** post-change validation runs before the result is treated as accepted
-**And** validation failures are surfaced clearly without being misrepresented as success
-**And** the agent asks whether to commit and push after showing the summary and diff
-
-### Story 3.5: Preserve audit history and rollback for committed or rejected changes
-
-As a user protecting the integrity of my ledger,
-I want committed changes recorded and reversible,
-So that I can recover a prior known-good state if something goes wrong.
-
-**Acceptance Criteria:**
-
-**Given** a ledger mutation is committed or rejected through the workflow
-**When** the workflow completes
-**Then** the result is captured in auditable history with enough detail to understand what happened
-**And** diffs and commit history remain inspectable after the fact
-
-**Given** a committed change later proves undesirable
-**When** the user invokes recovery or rollback
-**Then** the system can restore a prior known-good ledger state by reverting the recorded commit
-**And** the recovery path preserves trust by making the rollback visible and inspectable
-
-### Story 3.6: Troubleshoot suspicious or failed imports with guided diagnostics
+### Story 3.4: Troubleshoot suspicious or failed imports with guided diagnostics
 
 As a user recovering from a bad import or failed validation,
 I want guided troubleshooting support,
@@ -507,7 +471,7 @@ So that I can understand the failure and correct it safely.
 
 Users can benefit from reusable operational memory, inspect and correct what the system has learned, and tune future workflow behavior through supervised use.
 
-### Story 4.1: Persist governed memory for mappings, categorization, naming, and import behavior
+### Story 4.1: Persist governed memory for mappings, categorization, naming, transfer detection, deduplication and import behavior
 
 As a repeat user,
 I want the system to persist learned operational decisions in governed local memory,
@@ -515,7 +479,7 @@ So that useful past decisions can improve future workflows without becoming opaq
 
 **Acceptance Criteria:**
 
-**Given** a workflow produces reusable decisions such as account mappings, categorization outcomes, naming conventions, or import-handling rules
+**Given** a workflow produces reusable decisions such as account mappings, categorization outcomes, naming conventions, transfer detection logic, deduplication or import-handling rules
 **When** the workflow finalizes an approved result
 **Then** the system persists those decisions through the governed memory abstraction
 **And** the stored memory remains local, versionable, and separate from raw ledger files

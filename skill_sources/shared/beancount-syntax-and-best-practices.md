@@ -8,6 +8,7 @@ Use this reference when authoring or reviewing Beancount ledger edits. Keep chan
 - Fail closed when account identity, currency, balancing intent, or mutation target is ambiguous.
 - Prefer explicit postings and directives over shorthand.
 - Avoid duplicate directives, duplicate transactions, and silent rewrites of history.
+- Treat balancing failures and `open` directive currency restrictions as hard safety checks, not soft suggestions.
 
 ## Common directives
 
@@ -54,6 +55,7 @@ YYYY-MM-DD custom "import_marker" Assets:Checking "statement-2026-01"
 - Prefer explicit balancing amounts even though Beancount can infer one missing amount.
 - Leave at most one posting amount omitted, and only when the intended balance is unambiguous.
 - Only emit costs or prices when the source evidence clearly supports them.
+- When import-derived postings resemble transfers or duplicates, surface the evidence for review instead of silently netting or deleting entries.
 
 ## Account naming
 

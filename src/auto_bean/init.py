@@ -282,6 +282,7 @@ class InitService:
                 root=Path(context.skill_sources_directory),
                 required_paths=(
                     "auto-bean-apply/SKILL.md",
+                    "auto-bean-apply/references/reconciliation-findings.md",
                     "auto-bean-import/SKILL.md",
                     "shared/beancount-syntax-and-best-practices.md",
                 ),

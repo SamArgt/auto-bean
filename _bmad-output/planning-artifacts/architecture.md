@@ -604,11 +604,6 @@ auto-bean/
 │   └── .auto-bean/
 ├── src/
 │   └── auto_bean/
-│       ├── cli/
-│       ├── application/
-│       ├── domain/
-│       ├── infrastructure/
-│       └── memory/
 ├── scripts/
 │   ├── bootstrap.sh
 │   ├── run_fava.sh

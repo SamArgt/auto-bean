@@ -29,14 +29,12 @@ This repository authors the product, not a live user ledger workspace.
 - Keep the Python package flat while the product only exposes the `init` workflow.
 - Put the CLI entrypoint in `src/auto_bean/cli.py`.
 - Keep the end-to-end workspace bootstrap workflow in `src/auto_bean/init.py`.
-- Keep smoke-check support code in `src/auto_bean/smoke.py`.
 - Add new modules only when they clearly improve readability or separate a real independent concern.
 
 ## Code Boundaries
 
 - Keep CLI surfaces thin and support-oriented.
 - Keep orchestration, filesystem setup, and command execution together when they all serve the single `init` workflow.
-- Prefer extending the existing flat modules over reintroducing layered `application/`, `domain/`, or `infrastructure/` packages.
 - Prefer changing markdown workflow behavior before adding new Python surfaces.
 
 ## Trust Model
