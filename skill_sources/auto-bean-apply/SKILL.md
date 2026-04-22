@@ -25,6 +25,7 @@ Follow this workflow:
 6. Draft the scoped structural mutation directly in the working tree.
    - For import-derived posting work, write the candidate Beancount transactions into the workspace before presenting the review package.
    - Keep the drafted transactions explicit and inspectable so findings and follow-up decisions can refer to concrete candidate entries.
+   - Describe this state as the resulting working-tree mutation, not as a proposal artifact or an accepted history change.
 7. If the mutation writes Beancount transactions derived from reviewed import evidence, run reconciliation checks on the drafted workspace result before any finalization claim.
    - Compare drafted candidate postings against the current ledger, same-run candidate postings, and the reviewed parsed evidence.
    - Surface findings under these distinct buckets only:
@@ -64,8 +65,9 @@ Follow this workflow:
    - drafted ledger edits
    - reconciliation findings and a concrete suggested action for each finding
    - a short explanation of the clarification asked and how the user answer changed the result when a clarification checkpoint was required
-   - validation outcome
+   - validation outcome, with confirmed validation failures called out separately from inferred risks or follow-up concerns
    - a `git diff -- <paths>` view, or the most relevant equivalent diff output for the changed files
+   - a clear statement that the working tree is mutated but still unfinalized until commit or push approval is granted
 13. Ask the user for a decision on each reconciliation finding before finalization.
    - Present each finding as a separate decision item tied to the drafted postings it affects.
    - Include the suggested action for that finding, but do not apply it until the user chooses.
@@ -75,7 +77,9 @@ Follow this workflow:
    - Keep unresolved findings visible if the user chooses to defer, keep-as-is, or otherwise leave them unresolved.
 15. Ask for explicit approval before commit or push finalization only after the finding decisions have been applied and the current workspace result has been revalidated. If approval is denied, deferred, or cannot be obtained, leave the mutation in the working tree and describe it as unfinalized.
 16. After validation succeeds and the workflow is explicitly finalized, update the same `statements/import-status.yml` entries to `status: done`.
-17. Suggest source-context create or update only after a trustworthy finalized outcome, including reusable clarification outcomes when they clearly fit the source-specific memory boundary; let the orchestrator decide whether to write it
+17. Suggest source-context create or update only after a trustworthy finalized outcome, including reusable clarification outcomes when they clearly fit the source-specific memory boundary; let the orchestrator decide whether to write it.
+18. When the user asks how to undo a committed mutation, explain the git-backed recovery path from the recorded commit history.
+   - Prefer reverting the recorded commit over silently overwriting ledger files.
 
 Guardrails:
 
@@ -91,3 +95,4 @@ Guardrails:
 - Do not silently drop, merge, or rewrite candidate postings just because a transfer or duplicate pattern looks plausible.
 - Do not apply a suggested action for a finding until the user has made a decision on that finding.
 - Do not bypass the clarification checkpoint with a best guess when account identity, transfer intent, duplicate suspicion, source-specific meaning, or balancing rationale is still materially ambiguous.
+- Do not describe rollback as ad hoc file replacement when the mutation has already been committed; prefer `git revert` or the equivalent revert-based history-preserving path.

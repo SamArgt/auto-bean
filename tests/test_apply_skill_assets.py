@@ -25,10 +25,13 @@ def test_apply_skill_requires_resume_trace_and_fail_closed_behavior() -> None:
         "If the user response is still ambiguous, contradictory, or insufficient, fail closed"
         in content
     )
+    assert "suggest a targeted update to the source-context memory file" in content
+    assert "resulting working-tree mutation" in content
     assert (
-        "suggest a targeted update to the source-context memory file"
+        "confirmed validation failures called out separately from inferred risks"
         in content
     )
+    assert "reverting the recorded commit" in content
 
 
 def test_clarification_guidance_stays_simple_and_actionable() -> None:

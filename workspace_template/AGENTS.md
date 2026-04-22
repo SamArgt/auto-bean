@@ -73,10 +73,12 @@ Before any commit or push for ledger mutations:
 - keep parsed statement facts separate from derived ledger edits
 - keep reconciliation findings explicit, with one user decision required for each finding before action is taken
 - Validate the ledger integrity with `./scripts/validate-ledger.sh` or `./.venv/bin/bean-check ledger.beancount` and show the validation outcome
+- distinguish confirmed validation failures from inferred risks or user concerns
 - summarize what changed, why, and which files are affected
 - make it clear the working tree may have changed without being accepted into git history
 
 The user may stop, defer, or reject finalization.
+If a committed mutation later needs to be undone, prefer reverting the recorded commit instead of silently replacing ledger files.
 
 ## Workspace Paths
 
@@ -95,3 +97,4 @@ The user may stop, defer, or reject finalization.
 - Do not invent workflows, commands, or skills that are not present here.
 - Do not describe a working-tree mutation as accepted before validation succeeds and the user approves finalization.
 - Do not make proposal artifacts mandatory for routine changes.
+- Do not describe committed rollback as ad hoc file replacement when git-backed revert is available.

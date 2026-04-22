@@ -13,6 +13,7 @@ Right now this repository gives you a supported first session for:
 - turning reviewed normalized statement evidence into candidate Beancount postings through a separate apply workflow, with advisory reuse of repeated-import source context and the same commit-gated review boundary
 - surfacing likely transfers, possible duplicates, and unbalanced or currency-risk outcomes as explicit review findings before finalization
 - pausing ambiguous or unfamiliar reconciliation outcomes to ask the user a bounded clarification question before any risky interpretation is applied
+- explaining committed recovery through git-backed revert guidance
 
 It does not expose a public SDK or external API today. The stable user interface is the coding-agent workflow inside the generated workspace.
 
@@ -51,7 +52,7 @@ On success, `auto-bean` creates a separate runtime Git repository with:
 - `beancount/` for included ledger fragments
 - `beancount/accounts.beancount` for durable account `open` directives
 - `statements/raw/` for statement files that later import stories will process
-- `.auto-bean/` for governed runtime artifacts and optional proposal diagnostics
+- `.auto-bean/` for governed runtime artifacts and diagnostics
 - `.auto-bean/memory/import_sources/` for governed runtime memory that stores repeated-import source context
 - `.agents/skills/` for installed runtime skills
 - `AGENTS.md` for workspace operating guidance
@@ -133,6 +134,7 @@ That review surface should make these distinctions obvious:
 - reconciliation findings make the workflow's suggested action visible, but the user still decides what happens to each finding
 - warnings, blocked inferences, and `git diff` appear before any finalization request
 - the user can stop, defer, or reject finalization without corrupting prior accepted ledger history
+- committed recovery is explained as reverting the recorded commit, not silently overwriting ledger state
 
 The boundaries that matter now are:
 
@@ -144,7 +146,6 @@ The boundaries that matter now are:
 - `statements/import-status.yml`: where parse-state tracking lives
 - `.auto-bean/`: governed runtime artifacts and workflow state
 - `.auto-bean/memory/import_sources/`: governed runtime memory for repeated-import source context
-- `.auto-bean/proposals/`: optional diagnostic proposal artifacts for riskier or deeper review
 - `.agents/skills/auto-bean-apply/`: installed skill for other reviewed structural edits and recovery-oriented workflows
 - `.agents/skills/auto-bean-import/`: installed skill for Docling-driven statement normalization, first-seen account mutation, and reviewed evidence handoff
 - `.agents/skills/auto-bean-apply/`: installed skill for turning reviewed evidence into candidate transaction postings or other reviewed structural mutations

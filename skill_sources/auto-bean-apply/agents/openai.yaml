@@ -1,7 +1,7 @@
 interface:
   display_name: "Apply Ledger Changes"
   short_description: "Review candidate ledger edits and posting changes"
-  default_prompt: "Use $auto-bean-apply to turn reviewed parsed statement evidence into drafted Beancount postings in the workspace or review another structural ledger change, run reconciliation checks for likely transfers, possible duplicates, unbalanced outcomes, currency risk, and possible future transfers, pause to ask the user a bounded clarification question when the interpretation remains ambiguous or unfamiliar, then present each finding with a suggested action and ask the user for a decision on each one before final commit or push approval."
+  default_prompt: "Use $auto-bean-apply to turn reviewed parsed statement evidence into drafted Beancount postings in the workspace or review another structural ledger change, run reconciliation checks for likely transfers, possible duplicates, unbalanced outcomes, currency risk, and possible future transfers, pause to ask the user a bounded clarification question when the interpretation remains ambiguous or unfamiliar, then present the resulting changes, validation outcome, and each finding with a suggested action before final commit or push approval."
 
 policy:
   allow_implicit_invocation: true

@@ -36,6 +36,7 @@ This repository authors the product, not a live user ledger workspace.
 - Keep CLI surfaces thin and support-oriented.
 - Keep orchestration, filesystem setup, and command execution together when they all serve the single `init` workflow.
 - Prefer changing markdown workflow behavior before adding new Python surfaces.
+- For direct ledger-mutation workflows, present review details directly in the agent conversation; do not add separate mutation artifact requirements in the product repo.
 
 ## Trust Model
 
