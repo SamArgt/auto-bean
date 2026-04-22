@@ -64,3 +64,32 @@ def test_init_copies_reconciliation_reference_into_workspace(tmp_path: Path) -> 
     assert (
         ".agents/skills/auto-bean-apply/references/reconciliation-findings.md"
     ) in created_paths
+
+
+def test_init_copies_clarification_guidance_into_workspace(tmp_path: Path) -> None:
+    service = InitService(
+        paths=ProjectPaths(start=tmp_path),
+        platform=FakePlatform(),
+        tools=FakeTools(),
+        commands=FakeCommands(),
+        prompt=lambda _: "Codex",
+    )
+
+    result = service.init("ledger-demo")
+
+    assert result.status == "ok"
+    workspace = tmp_path / "ledger-demo"
+    guidance_path = (
+        workspace
+        / ".agents"
+        / "skills"
+        / "auto-bean-apply"
+        / "references"
+        / "clarification-guidance.md"
+    )
+    assert guidance_path.is_file()
+    created_paths = result.details["created_paths"]
+    assert isinstance(created_paths, list)
+    assert (
+        ".agents/skills/auto-bean-apply/references/clarification-guidance.md"
+    ) in created_paths

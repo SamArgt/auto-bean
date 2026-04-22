@@ -12,6 +12,7 @@ Right now this repository gives you a supported first session for:
 - creating or extending first-seen ledger account structure directly from imported statement evidence, then reviewing parsed statement facts, derived ledger edits, validation output, and the diff together before commit or push
 - turning reviewed normalized statement evidence into candidate Beancount postings through a separate apply workflow, with advisory reuse of repeated-import source context and the same commit-gated review boundary
 - surfacing likely transfers, possible duplicates, and unbalanced or currency-risk outcomes as explicit review findings before finalization
+- pausing ambiguous or unfamiliar reconciliation outcomes to ask the user a bounded clarification question before any risky interpretation is applied
 
 It does not expose a public SDK or external API today. The stable user interface is the coding-agent workflow inside the generated workspace.
 
@@ -123,9 +124,6 @@ The durable boundaries for this workflow are:
 - `statements/import-status.yml`: parse-state index for new, stale, blocked, failed, or parsed files
 - `.agents/skills/auto-bean-import/`: installed runtime skill for statement intake orchestration
 
-Story 2.2 extends that workflow so the same import skill can create or extend bounded first-seen account structure directly from parsed statement evidence. Story 2.3 tightens the review boundary: parsed outputs remain intake evidence, derived ledger edits stay unfinalized in the working tree until approval, and the workflow presents a single review surface before asking for explicit commit/push approval before the change is accepted into history.
-Story 2.4 adds governed runtime memory for repeated-import source context: after a trustworthy finalized import outcome, the workflow may persist narrow, reviewable source-specific import context under `.auto-bean/memory/import_sources/` so later runs can reduce setup without silently forcing acceptance.
-Story 3.1 keeps that evidence boundary and uses the separate `auto-bean-apply` workflow to transform already-reviewed normalized imports into candidate Beancount transaction postings. Reused source-context hints stay advisory, reviewable, and subordinate to current statement evidence, validation, and explicit approval. Story 3.2 adds reconciliation checks inside that same review surface so likely transfers, possible duplicates, unbalanced outcomes, currency risk, and possible future transfers appear as explicit findings with suggested actions and a required user decision before the workflow applies any follow-up change.
 
 That review surface should make these distinctions obvious:
 

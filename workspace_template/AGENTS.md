@@ -15,17 +15,19 @@ Read these references before acting:
 
 Use one explicit two-step workflow for import-driven ledger changes:
 
-1. `auto-bean-import`
+1. `auto-bean-import` skill
    - normalize raw statements into reviewed evidence under `statements/parsed/`
    - update `statements/import-status.yml` to `parsed` or `parsed_with_warnings`
    - create first-seen account structure only when the evidence is strong enough
    - prepare the evidence handoff for posting work
-2. `auto-bean-apply`
+2. `auto-bean-apply` skill
    - take already-reviewed evidence from `statements/parsed/`
    - draft candidate ledger postings directly into the workspace
    - run reconciliation checks for likely transfers, possible duplicates, unbalanced outcomes, currency risk, and possible future transfers
+   - stop and ask the user a bounded clarification question when a risky interpretation remains ambiguous or unfamiliar
    - update `statements/import-status.yml` to `in_review` after writing import-derived Beancount transactions
-   - validate, summarize, show findings plus suggested actions, and show `git diff`
+   - validate, summarize, show findings plus suggested actions, show how clarification answers changed the pending result when needed, and show `git diff`
+   - if a clarification reveals a reusable source-specific rule, suggest a bounded source-context memory update for review
    - ask the user for a decision on each finding, apply those decisions, then ask for explicit final approval before commit or push
 
 Do not blur those responsibilities.

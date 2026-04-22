@@ -28,6 +28,13 @@ def run_smoke_checks(start: Path | None = None) -> int:
             / "reconciliation-findings.md",
         ),
         SmokeCheck(
+            "apply clarification guidance",
+            paths.skill_sources_directory
+            / "auto-bean-apply"
+            / "references"
+            / "clarification-guidance.md",
+        ),
+        SmokeCheck(
             "shared beancount reference",
             paths.skill_sources_directory
             / "shared"
