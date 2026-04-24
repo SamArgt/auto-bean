@@ -16,9 +16,11 @@ Workflow:
    - assign each sub-agent one raw statement
    - give each sub-agent the source path, current status entry, expected parsed-output path or naming rule, and the instruction to use `$auto-bean-process`
    - require sub-agents to report parsed output paths, status changes, account-structure edits, warnings, blockers, and whether user input is needed
+   - wait for all assigned processing sub-agents to finish before starting any parsed-statement handoff
 3. Handoff parsed statements:
-   - for each statement successfully processed to `parsed` or `parsed_with_warnings`, invoke `$auto-bean-apply` for posting/reconciliation work
-   - require `$auto-bean-apply` to use `$auto-bean-query` for ledger reads and `$auto-bean-write` for transaction drafting or correction
+   - for each statement successfully processed to `parsed` or `parsed_with_warnings`, start one sub-agent assigned to that single parsed statement with the instruction to use `$auto-bean-apply` for posting/reconciliation work
+   - run apply sub-agents sequentially: wait for the current `$auto-bean-apply` sub-agent to finish before starting the next one
+   - require each `$auto-bean-apply` sub-agent to report ledger edits, status changes, reconciliation findings, validation results, blockers, reusable-learning candidates, and whether user input is needed
    - keep statements that need clarification, repair, or manual source handling out of apply work until resolved
 4. Surface user input:
    - stop and ask the user a bounded question when any sub-agent or downstream skill reports missing information, risky ambiguity, validation failure, unresolved reconciliation finding, or manual extraction need
