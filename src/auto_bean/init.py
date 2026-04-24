@@ -5,7 +5,7 @@ import re
 import shutil
 import subprocess
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from enum import Enum
 from pathlib import Path
 from stat import S_IEXEC
@@ -33,6 +33,7 @@ class DiagnosticCheck:
     message: str
     error_code: str | None = None
     details: dict[str, object] = field(default_factory=dict)
+    duration_seconds: float = 0.0
 
     def as_dict(self) -> dict[str, object]:
         return {
@@ -41,6 +42,7 @@ class DiagnosticCheck:
             "error_code": self.error_code,
             "message": self.message,
             "details": self.details,
+            "duration_seconds": round(self.duration_seconds, 3),
         }
 
 
@@ -99,6 +101,7 @@ class CommandExecutor(Protocol):
 
 type PromptResponder = Callable[[str], str]
 type ProgressReporter = Callable[[DiagnosticCheck], None]
+type CurrentTaskReporter = Callable[[str], None]
 
 
 class PlatformProbe:
@@ -224,6 +227,7 @@ class InitService:
     commands: CommandExecutor
     prompt: PromptResponder = input
     progress_reporter: ProgressReporter | None = None
+    current_task_reporter: CurrentTaskReporter | None = None
 
     def init(
         self, project_name: str, *, coding_agent: str | None = None
@@ -242,24 +246,47 @@ class InitService:
         )
         checks: list[DiagnosticCheck] = []
 
-        for check in (
-            self._check_environment(),
-            self._check_target(project_name, target_directory),
-        ):
-            self._record(checks, check)
-            if check.status is CheckStatus.FAIL:
-                return self._failure(
-                    checks=checks,
-                    context=context,
-                    started=started,
-                    check=check,
-                )
+        # Stage 1: validate the local environment and requested target before we
+        # create or modify anything on disk.
+        failure = self._run_check(
+            checks=checks,
+            context=context,
+            started=started,
+            current_message="Checking local environment",
+            action=self._check_environment,
+        )
+        if failure is not None:
+            return failure
+        failure = self._run_check(
+            checks=checks,
+            context=context,
+            started=started,
+            current_message="Validating target directory",
+            action=lambda: self._check_target(project_name, target_directory),
+        )
+        if failure is not None:
+            return failure
 
+        # Stage 2: confirm the scaffold inputs are present and compatible with
+        # the current workspace configuration.
         selected_agent = coding_agent or self.prompt_for_coding_agent()
-        for check in (
-            self._check_coding_agent(selected_agent),
-            self._check_required_assets(
+        failure = self._run_check(
+            checks=checks,
+            context=context,
+            started=started,
+            current_message="Checking selected coding agent",
+            action=lambda: self._check_coding_agent(selected_agent),
+        )
+        if failure is not None:
+            return failure
+        failure = self._run_check(
+            checks=checks,
+            context=context,
+            started=started,
+            current_message="Checking workspace template assets",
+            action=lambda: self._check_required_assets(
                 name="workspace_template_available",
+                details_key="template_directory",
                 error_code="missing_template_assets",
                 message="Workspace template assets are available.",
                 failure_message="Workspace template assets are missing.",
@@ -274,21 +301,37 @@ class InitService:
                     "statements/import-status.yml",
                 ),
             ),
-            self._check_required_assets(
+        )
+        if failure is not None:
+            return failure
+        failure = self._run_check(
+            checks=checks,
+            context=context,
+            started=started,
+            current_message="Checking authored skill assets",
+            action=lambda: self._check_required_assets(
                 name="skill_sources_available",
+                details_key="skill_sources_directory",
                 error_code="missing_skill_sources",
                 message="Authored skill source assets are available.",
                 failure_message="Authored skill source assets are missing.",
                 root=Path(context.skill_sources_directory),
                 required_paths=(
                     "auto-bean-apply/SKILL.md",
-                    "auto-bean-apply/references/clarification-guidance.md",
-                    "auto-bean-apply/references/reconciliation-findings.md",
+                    "auto-bean-query/SKILL.md",
+                    "auto-bean-write/SKILL.md",
                     "auto-bean-import/SKILL.md",
-                    "shared/beancount-syntax-and-best-practices.md",
                 ),
             ),
-            self._check_tool(
+        )
+        if failure is not None:
+            return failure
+        failure = self._run_check(
+            checks=checks,
+            context=context,
+            started=started,
+            current_message="Checking uv availability",
+            action=lambda: self._check_tool(
                 "uv",
                 name="uv_available",
                 message="uv is available.",
@@ -299,33 +342,19 @@ class InitService:
                     "https://docs.astral.sh/uv/getting-started/installation/"
                 ),
             ),
-        ):
-            self._record(checks, check)
-            if check.status is CheckStatus.FAIL:
-                return self._failure(
-                    checks=checks,
-                    context=context,
-                    started=started,
-                    check=check,
-                )
+        )
+        if failure is not None:
+            return failure
         selected_agent = "Codex"
 
+        # Stage 3: materialize the workspace scaffold so the remaining steps can
+        # operate on a concrete repository.
         target_preexisted = target_directory.exists()
-        target_directory.mkdir(parents=True, exist_ok=True)
-        created_paths = self._copy_tree(
-            source=Path(context.template_directory),
-            destination=target_directory,
-        )
-        created_paths.extend(
-            self._copy_tree(
-                source=Path(context.skill_sources_directory),
-                destination=target_directory / ".agents" / "skills",
-                prefix=".agents/skills",
-            )
-        )
-        self._write_workspace_scripts(target_directory)
-        created_paths.extend(
-            [".gitignore", "scripts/validate-ledger.sh", "scripts/open-fava.sh"]
+        if self.current_task_reporter is not None:
+            self.current_task_reporter("Copying workspace scaffold")
+        scaffold_started = perf_counter()
+        created_paths = self._scaffold_workspace(
+            context=context, target_directory=target_directory
         )
         blocked_details: dict[str, object] = {
             "coding_agent": selected_agent,
@@ -349,37 +378,43 @@ class InitService:
                     "target_directory": str(target_directory),
                     "created_file_count": len(created_paths),
                 },
+                duration_seconds=perf_counter() - scaffold_started,
             ),
         )
 
-        git_path = self.tools.find("git")
-        if git_path is None:
-            check = DiagnosticCheck(
-                name="workspace_git_initialized",
-                status=CheckStatus.FAIL,
+        # Stage 4: initialize git and the local runtime, then verify the new
+        # workspace is runnable before we keep it.
+        failure = self._run_check(
+            checks=checks,
+            context=context,
+            started=started,
+            current_message="Checking git availability",
+            action=lambda: self._check_tool(
+                "git",
+                name="workspace_git_available",
+                message="git is available.",
                 error_code="missing_git",
-                message="The 'git' command is required to initialize the workspace repository.",
-                details={
-                    "remediation": (
-                        "Install Git, then rerun 'auto-bean init <PROJECT-NAME>' so the workspace "
-                        "starts as a repository."
-                    ),
-                },
-            )
-            self._record(checks, check)
-            self._cleanup_workspace(target_directory, preserve_root=target_preexisted)
-            return self._failure(
-                checks=checks,
-                context=context,
-                started=started,
-                check=check,
-                extra_details={
-                    **blocked_details,
-                },
-            )
+                failure_message="The 'git' command is required to initialize the workspace repository.",
+                remediation=(
+                    "Install Git, then rerun 'auto-bean init <PROJECT-NAME>' so the workspace "
+                    "starts as a repository."
+                ),
+            ),
+            cleanup_target=target_directory,
+            preserve_root=target_preexisted,
+            extra_details=blocked_details,
+        )
+        if failure is not None:
+            return failure
 
-        for check in (
-            self._run_command_check(
+        git_path = self.tools.find("git")
+        assert git_path is not None
+        failure = self._run_check(
+            checks=checks,
+            context=context,
+            started=started,
+            current_message="Initializing workspace git repository",
+            action=lambda: self._run_command_check(
                 ["git", "init"],
                 resolved_command=[git_path, "init"],
                 cwd=target_directory,
@@ -389,59 +424,78 @@ class InitService:
                 failure_message="Failed to initialize the workspace as a Git repository.",
                 detail_key="git_command",
             ),
-        ):
-            self._record(checks, check)
-            if check.status is CheckStatus.FAIL:
-                self._cleanup_workspace(
-                    target_directory, preserve_root=target_preexisted
-                )
-                return self._failure(
-                    checks=checks,
-                    context=context,
-                    started=started,
-                    check=check,
-                    extra_details=blocked_details
-                    | (
-                        {"validation_status": "blocked"}
-                        if check.name
-                        in {
-                            "workspace_runtime_bootstrapped",
-                            "workspace_git_initialized",
-                            "workspace_git_initial_commit",
-                        }
-                        else {}
-                    ),
-                )
+            cleanup_target=target_directory,
+            preserve_root=target_preexisted,
+            extra_details=blocked_details,
+            block_validation=True,
+        )
+        if failure is not None:
+            return failure
+        failure = self._run_check(
+            checks=checks,
+            context=context,
+            started=started,
+            current_message="Bootstrapping workspace runtime",
+            action=lambda: self._bootstrap_workspace_runtime(target_directory),
+            cleanup_target=target_directory,
+            preserve_root=target_preexisted,
+            extra_details=blocked_details,
+            block_validation=True,
+        )
+        if failure is not None:
+            return failure
+        failure = self._run_check(
+            checks=checks,
+            context=context,
+            started=started,
+            current_message="Validating generated ledger",
+            action=lambda: self._validate_generated_ledger(target_directory),
+            cleanup_target=target_directory,
+            preserve_root=target_preexisted,
+            extra_details=blocked_details,
+        )
+        if failure is not None:
+            return failure
+        failure = self._run_check(
+            checks=checks,
+            context=context,
+            started=started,
+            current_message="Checking Fava availability",
+            action=lambda: self._check_workspace_fava_available(target_directory),
+            cleanup_target=target_directory,
+            preserve_root=target_preexisted,
+            extra_details=blocked_details,
+        )
+        if failure is not None:
+            return failure
+        failure = self._run_check(
+            checks=checks,
+            context=context,
+            started=started,
+            current_message="Checking Docling availability",
+            action=lambda: self._check_workspace_docling_available(target_directory),
+            cleanup_target=target_directory,
+            preserve_root=target_preexisted,
+            extra_details=blocked_details,
+        )
+        if failure is not None:
+            return failure
+        failure = self._run_check(
+            checks=checks,
+            context=context,
+            started=started,
+            current_message="Creating initial git commit",
+            action=lambda: self._create_initial_git_commit(target_directory, git_path),
+            cleanup_target=target_directory,
+            preserve_root=target_preexisted,
+            extra_details=blocked_details,
+            block_validation=True,
+        )
+        if failure is not None:
+            return failure
 
-        for check in (
-            self._bootstrap_workspace_runtime(target_directory),
-            self._validate_generated_ledger(target_directory),
-            self._check_workspace_fava_available(target_directory),
-            self._check_workspace_docling_available(target_directory),
-            self._create_initial_git_commit(target_directory, git_path),
-        ):
-            self._record(checks, check)
-            if check.status is CheckStatus.FAIL:
-                self._cleanup_workspace(
-                    target_directory, preserve_root=target_preexisted
-                )
-                return self._failure(
-                    checks=checks,
-                    context=context,
-                    started=started,
-                    check=check,
-                    extra_details=blocked_details
-                    | (
-                        {"validation_status": "blocked"}
-                        if check.name
-                        in {
-                            "workspace_runtime_bootstrapped",
-                            "workspace_git_initial_commit",
-                        }
-                        else {}
-                    ),
-                )
-
+        # Stage 5: assemble the user-facing result payload once the scaffold has
+        # passed validation and the workspace is ready to use.
         validation_command = self._bean_check_command(target_directory)
         details = (
             context.as_details()
@@ -506,6 +560,57 @@ class InitService:
         checks.append(check)
         if self.progress_reporter is not None:
             self.progress_reporter(check)
+
+    def _run_check(
+        self,
+        *,
+        checks: list[DiagnosticCheck],
+        context: InitContext,
+        started: float,
+        current_message: str,
+        action: Callable[[], DiagnosticCheck],
+        cleanup_target: Path | None = None,
+        preserve_root: bool = True,
+        extra_details: dict[str, object] | None = None,
+        block_validation: bool = False,
+    ) -> CommandOutcome | None:
+        if self.current_task_reporter is not None:
+            self.current_task_reporter(current_message)
+        check_started = perf_counter()
+        check = replace(action(), duration_seconds=perf_counter() - check_started)
+        self._record(checks, check)
+        if check.status is CheckStatus.FAIL:
+            failure_details = dict(extra_details or {})
+            if block_validation:
+                failure_details["validation_status"] = "blocked"
+            if cleanup_target is not None:
+                self._cleanup_workspace(cleanup_target, preserve_root=preserve_root)
+            return self._failure(
+                checks=checks,
+                context=context,
+                started=started,
+                check=check,
+                extra_details=failure_details or None,
+            )
+        return None
+
+    def _scaffold_workspace(
+        self, *, context: InitContext, target_directory: Path
+    ) -> list[str]:
+        target_directory.mkdir(parents=True, exist_ok=True)
+        created_paths = self._copy_tree(
+            source=Path(context.template_directory),
+            destination=target_directory,
+        )
+        created_paths.extend(
+            self._copy_tree(
+                source=Path(context.skill_sources_directory),
+                destination=target_directory / ".agents" / "skills",
+                prefix=".agents/skills",
+            )
+        )
+        created_paths.extend(self._write_workspace_scripts(target_directory))
+        return created_paths
 
     def _failure(
         self,
@@ -659,6 +764,7 @@ class InitService:
         self,
         *,
         name: str,
+        details_key: str,
         error_code: str,
         message: str,
         failure_message: str,
@@ -666,9 +772,6 @@ class InitService:
         required_paths: Sequence[str],
     ) -> DiagnosticCheck:
         missing = [path for path in required_paths if not (root / path).exists()]
-        details_key = (
-            "template_directory" if "template" in name else "skill_sources_directory"
-        )
         if missing:
             return DiagnosticCheck(
                 name=name,
@@ -733,25 +836,29 @@ class InitService:
             )
         return created_paths
 
-    def _write_workspace_scripts(self, target_directory: Path) -> None:
+    def _write_workspace_scripts(self, target_directory: Path) -> list[str]:
         scripts_directory = target_directory / "scripts"
         scripts_directory.mkdir(exist_ok=True)
-        (target_directory / ".gitignore").write_text(
-            ".venv/\n__pycache__/\n*.pyc\n.DS_Store\n",
-            encoding="utf-8",
-        )
-        validate_script = scripts_directory / "validate-ledger.sh"
-        validate_script.write_text(
-            "#!/bin/sh\nset -eu\n./.venv/bin/bean-check ledger.beancount\n",
-            encoding="utf-8",
-        )
-        ensure_executable(validate_script)
-        fava_script = scripts_directory / "open-fava.sh"
-        fava_script.write_text(
-            "#!/bin/sh\nset -eu\n./.venv/bin/fava ledger.beancount\n",
-            encoding="utf-8",
-        )
-        ensure_executable(fava_script)
+        created_paths: list[str] = []
+        for relative_path, content, executable in (
+            (".gitignore", ".venv/\n__pycache__/\n*.pyc\n.DS_Store\n", False),
+            (
+                "scripts/validate-ledger.sh",
+                "#!/bin/sh\nset -eu\n./.venv/bin/bean-check ledger.beancount\n",
+                True,
+            ),
+            (
+                "scripts/open-fava.sh",
+                "#!/bin/sh\nset -eu\n./.venv/bin/fava ledger.beancount\n",
+                True,
+            ),
+        ):
+            path = target_directory / relative_path
+            path.write_text(content, encoding="utf-8")
+            if executable:
+                ensure_executable(path)
+            created_paths.append(relative_path)
+        return created_paths
 
     def _bootstrap_workspace_runtime(self, target_directory: Path) -> DiagnosticCheck:
         uv_path = self.tools.find("uv")
@@ -828,28 +935,53 @@ class InitService:
             str(target_directory / "ledger.beancount"),
         ]
 
-    def _validate_generated_ledger(self, target_directory: Path) -> DiagnosticCheck:
-        command = self._bean_check_command(target_directory)
-        result = self.commands.run(command, cwd=target_directory)
+    def _run_workspace_command_check(
+        self,
+        *,
+        command: Sequence[str],
+        cwd: Path,
+        name: str,
+        success_message: str,
+        error_code: str,
+        failure_message: str,
+        detail_key: str,
+        success_details: dict[str, object] | None = None,
+        failure_details: dict[str, object] | None = None,
+    ) -> DiagnosticCheck:
+        result = self.commands.run(command, cwd=cwd)
+        command_text = " ".join(command)
         if result.returncode != 0:
             return DiagnosticCheck(
-                name="ledger_validation",
+                name=name,
                 status=CheckStatus.FAIL,
-                error_code="invalid_generated_ledger",
-                message="Generated ledger failed validation.",
+                error_code=error_code,
+                message=failure_message,
                 details={
-                    "validation_command": " ".join(command),
+                    detail_key: command_text,
                     "stdout": result.stdout,
                     "stderr": result.stderr,
+                    **(failure_details or {}),
                 },
             )
         return DiagnosticCheck(
-            name="ledger_validation",
+            name=name,
             status=CheckStatus.PASS,
-            message="Generated ledger validated successfully.",
-            details={
-                "validation_command": " ".join(command),
-                "python_executable": str(target_directory / ".venv" / "bin" / "python"),
+            message=success_message,
+            details={detail_key: command_text, **(success_details or {})},
+        )
+
+    def _validate_generated_ledger(self, target_directory: Path) -> DiagnosticCheck:
+        command = self._bean_check_command(target_directory)
+        return self._run_workspace_command_check(
+            command=command,
+            cwd=target_directory,
+            name="ledger_validation",
+            success_message="Generated ledger validated successfully.",
+            error_code="invalid_generated_ledger",
+            failure_message="Generated ledger failed validation.",
+            detail_key="validation_command",
+            success_details={
+                "python_executable": str(target_directory / ".venv" / "bin" / "python")
             },
         )
 
@@ -857,53 +989,35 @@ class InitService:
         self, target_directory: Path
     ) -> DiagnosticCheck:
         command = [str(target_directory / ".venv" / "bin" / "fava"), "--version"]
-        result = self.commands.run(command, cwd=target_directory)
-        if result.returncode != 0:
-            return DiagnosticCheck(
-                name="workspace_fava_available",
-                status=CheckStatus.FAIL,
-                error_code="workspace_fava_unavailable",
-                message="Fava is not runnable from the workspace runtime.",
-                details={
-                    "fava_command": " ".join(command),
-                    "stdout": result.stdout,
-                    "stderr": result.stderr,
-                },
-            )
-        return DiagnosticCheck(
+        return self._run_workspace_command_check(
+            command=command,
+            cwd=target_directory,
             name="workspace_fava_available",
-            status=CheckStatus.PASS,
-            message="Fava is runnable from the workspace runtime.",
-            details={"fava_command": " ".join(command)},
+            success_message="Fava is runnable from the workspace runtime.",
+            error_code="workspace_fava_unavailable",
+            failure_message="Fava is not runnable from the workspace runtime.",
+            detail_key="fava_command",
         )
 
     def _check_workspace_docling_available(
         self, target_directory: Path
     ) -> DiagnosticCheck:
         command = [str(target_directory / ".venv" / "bin" / "docling"), "--version"]
-        result = self.commands.run(command, cwd=target_directory)
-        if result.returncode != 0:
-            return DiagnosticCheck(
-                name="workspace_docling_available",
-                status=CheckStatus.FAIL,
-                error_code="workspace_docling_unavailable",
-                message="Docling is not runnable from the workspace runtime.",
-                details={
-                    "docling_command": " ".join(command),
-                    "stdout": result.stdout,
-                    "stderr": result.stderr,
-                    "remediation": (
-                        "Statement intake is not ready until the workspace-local Docling CLI is "
-                        "available. Fix the Docling installation, then rerun 'auto-bean init "
-                        "<PROJECT-NAME>'."
-                    ),
-                },
-            )
-        return DiagnosticCheck(
+        return self._run_workspace_command_check(
+            command=command,
+            cwd=target_directory,
             name="workspace_docling_available",
-            status=CheckStatus.PASS,
-            message="Docling is runnable from the workspace runtime.",
-            details={"docling_command": " ".join(command)},
+            success_message="Docling is runnable from the workspace runtime.",
+            error_code="workspace_docling_unavailable",
+            failure_message="Docling is not runnable from the workspace runtime.",
+            detail_key="docling_command",
+            failure_details={
+                "remediation": (
+                    "Statement intake is not ready until the workspace-local Docling CLI is "
+                    "available. Fix the Docling installation, then rerun 'auto-bean init "
+                    "<PROJECT-NAME>'."
+                )
+            },
         )
 
     def _create_initial_git_commit(

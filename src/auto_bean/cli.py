@@ -21,7 +21,6 @@ from auto_bean.init import (
     build_init_service,
 )
 
-_INIT_STAGE_TOTAL = 12
 _STATUS_STYLES = {
     CheckStatus.PASS: "green",
     CheckStatus.FAIL: "red",
@@ -60,6 +59,7 @@ def init(project_name: str, as_json: bool, verbose: bool) -> int:
         project_name=project_name,
         coding_agent=coding_agent,
         progress_reporter=renderer.report_check,
+        current_task_reporter=renderer.start_check,
         service=service,
     )
     renderer.finish(result)
@@ -86,14 +86,16 @@ def _run_init(
     project_name: str,
     coding_agent: str | None = None,
     progress_reporter: Callable[[DiagnosticCheck], None] | None = None,
+    current_task_reporter: Callable[[str], None] | None = None,
     service: InitService | None = None,
 ) -> CommandOutcome:
+    init_service = service if service is not None else build_init_service()
     try:
-        init_service = service if service is not None else build_init_service()
         init_service.progress_reporter = progress_reporter
+        init_service.current_task_reporter = current_task_reporter
         return init_service.init(project_name, coding_agent=coding_agent)
     except Exception as exc:
-        return build_init_service().execution_error(
+        return init_service.execution_error(
             "init",
             details={
                 "exception_type": type(exc).__name__,
@@ -121,32 +123,33 @@ class RichWorkflowRenderer:
             SpinnerColumn(),
             TextColumn("[progress.description]{task.description}"),
             BarColumn(),
-            TextColumn("{task.completed}/{task.total}"),
+            TextColumn("{task.completed} checks"),
             TimeElapsedColumn(),
             console=self.console,
             transient=True,
         )
-        self._task_id = self.progress.add_task(
-            "Initializing workspace", total=_INIT_STAGE_TOTAL
-        )
+        self._task_id = self.progress.add_task("Initializing workspace", total=None)
         self.progress.start()
 
+    def start_check(self, message: str) -> None:
+        self.progress.update(self._task_id, description=message)
+
     def report_check(self, check: DiagnosticCheck) -> None:
-        self.progress.update(self._task_id, advance=1, description=check.message)
+        self.progress.update(self._task_id, advance=1)
         if not self.verbose:
             return
         status_label = check.status.value.upper()
         status_style = _STATUS_STYLES[check.status]
+        duration_text = f"{check.duration_seconds:.3f}s"
         self.progress.console.print(
-            f"[{status_style}][{status_label}][/{status_style}] {check.name}: {check.message}"
+            f"[{status_style}][{status_label}][/{status_style}] {check.name}: {check.message} [dim]({duration_text})[/dim]"
         )
         for key, value in check.details.items():
             if value:
                 self.progress.console.print(f"  [dim]{key}:[/dim] {value}")
 
     def finish(self, result: CommandOutcome) -> None:
-        if not self.progress.finished:
-            self.progress.update(self._task_id, completed=len(result.checks))
+        self.progress.update(self._task_id, completed=len(result.checks))
         self.progress.stop()
         style = "green" if result.status == "ok" else "red"
         label = "Success" if result.status == "ok" else "Failed"
