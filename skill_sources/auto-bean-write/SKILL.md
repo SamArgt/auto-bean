@@ -1,5 +1,5 @@
 ---
-name: auto-bean-write-transactions
+name: auto-bean-write
 description: Draft, review, and safely write Beancount transactions into the ledger from trusted evidence. Use when a Coding agent needs to add or update transaction entries in `ledger.beancount` or included `beancount/**` files, choose accounts and postings, respect Beancount balancing and account currency constraints, or pause for clarification when transaction intent is ambiguous.
 ---
 

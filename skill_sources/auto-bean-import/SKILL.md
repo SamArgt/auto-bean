@@ -62,24 +62,34 @@ Follow this workflow:
    - consider only banking, credit card, loans, cash, and investment account types for first-seen structure inference; do not infer structure for expenses account types or others that are more mutable and less likely to have strong identity evidence.
    - infer Beancount-safe account names and minimal supporting directives only when institution, account identity, type hints, and currency provide strong evidence
    - fail closed when the top-level branch, mutation target, or duplicate risk is unclear
-8. Apply only bounded ledger mutations:
+8. Use `auto-bean-query` when import needs ledger analysis instead of structure inspection:
+   - hand off to `$auto-bean-query` before answering questions about balances, historical account activity, date-bounded totals, register rows, transaction existence, or whether imported evidence matches already-posted ledger activity.
+   - do not approximate those answers by manually grepping ledger entries when `bean-query` can answer them.
+   - keep direct file inspection for `open` directives, account hierarchy, include structure, and syntax needed to make bounded first-seen account-opening changes.
+   - query the root ledger, normally `ledger.beancount`, with the narrowest useful `bean-query ledger.beancount 'SELECT ...'` command.
+   - use explicit account names, account patterns, and date windows; start with grouped summaries, then drill into register-style detail only when needed.
+   - treat `position` and `balance` as inventories that may contain multiple commodities or lots; use `units(sum(position))` or `cost(sum(position))` when that distinction matters.
+   - use `FROM OPEN ON ... CLOSE ON ...` for reporting windows, and explain that semantic choice in the review surface when it affects the result.
+   - if a query result is empty, treat it as ambiguous until checked against account-name, date-window, and pattern assumptions.
+9. Apply only bounded ledger mutations:
    - mutate only account-opening structure and minimal supporting directives such as missing operating currencies
    - prefer `beancount/accounts.beancount`; explain any fallback target before mutating it
    - avoid duplicate directives and keep the mutation deterministic for the same parsed inputs and ledger state
-9. Validate immediately after any ledger mutation:
+10. Validate immediately after any ledger mutation:
    - run `./scripts/validate-ledger.sh` or `./.venv/bin/bean-check ledger.beancount`
    - if validation fails, stop before any success claim and preserve local audit context
-10. Present one review surface before finalization:
+11. Present one review surface before finalization:
    - separate parsed statement facts from inferred ledger edits
+   - include any `$auto-bean-query` command, final BQL query, result caveats, and interpretation when ledger analysis was required
    - summarize changed files, inferred accounts, warnings, blocked inferences, and validation outcome
    - show a git-backed diff for changed files
    - state that commit/push remains the final approval boundary
    - suggest source-context create or update only after a trustworthy finalized outcome; let the orchestrator decide whether to write it
-11. Handoff postings to `auto-bean-apply`:
+12. Handoff postings to `auto-bean-apply`:
    - use `statements/parsed/*.json` and `statements/import-status.yml` as the evidence handoff
    - only hand off statements whose status is `parsed` or `parsed_with_warnings`
    - do not generate or apply transaction postings inside `auto-bean-import`
-12. End with a concise import summary:
+13. End with a concise import summary:
    - processed and skipped statements
    - outputs written under `statements/parsed/`
    - account mutations applied, skipped, or blocked
