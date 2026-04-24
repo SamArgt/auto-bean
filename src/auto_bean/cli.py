@@ -66,6 +66,44 @@ def init(project_name: str, as_json: bool, verbose: bool) -> int:
     return 0 if result.status == "ok" else 1
 
 
+@cli.command(help="Update managed auto-bean skills and AGENTS.md in a workspace.")
+@click.argument("workspace", required=False, default=".")
+@click.option(
+    "--check",
+    "check_only",
+    is_flag=True,
+    help="Report managed file diffs without overwriting the workspace.",
+)
+@click.option("--json", "as_json", is_flag=True, help="Render the result as JSON.")
+@click.option(
+    "--verbose",
+    is_flag=True,
+    help="Print stage results as they complete.",
+)
+def update(workspace: str, check_only: bool, as_json: bool, verbose: bool) -> int:
+    service = build_init_service()
+
+    if as_json:
+        result = _run_update(
+            workspace=workspace,
+            check_only=check_only,
+            service=service,
+        )
+        render_result(result, as_json=True, verbose=verbose)
+        return 1 if result.status not in {"ok"} else 0
+
+    renderer = RichWorkflowRenderer(verbose=verbose, description="Updating workspace")
+    result = _run_update(
+        workspace=workspace,
+        check_only=check_only,
+        progress_reporter=renderer.report_check,
+        current_task_reporter=renderer.start_check,
+        service=service,
+    )
+    renderer.finish(result)
+    return 1 if result.status not in {"ok"} else 0
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     try:
         result = cli.main(
@@ -104,6 +142,29 @@ def _run_init(
         )
 
 
+def _run_update(
+    *,
+    workspace: str,
+    check_only: bool = False,
+    progress_reporter: Callable[[DiagnosticCheck], None] | None = None,
+    current_task_reporter: Callable[[str], None] | None = None,
+    service: InitService | None = None,
+) -> CommandOutcome:
+    init_service = service if service is not None else build_init_service()
+    try:
+        init_service.progress_reporter = progress_reporter
+        init_service.current_task_reporter = current_task_reporter
+        return init_service.update(workspace, check_only=check_only)
+    except Exception as exc:
+        return init_service.execution_error(
+            "update",
+            details={
+                "exception_type": type(exc).__name__,
+                "exception_message": str(exc),
+            },
+        )
+
+
 def render_result(result: CommandOutcome, *, as_json: bool, verbose: bool) -> None:
     if as_json:
         click.echo(json.dumps(result.as_dict(), indent=2, sort_keys=True))
@@ -116,7 +177,9 @@ def render_result(result: CommandOutcome, *, as_json: bool, verbose: bool) -> No
 
 
 class RichWorkflowRenderer:
-    def __init__(self, *, verbose: bool) -> None:
+    def __init__(
+        self, *, verbose: bool, description: str = "Initializing workspace"
+    ) -> None:
         self.verbose = verbose
         self.console = Console()
         self.progress = Progress(
@@ -128,7 +191,7 @@ class RichWorkflowRenderer:
             console=self.console,
             transient=True,
         )
-        self._task_id = self.progress.add_task("Initializing workspace", total=None)
+        self._task_id = self.progress.add_task(description, total=None)
         self.progress.start()
 
     def start_check(self, message: str) -> None:
@@ -152,5 +215,13 @@ class RichWorkflowRenderer:
         self.progress.update(self._task_id, completed=len(result.checks))
         self.progress.stop()
         style = "green" if result.status == "ok" else "red"
-        label = "Success" if result.status == "ok" else "Failed"
+        label = "Success" if result.status == "ok" else "Needs update"
+        if result.status not in {"ok", "updates_available"}:
+            label = "Failed"
         self.console.print(f"[bold {style}]{label}:[/bold {style}] {result.message}")
+        paths = result.details.get("changed_paths") or result.details.get(
+            "updated_paths"
+        )
+        if isinstance(paths, list) and paths:
+            for path in paths:
+                self.console.print(f"  [dim]{path}[/dim]")

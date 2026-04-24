@@ -62,7 +62,8 @@ On success, `auto-bean` creates a separate runtime Git repository with:
 - `.agents/skills/` for installed runtime skills
   - `auto-bean-query` for read-only ledger analysis
   - `auto-bean-write` for transaction drafting and validation
-  - `auto-bean-import` for statement normalization and evidence handoff
+  - `auto-bean-import` for the full statement import workflow
+  - `auto-bean-process` for the internal statement processing stage
   - `auto-bean-apply` for reviewed structural mutation orchestration and finalization
   - `auto-bean-memory` for governed persistence of approved reusable decisions
 - `AGENTS.md` for workspace operating guidance
@@ -128,7 +129,7 @@ For trust-sensitive structural ledger changes and finalization orchestration, us
 
 That runtime skill is materialized into the workspace during `auto-bean init`. In this product repo, the authored source of truth for that behavior lives under `skill_sources/`.
 
-### 6. Normalize statements through the installed import skill
+### 6. Import statements through the installed import skill
 
 Statement intake is now a supported skill-driven workflow inside the generated workspace.
 
@@ -138,7 +139,7 @@ Use the installed runtime skill under:
 .agents/skills/auto-bean-import/
 ```
 
-That workflow uses the workspace-local Docling CLI to normalize supported `PDF`, `CSV`, and Excel statement files from `statements/raw/` into inspectable JSON outputs under `statements/parsed/`, then, when the imported evidence is strong enough, extend ledger account structure directly in the workspace before presenting a single review surface that shows parsed statement facts, derived ledger edits, validation output, and the diff together.
+That workflow inspects `statements/raw/`, skips files that are already current in `statements/import-status.yml`, invokes the internal `auto-bean-process` stage only for new or stale statement files, and then coordinates posting application, validation, review, and final approval. `auto-bean-process` uses the workspace-local Docling CLI to normalize supported `PDF`, `CSV`, and Excel statement files into inspectable JSON outputs under `statements/parsed/`, then, when the imported evidence is strong enough, extends first-seen ledger account structure directly in the workspace.
 
 When import decisions require ledger analysis, `auto-bean-import` relies on `auto-bean-query` instead of manually approximating balances, activity, register rows, or transaction existence from file scans. When reviewed normalized evidence is ready to become transaction postings, `auto-bean-import` hands that evidence to `auto-bean-apply`; `auto-bean-apply` then relies on `auto-bean-query` for ledger reads and `auto-bean-write` for transaction drafting or correction.
 
@@ -147,7 +148,8 @@ The durable boundaries for this workflow are:
 - `statements/raw/`: raw source statements
 - `statements/parsed/`: normalized parse outputs only
 - `statements/import-status.yml`: parse-state index for new, stale, blocked, failed, or parsed files
-- `.agents/skills/auto-bean-import/`: installed runtime skill for statement intake orchestration
+- `.agents/skills/auto-bean-import/`: installed runtime skill for full statement import orchestration
+- `.agents/skills/auto-bean-process/`: installed runtime skill for bounded raw statement processing
 - `.agents/skills/auto-bean-query/`: installed foundation skill for read-only ledger analysis
 - `.agents/skills/auto-bean-write/`: installed foundation skill for transaction drafting and validation
 
@@ -174,7 +176,8 @@ The boundaries that matter now are:
 - `.auto-bean/memory/`: governed runtime memory for approved reusable decisions
 - `.agents/skills/auto-bean-query/`: installed foundation skill for read-only Beancount ledger analysis
 - `.agents/skills/auto-bean-write/`: installed foundation skill for transaction drafting, correction, and validation
-- `.agents/skills/auto-bean-import/`: installed skill for Docling-driven statement normalization, first-seen account mutation, and reviewed evidence handoff
+- `.agents/skills/auto-bean-import/`: installed skill for the full statement import workflow from raw discovery through final review
+- `.agents/skills/auto-bean-process/`: installed internal skill for Docling-driven statement normalization, first-seen account mutation, and reviewed evidence handoff
 - `.agents/skills/auto-bean-apply/`: installed skill for turning reviewed evidence into candidate transaction postings or other reviewed structural mutations
 - `.agents/skills/auto-bean-memory/`: installed skill for validating and persisting approved reusable workflow decisions
 

@@ -6,6 +6,7 @@ import shutil
 import subprocess
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field, replace
+from difflib import unified_diff
 from enum import Enum
 from pathlib import Path
 from stat import S_IEXEC
@@ -219,6 +220,26 @@ class InitContext:
         }
 
 
+@dataclass(frozen=True)
+class UpdateContext:
+    workspace_input: str
+    working_directory: str
+    target_directory: str
+    template_directory: str
+    skill_sources_directory: str
+    check_only: bool
+
+    def as_details(self) -> dict[str, object]:
+        return {
+            "workspace_input": self.workspace_input,
+            "working_directory": self.working_directory,
+            "target_directory": self.target_directory,
+            "template_directory": self.template_directory,
+            "skill_sources_directory": self.skill_sources_directory,
+            "check_only": self.check_only,
+        }
+
+
 @dataclass
 class InitService:
     paths: ProjectPaths
@@ -328,15 +349,8 @@ class InitService:
                     "auto-bean-query/SKILL.md",
                     "auto-bean-write/SKILL.md",
                     "auto-bean-import/SKILL.md",
+                    "auto-bean-process/SKILL.md",
                     "auto-bean-memory/SKILL.md",
-                    "auto-bean-memory/references/account-mapping.example.md",
-                    "auto-bean-memory/references/category-mapping.example.md",
-                    "auto-bean-memory/references/clarification-outcome.example.md",
-                    "auto-bean-memory/references/deduplication-decision.example.md",
-                    "auto-bean-memory/references/import-source-behavior.example.md",
-                    "auto-bean-memory/references/naming-convention.example.md",
-                    "auto-bean-memory/references/transfer-detection.example.md",
-                    "shared/memory-access-rules.md",
                 ),
             ),
         )
@@ -380,6 +394,7 @@ class InitService:
                 "AGENTS.md",
                 ".agents/skills/auto-bean-apply/SKILL.md",
                 ".agents/skills/auto-bean-import/SKILL.md",
+                ".agents/skills/auto-bean-process/SKILL.md",
                 ".agents/skills/auto-bean-memory/SKILL.md",
                 ".auto-bean/memory/import_sources/.gitkeep",
                 "statements/import-status.yml",
@@ -536,7 +551,7 @@ class InitService:
                     "Review AGENTS.md for the Codex-first workspace workflow and path guide.",
                     "./scripts/validate-ledger.sh",
                     "./scripts/open-fava.sh",
-                    "Use the installed .agents/skills/auto-bean-import/ workflow when you are ready to normalize statements.",
+                    "Use the installed .agents/skills/auto-bean-import/ workflow when you are ready to import statements.",
                 ],
             }
         )
@@ -547,6 +562,143 @@ class InitService:
             error_category=None,
             message=f"Workspace created at {target_directory} and validated successfully.",
             details=details | checks[-2].details,
+            checks=tuple(checks),
+            duration_seconds=perf_counter() - started,
+        )
+
+    def update(self, workspace: str, *, check_only: bool = False) -> CommandOutcome:
+        started = perf_counter()
+        target_directory = self._resolve_workspace_directory(workspace)
+        context = UpdateContext(
+            workspace_input=workspace,
+            working_directory=str(self.paths.working_directory),
+            target_directory=str(target_directory),
+            template_directory=str(self.paths.workspace_template_directory),
+            skill_sources_directory=str(self.paths.skill_sources_directory),
+            check_only=check_only,
+        )
+        checks: list[DiagnosticCheck] = []
+
+        for current_message, action in (
+            (
+                "Validating target workspace",
+                lambda: self._check_update_target(target_directory),
+            ),
+            (
+                "Checking update assets",
+                lambda: self._check_update_assets(
+                    Path(context.template_directory),
+                    Path(context.skill_sources_directory),
+                ),
+            ),
+        ):
+            failure = self._run_check(
+                checks=checks,
+                context=context,
+                started=started,
+                current_message=current_message,
+                action=action,
+            )
+            if failure is not None:
+                return failure
+
+        if self.current_task_reporter is not None:
+            self.current_task_reporter("Comparing managed workspace files")
+        compare_started = perf_counter()
+        changes = self._planned_workspace_updates(
+            target_directory=target_directory,
+            template_directory=Path(context.template_directory),
+            skill_sources_directory=Path(context.skill_sources_directory),
+        )
+        changed_paths = [str(change["path"]) for change in changes]
+        status = CheckStatus.WARN if changes else CheckStatus.PASS
+        self._record(
+            checks,
+            DiagnosticCheck(
+                name="managed_files_compared",
+                status=status,
+                message=(
+                    "Managed workspace files differ from packaged assets."
+                    if changes
+                    else "Managed workspace files already match packaged assets."
+                ),
+                details={
+                    "changed_file_count": len(changes),
+                    "changed_paths": changed_paths,
+                    "diffs": {
+                        str(change["path"]): change["diff"] for change in changes
+                    },
+                },
+                duration_seconds=perf_counter() - compare_started,
+            ),
+        )
+
+        if check_only:
+            return CommandOutcome(
+                workflow="update",
+                status="updates_available" if changes else "ok",
+                error_code=None,
+                error_category=None,
+                message=(
+                    f"{len(changes)} managed workspace file(s) would be updated."
+                    if changes
+                    else "Managed workspace files are already up to date."
+                ),
+                details=context.as_details()
+                | {
+                    "changed_file_count": len(changes),
+                    "changed_paths": changed_paths,
+                    "diffs": {
+                        str(change["path"]): change["diff"] for change in changes
+                    },
+                },
+                checks=tuple(checks),
+                duration_seconds=perf_counter() - started,
+            )
+
+        if changes:
+            if self.current_task_reporter is not None:
+                self.current_task_reporter("Updating managed workspace files")
+            update_started = perf_counter()
+            for change in changes:
+                source_path = Path(str(change["source_path"]))
+                target_path = target_directory / str(change["path"])
+                target_path.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(source_path, target_path)
+            self._record(
+                checks,
+                DiagnosticCheck(
+                    name="managed_files_updated",
+                    status=CheckStatus.PASS,
+                    message="Managed workspace files updated.",
+                    details={
+                        "updated_file_count": len(changes),
+                        "updated_paths": changed_paths,
+                    },
+                    duration_seconds=perf_counter() - update_started,
+                ),
+            )
+
+        return CommandOutcome(
+            workflow="update",
+            status="ok",
+            error_code=None,
+            error_category=None,
+            message=(
+                f"Updated {len(changes)} managed workspace file(s)."
+                if changes
+                else "Managed workspace files were already up to date."
+            ),
+            details=context.as_details()
+            | {
+                "updated_file_count": len(changes),
+                "updated_paths": changed_paths,
+                "untouched_paths": [
+                    "ledger.beancount",
+                    "beancount/",
+                    ".auto-bean/",
+                ],
+            },
             checks=tuple(checks),
             duration_seconds=perf_counter() - started,
         )
@@ -582,7 +734,7 @@ class InitService:
         self,
         *,
         checks: list[DiagnosticCheck],
-        context: InitContext,
+        context: InitContext | UpdateContext,
         started: float,
         current_message: str,
         action: Callable[[], DiagnosticCheck],
@@ -633,7 +785,7 @@ class InitService:
         self,
         *,
         checks: list[DiagnosticCheck],
-        context: InitContext,
+        context: InitContext | UpdateContext,
         started: float,
         check: DiagnosticCheck,
         extra_details: dict[str, object] | None = None,
@@ -642,7 +794,7 @@ class InitService:
         if extra_details is not None:
             details |= extra_details
         return CommandOutcome(
-            workflow="init",
+            workflow="update" if isinstance(context, UpdateContext) else "init",
             status="failed",
             error_code=check.error_code,
             error_category=self._classify_error(check.error_code),
@@ -672,6 +824,12 @@ class InitService:
         ):
             return ((repo_root.parent / project_name).resolve(), "name")
         return ((self.paths.working_directory / project_name).resolve(), "name")
+
+    def _resolve_workspace_directory(self, workspace: str) -> Path:
+        path = Path(workspace).expanduser()
+        if path.is_absolute():
+            return path.resolve()
+        return (self.paths.working_directory / path).resolve()
 
     def _check_environment(self) -> DiagnosticCheck:
         environment = self.platform.inspect()
@@ -755,6 +913,80 @@ class InitService:
             details={
                 "project_name": project_name,
                 "target_directory": str(target_directory),
+            },
+        )
+
+    def _check_update_target(self, target_directory: Path) -> DiagnosticCheck:
+        if not target_directory.exists():
+            return DiagnosticCheck(
+                name="workspace_target_valid",
+                status=CheckStatus.FAIL,
+                error_code="missing_workspace",
+                message="Target workspace does not exist.",
+                details={"target_directory": str(target_directory)},
+            )
+        if not target_directory.is_dir():
+            return DiagnosticCheck(
+                name="workspace_target_valid",
+                status=CheckStatus.FAIL,
+                error_code="non_directory_target_path",
+                message="Target path is not a directory.",
+                details={"target_directory": str(target_directory)},
+            )
+        missing_markers = [
+            path
+            for path in ("AGENTS.md", ".agents/skills")
+            if not (target_directory / path).exists()
+        ]
+        if missing_markers:
+            return DiagnosticCheck(
+                name="workspace_target_valid",
+                status=CheckStatus.FAIL,
+                error_code="not_auto_bean_workspace",
+                message="Target path does not look like an auto-bean workspace.",
+                details={
+                    "target_directory": str(target_directory),
+                    "missing_markers": ", ".join(missing_markers),
+                },
+            )
+        return DiagnosticCheck(
+            name="workspace_target_valid",
+            status=CheckStatus.PASS,
+            message="Target workspace is valid.",
+            details={"target_directory": str(target_directory)},
+        )
+
+    def _check_update_assets(
+        self, template_directory: Path, skill_sources_directory: Path
+    ) -> DiagnosticCheck:
+        missing = [
+            str(path)
+            for path in (
+                template_directory / "AGENTS.md",
+                skill_sources_directory / "auto-bean-apply" / "SKILL.md",
+                skill_sources_directory / "auto-bean-query" / "SKILL.md",
+                skill_sources_directory / "auto-bean-write" / "SKILL.md",
+                skill_sources_directory / "auto-bean-import" / "SKILL.md",
+                skill_sources_directory / "auto-bean-process" / "SKILL.md",
+                skill_sources_directory / "auto-bean-memory" / "SKILL.md",
+            )
+            if not path.exists()
+        ]
+        if missing:
+            return DiagnosticCheck(
+                name="update_assets_available",
+                status=CheckStatus.FAIL,
+                error_code="missing_update_assets",
+                message="Packaged update assets are missing.",
+                details={"missing_assets": ", ".join(missing)},
+            )
+        return DiagnosticCheck(
+            name="update_assets_available",
+            status=CheckStatus.PASS,
+            message="Packaged update assets are available.",
+            details={
+                "template_directory": str(template_directory),
+                "skill_sources_directory": str(skill_sources_directory),
             },
         )
 
@@ -858,6 +1090,64 @@ class InitService:
                 f"{prefix}/{path_text}" if prefix is not None else path_text
             )
         return created_paths
+
+    def _planned_workspace_updates(
+        self,
+        *,
+        target_directory: Path,
+        template_directory: Path,
+        skill_sources_directory: Path,
+    ) -> list[dict[str, object]]:
+        changes: list[dict[str, object]] = []
+        managed_files = [(template_directory / "AGENTS.md", Path("AGENTS.md"))]
+        managed_files.extend(
+            (
+                source_path,
+                Path(".agents")
+                / "skills"
+                / source_path.relative_to(skill_sources_directory),
+            )
+            for source_path in sorted(skill_sources_directory.rglob("*"))
+            if source_path.is_file()
+        )
+        for source_path, relative_target in managed_files:
+            target_path = target_directory / relative_target
+            if (
+                target_path.exists()
+                and source_path.read_bytes() == target_path.read_bytes()
+            ):
+                continue
+            changes.append(
+                {
+                    "path": relative_target.as_posix(),
+                    "source_path": str(source_path),
+                    "diff": self._file_diff(
+                        source_path=source_path,
+                        target_path=target_path,
+                        relative_path=relative_target.as_posix(),
+                    ),
+                }
+            )
+        return changes
+
+    def _file_diff(
+        self, *, source_path: Path, target_path: Path, relative_path: str
+    ) -> str:
+        source_text = source_path.read_text(encoding="utf-8").splitlines(keepends=True)
+        if target_path.exists():
+            target_text = target_path.read_text(encoding="utf-8").splitlines(
+                keepends=True
+            )
+        else:
+            target_text = []
+        return "".join(
+            unified_diff(
+                target_text,
+                source_text,
+                fromfile=f"{relative_path} (workspace)",
+                tofile=f"{relative_path} (packaged)",
+            )
+        )
 
     def _write_workspace_scripts(self, target_directory: Path) -> list[str]:
         scripts_directory = target_directory / "scripts"
@@ -1151,6 +1441,8 @@ class InitService:
             "missing_git",
             "missing_template_assets",
             "missing_skill_sources",
+            "missing_workspace",
+            "missing_update_assets",
             "workspace_runtime_bootstrap_failed",
             "workspace_git_init_failed",
             "workspace_git_commit_failed",
@@ -1160,6 +1452,7 @@ class InitService:
             "unsafe_project_name",
             "non_empty_target_directory",
             "non_directory_target_path",
+            "not_auto_bean_workspace",
         }:
             return ErrorCategory.BLOCKED_UNSAFE_MUTATION
         if error_code in {

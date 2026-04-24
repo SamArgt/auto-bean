@@ -1,126 +1,64 @@
 # Workspace Agents
 
-This workspace is the runtime home for a user-owned ledger.
-Keep product-code work in the `auto-bean` product repository.
-Keep ledger files, statements, governed runtime state, and installed skills in this workspace.
+This is a user-owned ledger workspace. Keep product-code work in the `auto-bean` product repository; keep ledger files, statements, governed runtime state, and installed skills here.
 
-Treat Codex as the orchestrator.
-Treat the installed skills under `.agents/skills/` as the execution surface for trust-sensitive work.
+Codex is the orchestrator. Installed skills under `.agents/skills/` are the execution surface.
 
-
-Read these references before acting:
-
-- `.agents/skills/shared/memory-access-rules.md` before relying on or requesting durable memory persistence
-
-## Foundation Skills
-
-Use the installed foundation skills for ledger-specific work:
+## Core Skills
 
 - `auto-bean-query`: read-only ledger analysis through Beancount and `bean-query`
-- `auto-bean-write`: transaction drafting, correction, validation, and transaction-specific clarification
+- `auto-bean-write`: transaction drafting, correction, and transaction-specific validation
+- `auto-bean-memory`: governed persistence of approved reusable decisions
 
-Workflow skills may orchestrate these foundation skills, but should not duplicate their procedures.
-Use `auto-bean-query` whenever a decision depends on balances, account activity, date-bounded totals, register rows, transaction existence, duplicate exploration, or other ledger reads.
-Use `auto-bean-write` whenever a workflow needs to add or correct Beancount transaction entries.
+Use `auto-bean-query` for balances, account activity, date windows, register rows, transaction existence, duplicates, and other ledger reads.
+Use `auto-bean-write` when a workflow needs to add or correct Beancount transaction entries.
 
 ## Import Workflow
 
-Use one explicit two-step workflow for import-driven ledger changes:
+Users should start imports with `$auto-bean-import`.
 
-1. `auto-bean-import` skill
-   - normalize raw statements into reviewed evidence under `statements/parsed/`
-   - update `statements/import-status.yml` to `parsed` or `parsed_with_warnings`
-   - use `auto-bean-query` when import decisions require ledger analysis rather than structure inspection
-   - create first-seen account structure only when the evidence is strong enough
-   - prepare the evidence handoff for posting work
-2. `auto-bean-apply` skill
-   - take already-reviewed evidence from `statements/parsed/`
-   - use `auto-bean-query` for ledger reads needed during posting review and reconciliation
-   - use `auto-bean-write` to draft or correct candidate Beancount transaction postings directly in the workspace
-   - run reconciliation checks for likely transfers, possible duplicates, unbalanced outcomes, currency risk, and possible future transfers
-   - stop and ask the user a bounded clarification question when a risky interpretation remains ambiguous or unfamiliar
-   - update `statements/import-status.yml` to `in_review` after writing import-derived Beancount transactions
-   - validate, summarize, show findings plus suggested actions, show how clarification answers changed the pending result when needed, and show `git diff`
-   - if a clarification reveals a reusable source-specific rule, suggest a bounded `auto-bean-memory` persistence request for review
-   - ask the user for a decision on each finding, apply those decisions, then ask for explicit final approval before commit or push
+`auto-bean-import` discovers unprocessed raw statements, skips already-current statements, uses sub-agents for bounded statement work, delegates raw-to-parsed work to `$auto-bean-process`, delegates posting/reconciliation work to `$auto-bean-apply`, and surfaces any user input required before continuing.
 
-Do not blur those responsibilities.
-`auto-bean-import` prepares evidence.
-`auto-bean-apply` coordinates reviewed posting mutation, reconciliation decisions, status transitions, and finalization.
+Workflow statuses in `statements/import-status.yml`:
 
-Use only these workflow statuses in `statements/import-status.yml`:
+- `ready`: no successful parsed evidence exists yet
+- `parsed`: parsed evidence exists and is ready for posting work
+- `parsed_with_warnings`: parsed evidence exists but warnings need review
+- `in_review`: import-derived transactions have been written but not finalized
+- `done`: the full import/apply workflow is complete
 
-- `ready`: no actions have been taken yet; ready for import
-- `parsed`: parsed but no transactions have been posted to the workspace
-- `parsed_with_warnings`: parsed but there are warnings to work on before transactions are ready to post
-- `in_review`: transactions have been posted but not yet validated
-- `done`: the workflow is complete
+Only mark a statement `done` after user approval of the final import result.
 
-## Worker Handoff
+## Memory
 
-When the import job is large, the main agent may use a worker to run the staged process:
+Read `.agents/skills/shared/memory-access-rules.md` before relying on or requesting durable memory persistence.
 
-1. one worker handles the `auto-bean-import` stage
-2. one worker handles the `auto-bean-apply` stage
-
-Keep the handoff explicit between those two stages.
-Keep final review, validation interpretation, governed memory persistence, and commit/push approval with the main agent.
-Once the whole two-step workflow reaches its finalized outcome, update the relevant `statements/import-status.yml` entries to `done`.
-
-## Memory Ownership
-
-Skills may suggest useful governed memory.
-The orchestrator decides whether to invoke `auto-bean-memory` for persistence.
-
-### Governed memory
-
-Use `auto-bean-memory` for durable reusable decisions such as account mappings, category mappings, naming conventions, import-source behavior, transfer detection decisions, deduplication decisions, and reusable clarification outcomes.
-
-Memory files are fixed for MVP:
-
-- `.auto-bean/memory/account_mappings.json`
-- `.auto-bean/memory/category_mappings.json`
-- `.auto-bean/memory/naming_conventions.json`
-- `.auto-bean/memory/transfer_detection.json`
-- `.auto-bean/memory/deduplication_decisions.json`
-- `.auto-bean/memory/clarification_outcomes.json`
-- `.auto-bean/memory/import_sources/index.json`, then one `.auto-bean/memory/import_sources/<source_slug>.json` file per statement source
-
-Do not persist memory for blocked, rejected, validation-failed, ambiguous, or deferred runs unless the user explicitly approves storing that learning.
-Treat reused memory as advisory guidance, never silent authority.
-Do not let import, apply, query, or write workflows modify `.auto-bean/memory/**` directly.
+Skills may suggest useful governed memory. Only `auto-bean-memory` writes `.auto-bean/memory/**`, and only for approved reusable outcomes. Treat reused memory as advisory guidance, never silent authority.
 
 ## Review Boundary
 
-Before any commit or push for ledger mutations:
+Before commit or push for ledger mutations:
 
 - keep parsed statement facts separate from derived ledger edits
-- keep reconciliation findings explicit, with one user decision required for each finding before action is taken
-- Validate the ledger integrity with `./scripts/validate-ledger.sh` or `./.venv/bin/bean-check ledger.beancount` and show the validation outcome
-- distinguish confirmed validation failures from inferred risks or user concerns
-- summarize what changed, why, and which files are affected
-- make it clear the working tree may have changed without being accepted into git history
+- show reconciliation findings and required user decisions
+- validate with `./scripts/validate-ledger.sh` or `./.venv/bin/bean-check ledger.beancount`
+- summarize changed files and show `git diff`
+- make clear that working-tree changes are not accepted into history until the user approves finalization
 
-The user may stop, defer, or reject finalization.
-If a committed mutation later needs to be undone, prefer reverting the recorded commit instead of silently replacing ledger files.
-
-## Workspace Paths
+## Paths
 
 - `ledger.beancount`: stable ledger entrypoint
 - `beancount/`: included ledger fragments
-- `statements/raw/`: raw statement intake boundary
-- `statements/parsed/`: reviewed normalized statement evidence
-- `statements/import-status.yml`: parse-state index
+- `statements/raw/`: raw statement intake
+- `statements/parsed/`: normalized statement evidence
+- `statements/import-status.yml`: import state
 - `.auto-bean/artifacts/`: diagnostics and audit artifacts
-- `.auto-bean/memory/`: governed local memory for approved reusable decisions
+- `.auto-bean/memory/`: governed memory
 - `.agents/skills/`: installed runtime skills
-
 
 ## Guardrails
 
 - Do not treat the product repo as the live ledger workspace.
-- Do not invent workflows, commands, or skills that are not present here.
-- Do not bypass `auto-bean-query` for ledger analysis or `auto-bean-write` for transaction writing when those narrower skills fit the task.
-- Do not describe a working-tree mutation as accepted before validation succeeds and the user approves finalization.
-- Do not make proposal artifacts mandatory for routine changes.
-- Do not describe committed rollback as ad hoc file replacement when git-backed revert is available.
+- Do not bypass `auto-bean-query` for ledger analysis or `auto-bean-write` for transaction writing.
+- Do not call ledger mutations accepted before validation succeeds and the user approves finalization.
+- Prefer git-backed revert for committed recovery.

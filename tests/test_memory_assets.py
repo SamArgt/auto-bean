@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import cast
 
 from auto_bean.init import (
     CommandResult,
+    InitContext,
     InitService,
     PlatformProbe,
     ProjectPaths,
@@ -24,7 +26,7 @@ def test_memory_skill_and_shared_policy_are_authored() -> None:
         assert (root / "skill_sources" / "auto-bean-memory" / reference).is_file()
 
 
-def test_init_required_assets_include_memory_skill_and_policy() -> None:
+def test_init_required_assets_check_only_skill_entrypoints() -> None:
     service = InitService(
         paths=ProjectPaths(),
         platform=PlatformProbe(),
@@ -45,15 +47,8 @@ def test_init_required_assets_include_memory_skill_and_policy() -> None:
             "auto-bean-query/SKILL.md",
             "auto-bean-write/SKILL.md",
             "auto-bean-import/SKILL.md",
+            "auto-bean-process/SKILL.md",
             "auto-bean-memory/SKILL.md",
-            "auto-bean-memory/references/account-mapping.example.md",
-            "auto-bean-memory/references/category-mapping.example.md",
-            "auto-bean-memory/references/clarification-outcome.example.md",
-            "auto-bean-memory/references/deduplication-decision.example.md",
-            "auto-bean-memory/references/import-source-behavior.example.md",
-            "auto-bean-memory/references/naming-convention.example.md",
-            "auto-bean-memory/references/transfer-detection.example.md",
-            "shared/memory-access-rules.md",
         ),
     )
 
@@ -86,6 +81,80 @@ def test_scaffold_preserves_existing_memory_files(tmp_path: Path) -> None:
     assert ".auto-bean/memory/import_sources/index.json" in created_paths
 
 
+def test_update_check_reports_managed_file_diffs_without_overwriting(
+    tmp_path: Path,
+) -> None:
+    root = Path(__file__).resolve().parents[1]
+    service = InitService(
+        paths=ProjectPaths(start=root),
+        platform=PlatformProbe(),
+        tools=ToolProbe(),
+        commands=NoopCommands(),
+    )
+    target = tmp_path / "workspace"
+    service._scaffold_workspace(
+        context=make_test_context("workspace", target, root),
+        target_directory=target,
+    )
+    agents = target / "AGENTS.md"
+    ledger = target / "ledger.beancount"
+    memory = target / ".auto-bean" / "memory" / "account_mappings.json"
+    agents.write_text("old agents\n", encoding="utf-8")
+    ledger.write_text("ledger stays put\n", encoding="utf-8")
+    memory.write_text('{"kept": true}\n', encoding="utf-8")
+
+    result = service.update(str(target), check_only=True)
+
+    assert result.status == "updates_available"
+    changed_paths = cast(list[str], result.details["changed_paths"])
+    assert "AGENTS.md" in changed_paths
+    assert agents.read_text(encoding="utf-8") == "old agents\n"
+    assert ledger.read_text(encoding="utf-8") == "ledger stays put\n"
+    assert memory.read_text(encoding="utf-8") == '{"kept": true}\n'
+
+
+def test_update_refreshes_managed_files_without_touching_ledger_or_memory(
+    tmp_path: Path,
+) -> None:
+    root = Path(__file__).resolve().parents[1]
+    service = InitService(
+        paths=ProjectPaths(start=root),
+        platform=PlatformProbe(),
+        tools=ToolProbe(),
+        commands=NoopCommands(),
+    )
+    target = tmp_path / "workspace"
+    service._scaffold_workspace(
+        context=make_test_context("workspace", target, root),
+        target_directory=target,
+    )
+    agents = target / "AGENTS.md"
+    skill = target / ".agents" / "skills" / "auto-bean-query" / "SKILL.md"
+    ledger = target / "ledger.beancount"
+    memory = target / ".auto-bean" / "memory" / "account_mappings.json"
+    agents.write_text("old agents\n", encoding="utf-8")
+    skill.write_text("old skill\n", encoding="utf-8")
+    ledger.write_text("ledger stays put\n", encoding="utf-8")
+    memory.write_text('{"kept": true}\n', encoding="utf-8")
+
+    result = service.update(str(target))
+
+    assert result.status == "ok"
+    updated_paths = cast(list[str], result.details["updated_paths"])
+    assert sorted(updated_paths) == [
+        ".agents/skills/auto-bean-query/SKILL.md",
+        "AGENTS.md",
+    ]
+    assert agents.read_text(encoding="utf-8") == (
+        root / "workspace_template" / "AGENTS.md"
+    ).read_text(encoding="utf-8")
+    assert skill.read_text(encoding="utf-8") == (
+        root / "skill_sources" / "auto-bean-query" / "SKILL.md"
+    ).read_text(encoding="utf-8")
+    assert ledger.read_text(encoding="utf-8") == "ledger stays put\n"
+    assert memory.read_text(encoding="utf-8") == '{"kept": true}\n'
+
+
 def test_non_memory_skills_do_not_claim_direct_memory_write_authority() -> None:
     root = Path(__file__).resolve().parents[1]
     direct_write_phrases = (
@@ -96,6 +165,7 @@ def test_non_memory_skills_do_not_claim_direct_memory_write_authority() -> None:
 
     for skill_name in (
         "auto-bean-import",
+        "auto-bean-process",
         "auto-bean-apply",
         "auto-bean-query",
         "auto-bean-write",
@@ -111,6 +181,17 @@ def test_non_memory_skills_do_not_claim_direct_memory_write_authority() -> None:
 class NoopCommands:
     def run(self, args: object, cwd: Path | None = None) -> CommandResult:
         return CommandResult(returncode=0)
+
+
+def make_test_context(project_name: str, target: Path, root: Path) -> InitContext:
+    return InitContext(
+        project_name=project_name,
+        target_input_type="path",
+        working_directory=str(root),
+        target_directory=str(target),
+        template_directory=str(root / "workspace_template"),
+        skill_sources_directory=str(root / "skill_sources"),
+    )
 
 
 def test_workspace_memory_template_uses_fixed_category_files() -> None:

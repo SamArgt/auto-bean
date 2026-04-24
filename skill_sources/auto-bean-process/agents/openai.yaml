@@ -1,0 +1,7 @@
+interface:
+  display_name: "Process Statements"
+  short_description: "Process one raw statement into parsed evidence"
+  default_prompt: "Use $auto-bean-process for one assigned raw statement: normalize it into `statements/parsed/`, update only that input's `statements/import-status.yml` entry, make only directly supported first-seen account-structure edits, and report blockers or required user input back to $auto-bean-import."
+
+policy:
+  allow_implicit_invocation: false
