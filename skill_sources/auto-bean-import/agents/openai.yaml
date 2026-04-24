@@ -1,7 +1,7 @@
 interface:
   display_name: "Import Statements"
   short_description: "Run the full statement import workflow"
-  default_prompt: "Use $auto-bean-import to inspect raw statements, process only new or stale inputs, apply reviewed postings, validate the ledger, and summarize what remains."
+  default_prompt: "Use $auto-bean-import to inspect raw statements, process only new or stale inputs, apply reviewed postings, ensure stages persist safe progress before asking for user input, validate the ledger, and summarize what remains."
 
 policy:
   allow_implicit_invocation: true

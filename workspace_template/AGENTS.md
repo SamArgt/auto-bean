@@ -31,9 +31,11 @@ Only mark a statement `done` after user approval of the final import result.
 
 ## User Input
 
-When any skill needs user input, ask a bounded question with the appropriate user-input tool or conversation channel, then wait for the answer before proceeding.
+When any skill needs user input, first keep working through every safe deterministic step. Write or update the relevant parsed artifacts, status entries, ledger draft comments, warnings, or blocking issues so the workspace clearly shows what is complete and what still requires the user.
 
-After the user answers, resume the same statement, artifact, transaction, or memory operation with that answer in context. Do not treat clarification as a terminal blocked state unless the answer remains insufficient after a bounded follow-up.
+Ask bounded questions with the appropriate user-input tool or conversation channel only after that progress is persisted. Include where the pending question is recorded, why guessing is unsafe, and the smallest useful set of choices or requested facts.
+
+After the user answers, resume the same statement, artifact, transaction, or memory operation from the existing files with that answer in context. Do not restart from the beginning or treat clarification as a terminal blocked state unless the answer remains insufficient after a bounded follow-up.
 
 ## Memory
 

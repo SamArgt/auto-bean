@@ -13,7 +13,9 @@ Keep clarification bounded, concrete, and easy for the user to answer.
 
 - Ask only the minimum bounded questions needed to unblock the risky interpretation.
 - Use the appropriate user-input tool or conversation channel for the active workflow; do not force clarification through a specific skill unless that skill owns the work being clarified.
-- Wait for the user answer before continuing the affected artifact.
+- Before asking, persist every safe partial result and record unresolved questions in the artifact/status files so a restarted process can resume from the checkpoint.
+- Continue unrelated safe work for the affected artifact before asking; do not stop at the first ambiguous row when later rows can still be drafted, reconciled, or validated safely.
+- Wait for the user answer before continuing unresolved decisions for the affected artifact.
 - Lead with observed facts, then separate them from inferences.
 - Name the plausible interpretations that remain on the table.
 - Explain the risk of guessing wrong in concrete ledger terms.
@@ -23,7 +25,7 @@ Keep clarification bounded, concrete, and easy for the user to answer.
 ## How to resume
 
 - After the user answers, update the drafted workspace changes to reflect that answer.
-- Resume the same artifact or transaction-writing task; do not treat clarification as a terminal blocked state.
+- Resume the same artifact or transaction-writing task from persisted artifacts and status; do not throw away earlier safe work or treat clarification as a terminal blocked state.
 - Show how the answer changed the pending result before any final approval request.
 - Re-run reconciliation checks and validation if the clarification changed the drafted postings or supporting directives.
 - If the answer is still ambiguous, contradictory, or insufficient, ask one more bounded follow-up, wait again, and then resume or report the remaining blocker to the calling workflow.

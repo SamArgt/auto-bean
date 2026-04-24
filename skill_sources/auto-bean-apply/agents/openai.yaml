@@ -1,7 +1,7 @@
 interface:
   display_name: "Apply Ledger Changes"
   short_description: "Apply one parsed import artifact"
-  default_prompt: "Use $auto-bean-apply for one assigned parsed statement or intermediate import artifact: categorize with governed memory or evidence-based suggestions, use $auto-bean-query for ledger reads, $auto-bean-write for transaction drafting, update only that artifact's status, report reconciliation, deduplication, validation, blockers, and required user input back to $auto-bean-import."
+  default_prompt: "Use $auto-bean-apply for one assigned parsed statement or intermediate import artifact: categorize with governed memory or evidence-based suggestions, use $auto-bean-query for ledger reads, $auto-bean-write for transaction drafting, persist all safe progress and pending questions, update only that artifact's status, and report reconciliation, deduplication, validation, blockers, and required user input back to $auto-bean-import."
 
 policy:
   allow_implicit_invocation: false

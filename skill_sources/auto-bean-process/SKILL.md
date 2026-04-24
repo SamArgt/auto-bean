@@ -54,29 +54,35 @@ Workflow:
    - set `parsed_with_warnings` when normalized output is written but warnings need review before posting work
    - never set `in_review` or `done`
    - record output path, parse run id, parser identifier, timestamps, warnings, and blocking issues alongside the status
-6. Derive first-seen account structure only from this normalized output plus current ledger state:
+6. Continue through safe work while collecting questions:
+   - do not stop at the first missing detail once parsed evidence can be written safely
+   - keep progressing through every deterministic step that does not require guessing, including status updates, account classification, safe supported account-structure edits, and validation of edits already made
+   - collect user questions as `pending_user_questions` on the parsed output or status entry, with affected record/account, observed facts, why guessing is unsafe, and the answer needed to continue
+   - make unresolved items visible in edited files by adding clear comments near pending account-opening candidates when Beancount comments are appropriate, or by recording explicit warnings/blocking issues in parsed/status artifacts
+   - ask only after all safe progress for this assigned statement is persisted, so a restarted process can resume from the written artifacts instead of starting over
+7. Derive first-seen account structure only from this normalized output plus current ledger state:
    - inspect `beancount/accounts.beancount` first, then `ledger.beancount` and included `beancount/**` files for existing `open` directives and account names
    - classify inferred accounts as `existing_account`, `first_seen_candidate`, or `blocked_inference`
    - consider only banking, credit card, loans, cash, and investment account types for first-seen structure inference
    - do not infer mutable categories such as expense accounts
    - infer Beancount-safe account names and minimal supporting directives only when institution, account identity, type hints, and currency provide strong evidence
    - current parsed statement evidence and current ledger state remain authoritative; memory may provide hints, not authority
-   - when top-level branch, account identity, currency, duplicate risk, mutation target, or syntax is unclear, request one bounded user question, wait for the answer, then resume this same raw statement with the answer in context
-7. Apply only bounded account-structure mutations:
+   - when top-level branch, account identity, currency, duplicate risk, mutation target, or syntax is unclear, record a pending question and continue with any remaining safe work before asking
+8. Apply only bounded account-structure mutations:
    - mutate only account-opening structure and minimal supporting directives such as missing operating currencies
    - prefer `beancount/accounts.beancount`; explain any fallback target in the worker result
    - avoid duplicate directives and keep mutation deterministic for the same parsed input and ledger state
-8. Validate only mutations made by this stage:
+9. Validate only mutations made by this stage:
    - run `./scripts/validate-ledger.sh` or `./.venv/bin/bean-check ledger.beancount` after account-structure edits
    - if validation fails, stop before any success claim and report the failure as a blocker
-9. Return control to `$auto-bean-import` with:
+10. Return control to `$auto-bean-import` with:
    - assigned source path and source fingerprint
    - parsed output path and parse run id
    - status change for this input
    - account classification and account-structure edits, if any
    - warnings, blockers, and validation result
    - memory reuse attribution if governed memory influenced parsing, source handling, or account-structure hints
-   - whether user input was requested or is still required, with the exact question/reason
+   - every persisted pending user question, with the exact question/reason and where it was recorded
    - possible reusable learning, without writing memory
 
 Guardrails:
@@ -86,3 +92,4 @@ Guardrails:
 - Do not overwrite prior parse outputs silently unless `$auto-bean-import` explicitly assigned overwrite behavior.
 - Do not claim success when evidence is ambiguous, structure is risky, or validation fails.
 - Do not process unassigned statements.
+- Do not ask for user input before persisting all safe progress and making unresolved requirements visible in the relevant artifacts.

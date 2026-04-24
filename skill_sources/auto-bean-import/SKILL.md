@@ -15,18 +15,19 @@ Workflow:
 2. Use sub-agents for statement work:
    - assign each sub-agent one raw statement
    - give each sub-agent the source path, current status entry, expected parsed-output path or naming rule, and the instruction to use `$auto-bean-process`
-   - require sub-agents to report parsed output paths, status changes, account-structure edits, warnings, blockers, and whether user input is needed
+   - require sub-agents to persist all safe progress before asking for user input, and to report parsed output paths, status changes, account-structure edits, warnings, blockers, and persisted pending user questions
    - wait for all assigned processing sub-agents to finish before starting any parsed-statement handoff
 3. Handoff parsed statements:
    - for each statement successfully processed to `parsed` or `parsed_with_warnings`, start one sub-agent assigned to that single parsed statement with the instruction to use `$auto-bean-apply` for posting/reconciliation work
    - run apply sub-agents sequentially: wait for the current `$auto-bean-apply` sub-agent to finish before starting the next one
-   - require each `$auto-bean-apply` sub-agent to report ledger edits, status changes, reconciliation findings, validation results, blockers, reusable-learning candidates, and whether user input is needed
-   - keep statements that need clarification, repair, or manual source handling out of apply work until resolved
+   - require each `$auto-bean-apply` sub-agent to persist all safe progress before asking for user input, and to report ledger edits, status changes, reconciliation findings, validation results, blockers, reusable-learning candidates, and persisted pending user questions
+   - keep statements that need clarification, repair, or manual source handling out of final approval until resolved
 4. Surface user input:
-   - when any sub-agent or downstream skill reports missing information, risky ambiguity, unresolved reconciliation finding, or manual extraction need, ask the user a bounded question and wait for the answer instead of treating the workflow as finished or blocked
+   - when any sub-agent or downstream skill reports missing information, risky ambiguity, unresolved reconciliation finding, or manual extraction need, first verify the relevant artifact/status/file records all safe progress and clearly names what remains required from the user
+   - ask the user the collected bounded question or question set and wait for the answer instead of treating the workflow as finished or blocked
    - use the appropriate user-input tool or conversation channel; do not force clarification through a specific skill unless that skill owns the work being clarified
    - include the affected statement path, why input is needed, and the smallest useful set of choices or requested facts
-   - after the user answers, restart the same processing or apply stage for the affected statement/artifact with the answer included in the assignment context
+   - after the user answers, resume the same processing or apply stage for the affected statement/artifact with the answer and existing persisted artifacts included in the assignment context
 5. Review and close:
    - consolidate sub-agent results, downstream apply results, validation outcome, and `git diff`
    - keep parsed facts, ledger edits, warnings, blockers, and required user decisions separate
