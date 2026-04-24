@@ -15,6 +15,7 @@ Right now this repository gives you a supported first session for:
 - turning reviewed normalized statement evidence into candidate Beancount postings through a separate apply workflow, with advisory reuse of repeated-import source context and the same commit-gated review boundary
 - surfacing likely transfers, possible duplicates, and unbalanced or currency-risk outcomes as explicit review findings before finalization
 - pausing ambiguous or unfamiliar reconciliation outcomes to ask the user a bounded clarification question before any risky interpretation is applied
+- persisting approved reusable decisions through governed local memory under `.auto-bean/memory/`
 - explaining committed recovery through git-backed revert guidance
 
 It does not expose a public SDK or external API today. The stable user interface is the coding-agent workflow inside the generated workspace.
@@ -55,12 +56,15 @@ On success, `auto-bean` creates a separate runtime Git repository with:
 - `beancount/accounts.beancount` for durable account `open` directives
 - `statements/raw/` for statement files that later import stories will process
 - `.auto-bean/` for governed runtime artifacts and diagnostics
-- `.auto-bean/memory/import_sources/` for governed runtime memory that stores repeated-import source context
+- `.auto-bean/memory/` for governed runtime memory that stores approved reusable decisions
+  - one JSON file per non-import memory category
+  - `import_sources/index.json` plus one source file per import source
 - `.agents/skills/` for installed runtime skills
   - `auto-bean-query` for read-only ledger analysis
   - `auto-bean-write` for transaction drafting and validation
   - `auto-bean-import` for statement normalization and evidence handoff
   - `auto-bean-apply` for reviewed structural mutation orchestration and finalization
+  - `auto-bean-memory` for governed persistence of approved reusable decisions
 - `AGENTS.md` for workspace operating guidance
 - a workspace-local `.venv` with `beancount`, `fava`, and `docling`
 - `scripts/validate-ledger.sh` and `scripts/open-fava.sh`
@@ -151,7 +155,7 @@ The durable boundaries for this workflow are:
 That review surface should make these distinctions obvious:
 
 - parsed statement facts under `statements/parsed/` and `statements/import-status.yml` are inspectable evidence, not accepted ledger history
-- reused source-context hints under `.auto-bean/memory/import_sources/` are advisory guidance, not silent authority
+- reused governed memory hints under `.auto-bean/memory/` are advisory guidance, not silent authority
 - derived ledger edits under `ledger.beancount` or `beancount/**` are the candidate mutation produced from that evidence
 - reconciliation findings make the workflow's suggested action visible, but the user still decides what happens to each finding
 - warnings, blocked inferences, and `git diff` appear before any finalization request
@@ -167,11 +171,12 @@ The boundaries that matter now are:
 - `statements/parsed/`: where normalized parse outputs are written
 - `statements/import-status.yml`: where parse-state tracking lives
 - `.auto-bean/`: governed runtime artifacts and workflow state
-- `.auto-bean/memory/import_sources/`: governed runtime memory for repeated-import source context
+- `.auto-bean/memory/`: governed runtime memory for approved reusable decisions
 - `.agents/skills/auto-bean-query/`: installed foundation skill for read-only Beancount ledger analysis
 - `.agents/skills/auto-bean-write/`: installed foundation skill for transaction drafting, correction, and validation
 - `.agents/skills/auto-bean-import/`: installed skill for Docling-driven statement normalization, first-seen account mutation, and reviewed evidence handoff
 - `.agents/skills/auto-bean-apply/`: installed skill for turning reviewed evidence into candidate transaction postings or other reviewed structural mutations
+- `.agents/skills/auto-bean-memory/`: installed skill for validating and persisting approved reusable workflow decisions
 
 ## Failure and remediation behavior
 
@@ -201,4 +206,4 @@ uv run pytest
 uv run python scripts/run_smoke_checks.py
 ```
 
-Workflow diagnostics are persisted under `.auto-bean/artifacts/` so maintainers can inspect validation outcomes and troubleshooting context without scraping stack traces. Repeated-import source context lives separately under governed runtime memory, not in ledger files or ad hoc statement-side artifacts.
+Workflow diagnostics are persisted under `.auto-bean/artifacts/` so maintainers can inspect validation outcomes and troubleshooting context without scraping stack traces. Approved reusable decisions live separately under governed runtime memory, not in ledger files or ad hoc statement-side artifacts.

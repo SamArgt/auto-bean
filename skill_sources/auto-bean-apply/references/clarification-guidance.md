@@ -29,5 +29,5 @@ Keep clarification bounded, concrete, and easy for the user to answer.
 
 - Clarified outcomes may inform later governed memory work, but this story does not authorize broad autonomous preference learning.
 - Keep every reusable outcome attributable to current evidence and the specific user answer that changed the result.
-- When a clarified answer reveals a narrow source-specific rule that would help future imports, suggest an update to the source-context memory file.
-- Do not write the memory file automatically. Keep the suggestion reviewable and bounded to the current source behavior.
+- When a clarified answer reveals a narrow source-specific rule that would help future imports, suggest a bounded `$auto-bean-memory` persistence request.
+- Do not persist memory automatically. Keep the suggestion reviewable and bounded to the current source behavior.

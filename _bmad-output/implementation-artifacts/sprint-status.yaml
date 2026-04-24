@@ -1,5 +1,5 @@
 # generated: 2026-03-31 08:46:40 CEST
-# last_updated: 2026-04-12 18:54:00 CEST
+# last_updated: 2026-04-24 12:34:04 CEST
 # project: auto-bean
 # project_key: NOKEY
 # tracking_system: file-system
@@ -35,7 +35,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2026-03-31 08:46:40 CEST
-last_updated: 2026-04-22 16:15:00 CEST
+last_updated: 2026-04-24 12:34:04 CEST
 project: auto-bean
 project_key: NOKEY
 tracking_system: file-system
@@ -61,11 +61,9 @@ development_status:
   3-2-detect-transfers-duplicates-and-unbalanced-outcomes-during-reconciliation: review
   3-3-run-clarification-workflows-for-ambiguous-or-unfamiliar-transaction-patterns: review
   3-4-validate-inspect-approve-and-recover-ledger-mutations-safely: review
-  3-5-preserve-audit-history-and-rollback-for-committed-or-rejected-changes: backlog
-  3-6-troubleshoot-suspicious-or-failed-imports-with-guided-diagnostics: backlog
   epic-3-retrospective: optional
-  epic-4: backlog
-  4-1-persist-governed-memory-for-mappings-categorization-naming-and-import-behavior: backlog
+  epic-4: in-progress
+  4-1-persist-governed-memory-for-mappings-categorization-naming-and-import-behavior: review
   4-2-reuse-learned-memory-in-future-import-and-reconciliation-workflows: backlog
   4-3-inspect-stored-memory-that-influences-future-behavior: backlog
   4-4-correct-or-refine-learned-memory-through-an-explicit-workflow: backlog

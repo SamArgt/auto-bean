@@ -1,7 +1,7 @@
 interface:
   display_name: "Import Statements"
   short_description: "Parse statements, extend account structure, and prepare reviewed evidence"
-  default_prompt: "Use $auto-bean-import to normalize statement files into `statements/parsed/`, track `statements/import-status.yml`, reuse or persist repeated-import source context under `.auto-bean/memory/import_sources/` as reviewable guidance, derive direct first-seen account structure updates from imported evidence, use $auto-bean-query when import decisions require balances, account activity, register rows, or transaction inspection, present parsed statement facts, derived ledger edits, query evidence, and validation outcome in one review surface, and hand reviewed normalized evidence to $auto-bean-apply when the user wants transaction postings."
+  default_prompt: "Use $auto-bean-import to normalize statement files into `statements/parsed/`, track `statements/import-status.yml`, reuse governed memory as advisory guidance, derive direct first-seen account structure updates from imported evidence, use $auto-bean-query when import decisions require balances, account activity, register rows, or transaction inspection, present parsed statement facts, derived ledger edits, query evidence, and validation outcome in one review surface, hand reviewed normalized evidence to $auto-bean-apply when the user wants transaction postings, and suggest $auto-bean-memory only after an approved reusable outcome."
 
 policy:
   allow_implicit_invocation: true

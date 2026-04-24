@@ -1,7 +1,7 @@
 interface:
   display_name: "Apply Ledger Changes"
   short_description: "Coordinate reviewed ledger edits and posting changes"
-  default_prompt: "Use $auto-bean-apply to coordinate a reviewed structural ledger change: invoke $auto-bean-query for ledger reads, invoke $auto-bean-write for Beancount transaction writes, update import status for import-derived postings, run apply-level reconciliation checks for likely transfers, possible duplicates, unbalanced outcomes, currency risk, and possible future transfers, pause for bounded clarification when needed, then present the resulting changes, validation outcome, and each finding with a suggested action before final commit or push approval."
+  default_prompt: "Use $auto-bean-apply to coordinate a reviewed structural ledger change: invoke $auto-bean-query for ledger reads, categorize import-derived transactions with governed memory or clear evidence-based suggestions, invoke $auto-bean-write for Beancount transaction writes, update import status for import-derived postings, run apply-level reconciliation checks for likely transfers, possible duplicates, unbalanced outcomes, currency risk, and possible future transfers, pause for bounded clarification when needed, then present the resulting changes, validation outcome, and each finding with a suggested action before final commit or push approval."
 
 policy:
   allow_implicit_invocation: true

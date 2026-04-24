@@ -6,6 +6,7 @@ description: Draft, review, and safely write Beancount transactions into the led
 Read these references before acting:
 
 - `.agents/skills/shared/beancount-syntax-and-best-practices.md`
+- `.agents/skills/shared/memory-access-rules.md` when an approved transaction-writing result reveals reusable memory, so any persistence is handed to `$auto-bean-memory`
 
 Follow this workflow:
 

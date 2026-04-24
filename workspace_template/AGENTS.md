@@ -10,6 +10,7 @@ Treat the installed skills under `.agents/skills/` as the execution surface for 
 
 Read these references before acting:
 
+- `.agents/skills/shared/memory-access-rules.md` before relying on or requesting durable memory persistence
 
 ## Foundation Skills
 
@@ -40,7 +41,7 @@ Use one explicit two-step workflow for import-driven ledger changes:
    - stop and ask the user a bounded clarification question when a risky interpretation remains ambiguous or unfamiliar
    - update `statements/import-status.yml` to `in_review` after writing import-derived Beancount transactions
    - validate, summarize, show findings plus suggested actions, show how clarification answers changed the pending result when needed, and show `git diff`
-   - if a clarification reveals a reusable source-specific rule, suggest a bounded source-context memory update for review
+   - if a clarification reveals a reusable source-specific rule, suggest a bounded `auto-bean-memory` persistence request for review
    - ask the user for a decision on each finding, apply those decisions, then ask for explicit final approval before commit or push
 
 Do not blur those responsibilities.
@@ -63,21 +64,31 @@ When the import job is large, the main agent may use a worker to run the staged 
 2. one worker handles the `auto-bean-apply` stage
 
 Keep the handoff explicit between those two stages.
-Keep final review, validation interpretation, memory writes, and commit/push approval with the main agent.
+Keep final review, validation interpretation, governed memory persistence, and commit/push approval with the main agent.
 Once the whole two-step workflow reaches its finalized outcome, update the relevant `statements/import-status.yml` entries to `done`.
 
 ## Memory Ownership
 
-Skills may suggest useful repeated-import memory.
-The orchestrator decides whether that memory should actually be written.
+Skills may suggest useful governed memory.
+The orchestrator decides whether to invoke `auto-bean-memory` for persistence.
 
-### Source context memory
+### Governed memory
 
-Read this reference file before writing any source-context memory: `.agents/skills/auto-bean-import/references/import-source-context.example.json`
+Use `auto-bean-memory` for durable reusable decisions such as account mappings, category mappings, naming conventions, import-source behavior, transfer detection decisions, deduplication decisions, and reusable clarification outcomes.
 
-Write repeated-import source context only under `.auto-bean/memory/import_sources/` and only after a trustworthy finalized outcome.
-Do not write memory for blocked, rejected, validation-failed, ambiguous, or deferred runs.
+Memory files are fixed for MVP:
+
+- `.auto-bean/memory/account_mappings.json`
+- `.auto-bean/memory/category_mappings.json`
+- `.auto-bean/memory/naming_conventions.json`
+- `.auto-bean/memory/transfer_detection.json`
+- `.auto-bean/memory/deduplication_decisions.json`
+- `.auto-bean/memory/clarification_outcomes.json`
+- `.auto-bean/memory/import_sources/index.json`, then one `.auto-bean/memory/import_sources/<source_slug>.json` file per statement source
+
+Do not persist memory for blocked, rejected, validation-failed, ambiguous, or deferred runs unless the user explicitly approves storing that learning.
 Treat reused memory as advisory guidance, never silent authority.
+Do not let import, apply, query, or write workflows modify `.auto-bean/memory/**` directly.
 
 ## Review Boundary
 
@@ -101,7 +112,7 @@ If a committed mutation later needs to be undone, prefer reverting the recorded 
 - `statements/parsed/`: reviewed normalized statement evidence
 - `statements/import-status.yml`: parse-state index
 - `.auto-bean/artifacts/`: diagnostics and audit artifacts
-- `.auto-bean/memory/import_sources/`: orchestrator-owned repeated-import source context
+- `.auto-bean/memory/`: governed local memory for approved reusable decisions
 - `.agents/skills/`: installed runtime skills
 
 

@@ -6,6 +6,7 @@ description: Normalize raw statement files into inspectable parsed outputs throu
 Read these references before acting:
 
 - `.agents/skills/shared/beancount-syntax-and-best-practices.md` when inferring Beancount account names, `open` directives, currency constraints, or other ledger syntax
+- `.agents/skills/shared/memory-access-rules.md` when a finalized import result reveals reusable memory
 - `.agents/skills/auto-bean-import/references/parsed-statement-output.example.json`
 - `.agents/skills/auto-bean-import/references/import-status.example.yml`
 
@@ -25,13 +26,13 @@ Follow this workflow:
      - `parsed_with_warnings`: parsed and written under `statements/parsed/`, but warnings still need review before transactions are ready to post
      - `in_review`: import-derived transactions have been written in the workspace, but the result has not been validated and finalized yet
      - `done`: the full import/apply workflow is complete
-   - source-context memory is advisory only and comes from `.auto-bean/memory/import_sources/`
+   - governed memory is advisory only and comes from `.auto-bean/memory/`
    - do not create postings, reconciliation outcomes, categorization memory, or open-ended preference memory here
 3. Plan from current state:
    - read `statements/import-status.yml`
    - scan `statements/raw/` for `.pdf`, `.csv`, `.xlsx`, `.xls`
    - compute a deterministic fingerprint such as `sha256`
-   - scan the first 30 lines of `.auto-bean/memory/import_sources/` for any relevant source-context hints that match the current source identity, statement shape, or account structure. If it matches, read the whole file and keep it in mind as advisory guidance but not authority. Do not skip current-evidence checks, validation, or approval just because of memory hints.
+   - scan the first 30 lines of relevant governed memory files for source-context hints that match the current source identity, statement shape, or account structure. If a hint matches, read the whole file and keep it in mind as advisory guidance but not authority. Do not skip current-evidence checks, validation, or approval just because of memory hints.
 4. Parse with the local Docling CLI:
    - call `./.venv/bin/docling` directly on the assigned source
    - request JSON output into a unique temp path under `.auto-bean/tmp/`
@@ -84,7 +85,7 @@ Follow this workflow:
    - summarize changed files, inferred accounts, warnings, blocked inferences, and validation outcome
    - show a git-backed diff for changed files
    - state that commit/push remains the final approval boundary
-   - suggest source-context create or update only after a trustworthy finalized outcome; let the orchestrator decide whether to write it
+   - suggest an `$auto-bean-memory` persistence request only after a trustworthy finalized outcome; let the orchestrator decide whether to invoke the governed memory workflow
 12. Handoff postings to `auto-bean-apply`:
    - use `statements/parsed/*.json` and `statements/import-status.yml` as the evidence handoff
    - only hand off statements whose status is `parsed` or `parsed_with_warnings`
@@ -95,13 +96,14 @@ Follow this workflow:
    - account mutations applied, skipped, or blocked
    - whether validation passed
    - whether the result is ready for commit/push approval
-   - any suggested source-context updates
+   - any suggested governed memory updates
    - any blocked or failed statements that still need attention
 
 Guardrails:
 
 - Keep all contract keys in `snake_case`.
 - Keep source context narrow: source identity, statement-shape hints, account-structure reuse hints, parse or mapping guidance, review metadata, and timestamps only.
+- Do not write `.auto-bean/memory/**` directly; hand eligible approved learning to `$auto-bean-memory`.
 - Do not overwrite prior parse outputs silently unless the user explicitly asks for overwrite behavior.
 - Do not claim success when evidence is ambiguous, structure is risky, or validation fails.
 - Do not introduce a second approval system beyond validation plus explicit commit/push approval.

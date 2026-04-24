@@ -296,7 +296,14 @@ class InitService:
                     "AGENTS.md",
                     "beancount/accounts.beancount",
                     "beancount/opening-balances.beancount",
+                    ".auto-bean/memory/account_mappings.json",
+                    ".auto-bean/memory/category_mappings.json",
+                    ".auto-bean/memory/clarification_outcomes.json",
+                    ".auto-bean/memory/deduplication_decisions.json",
                     ".auto-bean/memory/import_sources/.gitkeep",
+                    ".auto-bean/memory/import_sources/index.json",
+                    ".auto-bean/memory/naming_conventions.json",
+                    ".auto-bean/memory/transfer_detection.json",
                     "statements/parsed/.gitkeep",
                     "statements/import-status.yml",
                 ),
@@ -321,6 +328,15 @@ class InitService:
                     "auto-bean-query/SKILL.md",
                     "auto-bean-write/SKILL.md",
                     "auto-bean-import/SKILL.md",
+                    "auto-bean-memory/SKILL.md",
+                    "auto-bean-memory/references/account-mapping.example.md",
+                    "auto-bean-memory/references/category-mapping.example.md",
+                    "auto-bean-memory/references/clarification-outcome.example.md",
+                    "auto-bean-memory/references/deduplication-decision.example.md",
+                    "auto-bean-memory/references/import-source-behavior.example.md",
+                    "auto-bean-memory/references/naming-convention.example.md",
+                    "auto-bean-memory/references/transfer-detection.example.md",
+                    "shared/memory-access-rules.md",
                 ),
             ),
         )
@@ -364,6 +380,7 @@ class InitService:
                 "AGENTS.md",
                 ".agents/skills/auto-bean-apply/SKILL.md",
                 ".agents/skills/auto-bean-import/SKILL.md",
+                ".agents/skills/auto-bean-memory/SKILL.md",
                 ".auto-bean/memory/import_sources/.gitkeep",
                 "statements/import-status.yml",
             ],
@@ -827,6 +844,12 @@ class InitService:
                 destination_path.mkdir(parents=True, exist_ok=True)
                 continue
             destination_path.parent.mkdir(parents=True, exist_ok=True)
+            if (
+                prefix is None
+                and relative_path.parts[:2] == (".auto-bean", "memory")
+                and destination_path.exists()
+            ):
+                continue
             shutil.copy2(source_path, destination_path)
             if destination_path.suffix == ".sh" or "scripts" in relative_path.parts:
                 ensure_executable(destination_path)
