@@ -60,6 +60,8 @@ Workflow:
    - collect user questions as `pending_user_questions` on the parsed output or status entry, with affected record/account, observed facts, why guessing is unsafe, and the answer needed to continue
    - make unresolved items visible in edited files by adding clear comments near pending account-opening candidates when Beancount comments are appropriate, or by recording explicit warnings/blocking issues in parsed/status artifacts
    - ask only after all safe progress for this assigned statement is persisted, so a restarted process can resume from the written artifacts instead of starting over
+   - collect eligible reusable learning as `memory_suggestions` while working; include memory type, source context, decision, scope, confidence or review state, supporting evidence, current-evidence checks, and why it should be reused later
+   - if the final response cannot carry all `memory_suggestions`, persist them in one JSON file under `.auto-bean/tmp/memory-suggestions/` named from the parse run id or source fingerprint, then return that path to `$auto-bean-import`
 7. Derive first-seen account structure only from this normalized output plus current ledger state:
    - inspect `beancount/accounts.beancount` first, then `ledger.beancount` and included `beancount/**` files for existing `open` directives and account names
    - classify inferred accounts as `existing_account`, `first_seen_candidate`, or `blocked_inference`
@@ -83,7 +85,8 @@ Workflow:
    - warnings, blockers, and validation result
    - memory reuse attribution if governed memory influenced parsing, source handling, or account-structure hints
    - every persisted pending user question, with the exact question/reason and where it was recorded
-   - possible reusable learning, without writing memory
+   - `memory_suggestions`: every eligible reusable-learning candidate, or `[]` when none were found
+   - `memory_suggestion_files`: any `.auto-bean/tmp/memory-suggestions/*.json` files created because suggestions were too large for the response
 
 Guardrails:
 

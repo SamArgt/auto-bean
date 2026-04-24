@@ -178,6 +178,35 @@ def test_non_memory_skills_do_not_claim_direct_memory_write_authority() -> None:
             assert phrase not in text
 
 
+def test_import_stages_return_memory_suggestions_for_governed_handoff() -> None:
+    root = Path(__file__).resolve().parents[1]
+
+    process_text = (
+        root / "skill_sources" / "auto-bean-process" / "SKILL.md"
+    ).read_text(encoding="utf-8")
+    apply_text = (root / "skill_sources" / "auto-bean-apply" / "SKILL.md").read_text(
+        encoding="utf-8"
+    )
+    import_text = (root / "skill_sources" / "auto-bean-import" / "SKILL.md").read_text(
+        encoding="utf-8"
+    )
+
+    for text in (process_text, apply_text):
+        assert "`memory_suggestions`" in text
+        assert "`memory_suggestion_files`" in text
+        assert ".auto-bean/tmp/memory-suggestions/" in text
+        assert "memory type, source context, decision, scope" in text
+
+    assert "Collect and govern memory suggestions" in import_text
+    assert "collect `memory_suggestions`" in import_text
+    assert "read any returned `memory_suggestion_files`" in import_text
+    assert "invoke `$auto-bean-memory`" in import_text
+    assert (
+        "memory suggestions collected and `$auto-bean-memory` persistence result"
+        in import_text
+    )
+
+
 class NoopCommands:
     def run(self, args: object, cwd: Path | None = None) -> CommandResult:
         return CommandResult(returncode=0)

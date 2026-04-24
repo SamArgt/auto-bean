@@ -34,6 +34,8 @@ Workflow:
    - collect unresolved decisions as `pending_user_questions` in the parsed/intermediate artifact or `statements/import-status.yml`, with affected transaction/source row, observed facts, plausible interpretations, risk of guessing, and the answer needed to continue
    - surface unresolved ledger edits directly in edited files when applicable with clear Beancount comments near draft placeholders or omitted postings; otherwise record explicit warnings/blocking issues in the artifact/status entry
    - ask the user only after all safe progress for this assigned artifact is persisted, so a restarted process can resume from the written artifacts instead of replaying completed work
+   - collect eligible reusable learning as `memory_suggestions` throughout categorization, writing, reconciliation, deduplication, and clarification; include memory type, source context, decision, scope, confidence or review state, supporting evidence, current-evidence checks, and why it should be reused later
+   - if the final response cannot carry all `memory_suggestions`, persist them in one JSON file under `.auto-bean/tmp/memory-suggestions/` named from the artifact id, status id, or source fingerprint, then return that path to `$auto-bean-import`
 4. Categorize each transaction in this artifact before drafting:
    - use current parsed facts plus governed memory hints from `.auto-bean/memory/category_mappings.json`, `.auto-bean/memory/account_mappings.json`, `.auto-bean/memory/import_sources/index.json`, matching import-source memory, and other fixed memory files only when they directly apply
    - treat memory as advisory; confirm each reused category, account, transfer pattern, duplicate decision, naming convention, clarification outcome, or import-source behavior fits current evidence and current ledger context
@@ -82,7 +84,8 @@ Workflow:
    - reconciliation/deduplication findings with suggested actions
    - validation result
    - every persisted pending user question, with the exact question/reason and where it was recorded
-   - possible reusable learning for `$auto-bean-import` to consider via `$auto-bean-memory`
+   - `memory_suggestions`: every eligible reusable-learning candidate for `$auto-bean-import` to consider via `$auto-bean-memory`, or `[]` when none were found
+   - `memory_suggestion_files`: any `.auto-bean/tmp/memory-suggestions/*.json` files created because suggestions were too large for the response
 
 Guardrails:
 
