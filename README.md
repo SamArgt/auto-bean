@@ -8,6 +8,8 @@ Right now this repository gives you a supported first session for:
 - creating a separate runtime ledger workspace
 - validating `ledger.beancount`
 - inspecting that ledger in Fava
+- querying ledger balances, account activity, registers, and existing transactions through the read-only `auto-bean-query` skill
+- drafting and validating Beancount transaction entries through the focused `auto-bean-write` skill
 - normalizing supported statement files into inspectable parsed outputs through a workspace skill
 - creating or extending first-seen ledger account structure directly from imported statement evidence, then reviewing parsed statement facts, derived ledger edits, validation output, and the diff together before commit or push
 - turning reviewed normalized statement evidence into candidate Beancount postings through a separate apply workflow, with advisory reuse of repeated-import source context and the same commit-gated review boundary
@@ -55,6 +57,10 @@ On success, `auto-bean` creates a separate runtime Git repository with:
 - `.auto-bean/` for governed runtime artifacts and diagnostics
 - `.auto-bean/memory/import_sources/` for governed runtime memory that stores repeated-import source context
 - `.agents/skills/` for installed runtime skills
+  - `auto-bean-query` for read-only ledger analysis
+  - `auto-bean-write` for transaction drafting and validation
+  - `auto-bean-import` for statement normalization and evidence handoff
+  - `auto-bean-apply` for reviewed structural mutation orchestration and finalization
 - `AGENTS.md` for workspace operating guidance
 - a workspace-local `.venv` with `beancount`, `fava`, and `docling`
 - `scripts/validate-ledger.sh` and `scripts/open-fava.sh`
@@ -98,7 +104,19 @@ This is the supported inspection path today.
 
 Once you are in the generated workspace, treat Codex and the installed skills as the primary workflow surface.
 
-For trust-sensitive structural ledger changes, use the installed runtime skill under:
+For read-only ledger analysis, use:
+
+```text
+.agents/skills/auto-bean-query/
+```
+
+For transaction drafting, correction, and transaction-specific validation, use:
+
+```text
+.agents/skills/auto-bean-write/
+```
+
+For trust-sensitive structural ledger changes and finalization orchestration, use the installed runtime skill under:
 
 ```text
 .agents/skills/auto-bean-apply/
@@ -118,12 +136,16 @@ Use the installed runtime skill under:
 
 That workflow uses the workspace-local Docling CLI to normalize supported `PDF`, `CSV`, and Excel statement files from `statements/raw/` into inspectable JSON outputs under `statements/parsed/`, then, when the imported evidence is strong enough, extend ledger account structure directly in the workspace before presenting a single review surface that shows parsed statement facts, derived ledger edits, validation output, and the diff together.
 
+When import decisions require ledger analysis, `auto-bean-import` relies on `auto-bean-query` instead of manually approximating balances, activity, register rows, or transaction existence from file scans. When reviewed normalized evidence is ready to become transaction postings, `auto-bean-import` hands that evidence to `auto-bean-apply`; `auto-bean-apply` then relies on `auto-bean-query` for ledger reads and `auto-bean-write` for transaction drafting or correction.
+
 The durable boundaries for this workflow are:
 
 - `statements/raw/`: raw source statements
 - `statements/parsed/`: normalized parse outputs only
 - `statements/import-status.yml`: parse-state index for new, stale, blocked, failed, or parsed files
 - `.agents/skills/auto-bean-import/`: installed runtime skill for statement intake orchestration
+- `.agents/skills/auto-bean-query/`: installed foundation skill for read-only ledger analysis
+- `.agents/skills/auto-bean-write/`: installed foundation skill for transaction drafting and validation
 
 
 That review surface should make these distinctions obvious:
@@ -146,7 +168,8 @@ The boundaries that matter now are:
 - `statements/import-status.yml`: where parse-state tracking lives
 - `.auto-bean/`: governed runtime artifacts and workflow state
 - `.auto-bean/memory/import_sources/`: governed runtime memory for repeated-import source context
-- `.agents/skills/auto-bean-apply/`: installed skill for other reviewed structural edits and recovery-oriented workflows
+- `.agents/skills/auto-bean-query/`: installed foundation skill for read-only Beancount ledger analysis
+- `.agents/skills/auto-bean-write/`: installed foundation skill for transaction drafting, correction, and validation
 - `.agents/skills/auto-bean-import/`: installed skill for Docling-driven statement normalization, first-seen account mutation, and reviewed evidence handoff
 - `.agents/skills/auto-bean-apply/`: installed skill for turning reviewed evidence into candidate transaction postings or other reviewed structural mutations
 

@@ -11,6 +11,17 @@ Treat the installed skills under `.agents/skills/` as the execution surface for 
 Read these references before acting:
 
 
+## Foundation Skills
+
+Use the installed foundation skills for ledger-specific work:
+
+- `auto-bean-query`: read-only ledger analysis through Beancount and `bean-query`
+- `auto-bean-write`: transaction drafting, correction, validation, and transaction-specific clarification
+
+Workflow skills may orchestrate these foundation skills, but should not duplicate their procedures.
+Use `auto-bean-query` whenever a decision depends on balances, account activity, date-bounded totals, register rows, transaction existence, duplicate exploration, or other ledger reads.
+Use `auto-bean-write` whenever a workflow needs to add or correct Beancount transaction entries.
+
 ## Import Workflow
 
 Use one explicit two-step workflow for import-driven ledger changes:
@@ -18,11 +29,13 @@ Use one explicit two-step workflow for import-driven ledger changes:
 1. `auto-bean-import` skill
    - normalize raw statements into reviewed evidence under `statements/parsed/`
    - update `statements/import-status.yml` to `parsed` or `parsed_with_warnings`
+   - use `auto-bean-query` when import decisions require ledger analysis rather than structure inspection
    - create first-seen account structure only when the evidence is strong enough
    - prepare the evidence handoff for posting work
 2. `auto-bean-apply` skill
    - take already-reviewed evidence from `statements/parsed/`
-   - draft candidate ledger postings directly into the workspace
+   - use `auto-bean-query` for ledger reads needed during posting review and reconciliation
+   - use `auto-bean-write` to draft or correct candidate Beancount transaction postings directly in the workspace
    - run reconciliation checks for likely transfers, possible duplicates, unbalanced outcomes, currency risk, and possible future transfers
    - stop and ask the user a bounded clarification question when a risky interpretation remains ambiguous or unfamiliar
    - update `statements/import-status.yml` to `in_review` after writing import-derived Beancount transactions
@@ -32,7 +45,7 @@ Use one explicit two-step workflow for import-driven ledger changes:
 
 Do not blur those responsibilities.
 `auto-bean-import` prepares evidence.
-`auto-bean-apply` performs reviewed posting mutation.
+`auto-bean-apply` coordinates reviewed posting mutation, reconciliation decisions, status transitions, and finalization.
 
 Use only these workflow statuses in `statements/import-status.yml`:
 
@@ -91,10 +104,12 @@ If a committed mutation later needs to be undone, prefer reverting the recorded 
 - `.auto-bean/memory/import_sources/`: orchestrator-owned repeated-import source context
 - `.agents/skills/`: installed runtime skills
 
+
 ## Guardrails
 
 - Do not treat the product repo as the live ledger workspace.
 - Do not invent workflows, commands, or skills that are not present here.
+- Do not bypass `auto-bean-query` for ledger analysis or `auto-bean-write` for transaction writing when those narrower skills fit the task.
 - Do not describe a working-tree mutation as accepted before validation succeeds and the user approves finalization.
 - Do not make proposal artifacts mandatory for routine changes.
 - Do not describe committed rollback as ad hoc file replacement when git-backed revert is available.
