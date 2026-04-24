@@ -6,7 +6,7 @@ description: Normalize raw statement files into inspectable parsed outputs throu
 Read these references before acting:
 
 - `.agents/skills/shared/beancount-syntax-and-best-practices.md` when inferring Beancount account names, `open` directives, currency constraints, or other ledger syntax
-- `.agents/skills/shared/memory-access-rules.md` when a finalized import result reveals reusable memory
+- `.agents/skills/shared/memory-access-rules.md` before reading governed memory as advisory import context or when a finalized import result reveals reusable memory
 - `.agents/skills/auto-bean-import/references/parsed-statement-output.example.json`
 - `.agents/skills/auto-bean-import/references/import-status.example.yml`
 
@@ -32,7 +32,9 @@ Follow this workflow:
    - read `statements/import-status.yml`
    - scan `statements/raw/` for `.pdf`, `.csv`, `.xlsx`, `.xls`
    - compute a deterministic fingerprint such as `sha256`
-   - scan the first 30 lines of relevant governed memory files for source-context hints that match the current source identity, statement shape, or account structure. If a hint matches, read the whole file and keep it in mind as advisory guidance but not authority. Do not skip current-evidence checks, validation, or approval just because of memory hints.
+   - Read `.auto-bean/memory/import_sources/index.json` first when looking for reusable import-source behavior.
+   - Only read `.auto-bean/memory/import_sources/<source_slug>.json` when an index entry matches current source identity, institution, account hints, statement shape, or source fingerprint.
+   - Treat matched source memory as advisory guidance for parsing, source handling, and account-structure hints; fail closed if memory is missing, malformed, too broad, stale, or conflicts with current evidence.
 4. Parse with the local Docling CLI:
    - call `./.venv/bin/docling` directly on the assigned source
    - request JSON output into a unique temp path under `.auto-bean/tmp/`
@@ -62,6 +64,7 @@ Follow this workflow:
    - classify each inferred account as `existing_account`, `first_seen_candidate`, or `blocked_inference`
    - consider only banking, credit card, loans, cash, and investment account types for first-seen structure inference; do not infer structure for expenses account types or others that are more mutable and less likely to have strong identity evidence.
    - infer Beancount-safe account names and minimal supporting directives only when institution, account identity, type hints, and currency provide strong evidence
+   - current parsed statement evidence and current ledger state remain authoritative; memory may supply hints, not authority, for source-specific naming or account-structure suggestions.
    - fail closed when the top-level branch, mutation target, or duplicate risk is unclear
 8. Use `auto-bean-query` when import needs ledger analysis instead of structure inspection:
    - hand off to `$auto-bean-query` before answering questions about balances, historical account activity, date-bounded totals, register rows, transaction existence, or whether imported evidence matches already-posted ledger activity.
@@ -82,6 +85,7 @@ Follow this workflow:
 11. Present one review surface before finalization:
    - separate parsed statement facts from inferred ledger edits
    - include any `$auto-bean-query` command, final BQL query, result caveats, and interpretation when ledger analysis was required
+   - include a `Memory reuse attribution` section whenever governed memory influenced parsing, source handling, or account-structure suggestions. For each influence, list memory path, `memory_type`, record identity or stable summary, matched current evidence, decision influenced, and limits on reuse.
    - summarize changed files, inferred accounts, warnings, blocked inferences, and validation outcome
    - show a git-backed diff for changed files
    - state that commit/push remains the final approval boundary

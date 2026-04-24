@@ -5,7 +5,7 @@ description: Review and finalize structural ledger or workspace changes through 
 
 Read these references before acting:
 
-- `.agents/skills/shared/memory-access-rules.md` when a finalized apply result reveals reusable memory
+- `.agents/skills/shared/memory-access-rules.md` before reading governed memory as advisory apply context or when a finalized apply result reveals reusable memory
 - `.agents/skills/auto-bean-apply/references/reconciliation-findings.md` when import-derived postings need transfer, duplicate, or balancing review
 - `.agents/skills/auto-bean-apply/references/clarification-guidance.md` when import-derived postings remain ambiguous, unfamiliar, or blocked on user clarification
 
@@ -16,12 +16,12 @@ Follow this workflow:
    - Use `$auto-bean-query` for read-only ledger analysis, account discovery, register inspection, balance checks, date-bounded activity, duplicate exploration, or any other question that should be answered from `ledger.beancount` and included `beancount/**` files without mutation.
    - Use `$auto-bean-write` when the workflow needs to add or correct Beancount transaction entries, choose postings, respect account constraints, validate transaction syntax, or pause for transaction-specific clarification.
    - Keep this skill responsible for applying the broader workspace workflow around those ledger operations: import-status transitions, reconciliation findings, clarification checkpoint tracking, review packaging, finding decisions, and finalization approval.
-3. If the request is import-derived transaction posting, inspect the reviewed `statements/parsed/*.json` inputs and any bounded governed memory hints before invoking the write workflow.
+3. If the request is import-derived transaction posting, inspect the reviewed `statements/parsed/*.json` inputs and bounded governed memory hints before invoking `$auto-bean-write`.
 4. Categorize each import-derived transaction before drafting ledger entries.
    - Use current parsed statement evidence plus governed memory hints from `.auto-bean/memory/category_mappings.json`, `.auto-bean/memory/account_mappings.json`, `.auto-bean/memory/import_sources/index.json`, the matching import-source memory file when one exists, and other relevant fixed memory files only when they directly apply.
-   - Treat memory as advisory. Confirm that each reused category, account, transfer pattern, duplicate decision, or naming convention fits the current transaction evidence and current ledger context.
+   - Treat memory as advisory. Confirm that each reused category, account, transfer pattern, duplicate decision, naming convention, clarification outcome, or import-source behavior fits the current transaction evidence and current ledger context before invoking `$auto-bean-write`.
    - If governed memory gives a confident match, record the matched memory record, the transaction facts it matched, and the resulting category/account suggestion for `$auto-bean-write`.
-   - If no reliable memory is available, make clear evidence-based suggestions instead of staying vague: list the most likely category or account, the supporting statement facts and ledger conventions, confidence level, and any alternative that remains plausible.
+   - If no reliable memory matches, make clear evidence-based suggestions instead of staying vague: list the most likely category or account, the supporting statement facts and ledger conventions, confidence level, and any alternative that remains plausible.
    - Stop for clarification when categorization materially affects the posting and the evidence does not support one safe choice.
 5. Inspect the affected workspace files and summarize:
    - what changed
@@ -69,6 +69,7 @@ Follow this workflow:
    - the affected files
    - parsed statement facts when the change came from import evidence
    - categorization results, including reused governed memory matches or clear suggestions made because no reliable memory was available
+   - a `Memory attribution` section whenever governed memory changed a category, posting account suggestion, payee or narration normalization, transfer finding, duplicate finding, or clarification shortcut. For each influence, list memory path, `memory_type`, record identity or stable summary, matched current evidence, decision influenced, and limits on reuse.
    - the `statements/import-status.yml` update when import-derived transactions were written
    - reused governed memory hints when they influenced posting generation
    - drafted ledger edits

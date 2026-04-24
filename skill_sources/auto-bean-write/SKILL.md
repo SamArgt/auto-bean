@@ -6,7 +6,7 @@ description: Draft, review, and safely write Beancount transactions into the led
 Read these references before acting:
 
 - `.agents/skills/shared/beancount-syntax-and-best-practices.md`
-- `.agents/skills/shared/memory-access-rules.md` when an approved transaction-writing result reveals reusable memory, so any persistence is handed to `$auto-bean-memory`
+- `.agents/skills/shared/memory-access-rules.md` when transaction evidence includes memory-derived suggestions or when an approved transaction-writing result reveals reusable memory, so any persistence is handed to `$auto-bean-memory`
 
 Follow this workflow:
 
@@ -20,6 +20,8 @@ Follow this workflow:
    - an existing ledger correction request
    - explicit user-provided transaction facts
    - another bounded workspace artifact with concrete transaction details
+   - memory-derived suggestions handed off by `$auto-bean-apply`, with current evidence and attribution already attached
+   - this skill verifies ledger context and does not independently treat governed memory as authority
 4. Fail closed if the evidence does not establish the core transaction facts:
    - date
    - payee or narration shape when materially needed by the ledger style

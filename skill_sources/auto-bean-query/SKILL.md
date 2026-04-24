@@ -9,7 +9,7 @@ Read these references before acting:
 
 - `.agents/skills/auto-bean-query/references/bean-query-patterns.md`
 - `.agents/skills/shared/beancount-syntax-and-best-practices.md` when account hierarchy, directive names, currency restrictions, or other ledger semantics matter for interpreting results
-- `.agents/skills/shared/memory-access-rules.md` when query results might inform reusable memory, so any persistence is handed to `$auto-bean-memory`
+- `.agents/skills/shared/memory-access-rules.md` when query results might inform reusable memory or may help verify advisory memory reuse against ledger facts, so any persistence is handed to `$auto-bean-memory`
 
 Follow this workflow:
 
