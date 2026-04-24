@@ -1,5 +1,5 @@
 # generated: 2026-03-31 08:46:40 CEST
-# last_updated: 2026-04-24 15:26:41 CEST
+# last_updated: 2026-04-24 15:37:17 CEST
 # project: auto-bean
 # project_key: NOKEY
 # tracking_system: file-system
@@ -35,7 +35,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2026-03-31 08:46:40 CEST
-last_updated: 2026-04-24 15:26:41 CEST
+last_updated: 2026-04-24 15:37:17 CEST
 project: auto-bean
 project_key: NOKEY
 tracking_system: file-system
@@ -66,7 +66,7 @@ development_status:
   4-1-persist-governed-memory-for-mappings-categorization-naming-and-import-behavior: review
   4-2-reuse-learned-memory-in-future-import-and-reconciliation-workflows: review
   4-3-inspect-stored-memory-that-influences-future-behavior: review
-  4-4-correct-or-refine-learned-memory-through-an-explicit-workflow: backlog
+  4-4-correct-or-refine-learned-memory-through-an-explicit-workflow: review
   4-5-tune-workflow-behavior-over-time-through-supervised-feedback: backlog
   epic-4-retrospective: optional
   epic-5: backlog

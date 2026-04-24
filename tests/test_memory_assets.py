@@ -94,7 +94,12 @@ def test_non_memory_skills_do_not_claim_direct_memory_write_authority() -> None:
         "write only under `.auto-bean/memory",
     )
 
-    for skill_name in ("auto-bean-import", "auto-bean-apply", "auto-bean-query"):
+    for skill_name in (
+        "auto-bean-import",
+        "auto-bean-apply",
+        "auto-bean-query",
+        "auto-bean-write",
+    ):
         text = (root / "skill_sources" / skill_name / "SKILL.md").read_text(
             encoding="utf-8"
         )
@@ -159,6 +164,112 @@ def test_memory_skill_teaches_exact_file_destinations() -> None:
 
     assert "memory service" not in text
     assert "Python" not in text
+
+
+def test_memory_skill_defines_separate_correction_workflow() -> None:
+    root = Path(__file__).resolve().parents[1]
+    text = (root / "skill_sources" / "auto-bean-memory" / "SKILL.md").read_text(
+        encoding="utf-8"
+    )
+
+    assert "## Explicit correction, refinement, and removal workflow" in text
+    assert (
+        "Keep this path separate from read-only inspection and governed persistence"
+        in text
+    )
+    assert (
+        "read `.agents/skills/shared/memory-access-rules.md` before touching runtime memory"
+        in text
+    )
+    assert "memory path plus" in text
+    assert "stable record summary" in text
+    assert "previous inspection output" in text
+
+
+def test_memory_skill_correction_covers_fixed_categories_and_import_sources() -> None:
+    root = Path(__file__).resolve().parents[1]
+    text = (root / "skill_sources" / "auto-bean-memory" / "SKILL.md").read_text(
+        encoding="utf-8"
+    )
+
+    correction_section = text.split(
+        "## Explicit correction, refinement, and removal workflow", maxsplit=1
+    )[1]
+    for relative_path in (
+        "account_mappings.json",
+        "category_mappings.json",
+        "naming_conventions.json",
+        "transfer_detection.json",
+        "deduplication_decisions.json",
+        "clarification_outcomes.json",
+        "import_sources/<source_slug>.json",
+    ):
+        assert relative_path in correction_section
+
+    assert (
+        "read and validate `.auto-bean/memory/import_sources/index.json` first" in text
+    )
+    assert "only edit source files referenced by valid index entries" in text
+    assert (
+        "If an import-source file loses all records, keep the empty source file" in text
+    )
+    assert "keep its index entry" in text
+
+
+def test_memory_skill_correction_fails_closed_before_rewrite() -> None:
+    root = Path(__file__).resolve().parents[1]
+    text = (root / "skill_sources" / "auto-bean-memory" / "SKILL.md").read_text(
+        encoding="utf-8"
+    )
+
+    for required in (
+        "missing files",
+        "invalid JSON",
+        "wrong `schema_version`",
+        "wrong `memory_type`",
+        "missing top-level `records` or `sources`",
+        "missing required record fields",
+        "path escapes",
+        "duplicate target matches",
+        "exactly one record",
+        "two-space indentation and a trailing newline",
+    ):
+        assert required in text
+
+    for field in (
+        "`schema_version`",
+        "`memory_type`",
+        "`source`",
+        "`decision`",
+        "`scope`",
+        "`confidence` or `review_state`",
+        "`created_at`",
+        "`updated_at`",
+        "`audit`",
+    ):
+        assert field in text
+
+
+def test_memory_skill_correction_output_is_reviewable_without_raw_data() -> None:
+    root = Path(__file__).resolve().parents[1]
+    text = (root / "skill_sources" / "auto-bean-memory" / "SKILL.md").read_text(
+        encoding="utf-8"
+    )
+
+    for required in (
+        "before/after",
+        "memory path",
+        "target record summary",
+        "source context",
+        "audit context",
+        "future reuse limits",
+        "controlled memory change",
+        "Story 4.3 inspection path",
+        "raw financial statements",
+        "full ledger excerpts",
+        "unrelated records",
+    ):
+        assert required in text
 
 
 def test_memory_skill_routes_each_category_to_relevant_reference() -> None:

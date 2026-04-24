@@ -6,6 +6,8 @@ Durable auto-bean memory lives under `.auto-bean/memory/` in the user workspace.
 
 Only the governed memory workflow may modify `.auto-bean/memory/**`. Other skills may identify eligible reusable decisions and request persistence, but they must not own direct memory writes.
 
+Explicit correction, refinement, and removal are durable memory writes. They must run through `$auto-bean-memory`, identify exactly one target record by governed memory path plus stable record summary, source context, or previous inspection output, and preserve unrelated memory.
+
 Eligible memory categories:
 
 - `account_mapping`
@@ -32,6 +34,8 @@ Use these fixed files for MVP memory:
 Read `.auto-bean/memory/import_sources/index.json` before reading or writing import-source behavior. The index points to the one memory file for each known statement source.
 
 Persist only approved reusable decisions. Do not persist tentative guesses, blocked findings, rejected interpretations, validation-failed outcomes, or unresolved clarifications unless the user explicitly approves storing that learning.
+
+Reject correction requests that target missing, malformed, schema-incompatible, path-unsafe, ambiguous, or unlisted import-source memory. For import-source behavior, validate `.auto-bean/memory/import_sources/index.json` before reading or editing any source file, and edit only valid index entries under `.auto-bean/memory/import_sources/`.
 
 ## Advisory memory reads
 
