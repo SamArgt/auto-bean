@@ -1,0 +1,7 @@
+interface:
+  display_name: "Query Ledger"
+  short_description: "Inspect Beancount ledgers with bean-query"
+  default_prompt: "Use $auto-bean-query to inspect a Beancount ledger with bean-query, translate my question into a safe BQL query, run it, and explain the results or blockers clearly."
+
+policy:
+  allow_implicit_invocation: true

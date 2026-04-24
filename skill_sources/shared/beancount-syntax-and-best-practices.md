@@ -57,6 +57,8 @@ YYYY-MM-DD custom "import_marker" Assets:Checking "statement-2026-01"
 - If the missing piece is account identity, transfer intent, duplicate suspicion, or source-specific meaning, stop for clarification instead of relying on interpolation or a guessed counterposting.
 - Only emit costs or prices when the source evidence clearly supports them.
 - When import-derived postings resemble transfers or duplicates, surface the evidence for review instead of silently netting or deleting entries.
+- Preserve the ledger's established metadata keys, quoting style, and posting order.
+- Compare against nearby ledger entries before finalizing so likely duplicates or transfers are surfaced instead of silently absorbed.
 
 ## Account naming
 
@@ -88,4 +90,5 @@ plugin "beancount.plugins.currency_accounts" "Equity:CurrencyAccounts"
 - Respect the current include graph instead of reshuffling files.
 - Inspect existing `open` directives before posting into an account.
 - If a posting would violate declared account currencies, stop or add the minimum justified supporting directive.
+- Reuse the existing file placement pattern for similar transactions instead of moving entries between files without a strong reason.
 - Keep edits narrow, validate after every mutation, and present diffs instead of guessing through uncertainty.
