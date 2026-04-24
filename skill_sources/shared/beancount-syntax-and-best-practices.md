@@ -54,7 +54,7 @@ YYYY-MM-DD custom "import_marker" Assets:Checking "statement-2026-01"
 - Postings may include units, lot cost `{...}`, price `@ ...`, metadata, and an optional posting flag.
 - Prefer explicit balancing amounts even though Beancount can infer one missing amount.
 - Leave at most one posting amount omitted, and only when the intended balance is unambiguous.
-- If the missing piece is account identity, transfer intent, duplicate suspicion, or source-specific meaning, stop for clarification instead of relying on interpolation or a guessed counterposting.
+- If the missing piece is account identity, transfer intent, duplicate suspicion, or source-specific meaning, ask a bounded clarification question, wait for the user answer, and resume instead of relying on interpolation or a guessed counterposting.
 - Only emit costs or prices when the source evidence clearly supports them.
 - When import-derived postings resemble transfers or duplicates, surface the evidence for review instead of silently netting or deleting entries.
 - Preserve the ledger's established metadata keys, quoting style, and posting order.
@@ -89,6 +89,6 @@ plugin "beancount.plugins.currency_accounts" "Equity:CurrencyAccounts"
 - Do not add or rewrite root account-name options unless the user explicitly wants a ledger-wide rename.
 - Respect the current include graph instead of reshuffling files.
 - Inspect existing `open` directives before posting into an account.
-- If a posting would violate declared account currencies, stop or add the minimum justified supporting directive.
+- If a posting would violate declared account currencies, ask and wait when intent is unclear, or add the minimum justified supporting directive when evidence is strong.
 - Reuse the existing file placement pattern for similar transactions instead of moving entries between files without a strong reason.
 - Keep edits narrow, validate after every mutation, and present diffs instead of guessing through uncertainty.

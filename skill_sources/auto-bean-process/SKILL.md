@@ -61,7 +61,7 @@ Workflow:
    - do not infer mutable categories such as expense accounts
    - infer Beancount-safe account names and minimal supporting directives only when institution, account identity, type hints, and currency provide strong evidence
    - current parsed statement evidence and current ledger state remain authoritative; memory may provide hints, not authority
-   - fail closed when top-level branch, account identity, currency, duplicate risk, mutation target, or syntax is unclear
+   - when top-level branch, account identity, currency, duplicate risk, mutation target, or syntax is unclear, request one bounded user question, wait for the answer, then resume this same raw statement with the answer in context
 7. Apply only bounded account-structure mutations:
    - mutate only account-opening structure and minimal supporting directives such as missing operating currencies
    - prefer `beancount/accounts.beancount`; explain any fallback target in the worker result
@@ -76,7 +76,7 @@ Workflow:
    - account classification and account-structure edits, if any
    - warnings, blockers, and validation result
    - memory reuse attribution if governed memory influenced parsing, source handling, or account-structure hints
-   - whether user input is required, with the exact question/reason
+   - whether user input was requested or is still required, with the exact question/reason
    - possible reusable learning, without writing memory
 
 Guardrails:

@@ -29,6 +29,12 @@ Workflow statuses in `statements/import-status.yml`:
 
 Only mark a statement `done` after user approval of the final import result.
 
+## User Input
+
+When any skill needs user input, ask a bounded question with the appropriate user-input tool or conversation channel, then wait for the answer before proceeding.
+
+After the user answers, resume the same statement, artifact, transaction, or memory operation with that answer in context. Do not treat clarification as a terminal blocked state unless the answer remains insufficient after a bounded follow-up.
+
 ## Memory
 
 Read `.agents/skills/shared/memory-access-rules.md` before relying on or requesting durable memory persistence.

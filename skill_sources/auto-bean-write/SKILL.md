@@ -1,6 +1,6 @@
 ---
 name: auto-bean-write
-description: Draft, review, and safely write Beancount transactions into the ledger from trusted evidence. Use when a Coding agent needs to add or update transaction entries in `ledger.beancount` or included `beancount/**` files, choose accounts and postings, respect Beancount balancing and account currency constraints, or pause for clarification when transaction intent is ambiguous.
+description: Draft, review, and safely write Beancount transactions into the ledger from trusted evidence. Use when a Coding agent needs to add or update transaction entries in `ledger.beancount` or included `beancount/**` files, choose accounts and postings, respect Beancount balancing and account currency constraints, or ask and wait for clarification when transaction intent is ambiguous.
 ---
 
 Read these references before acting:
@@ -22,7 +22,7 @@ Follow this workflow:
    - another bounded workspace artifact with concrete transaction details
    - memory-derived suggestions handed off by `$auto-bean-apply`, with current evidence and attribution already attached
    - this skill verifies ledger context and does not independently treat governed memory as authority
-4. Fail closed if the evidence does not establish the core transaction facts:
+4. If the evidence does not establish the core transaction facts, ask a bounded clarification question, wait for the answer, then resume drafting with that answer in context:
    - date
    - payee or narration shape when materially needed by the ledger style
    - posting accounts
@@ -46,15 +46,16 @@ Follow this workflow:
 8. Run transaction-specific review checks on the drafted result:
    - compare against nearby ledger entries for likely duplicates
    - inspect same-date and same-amount activity for possible transfers
-   - verify each posting account is already open for the relevant currency, or stop and ask before introducing supporting directives
+   - verify each posting account is already open for the relevant currency, or ask and wait before introducing supporting directives
    - check that no posting silently changes the economic meaning of the evidence
-9. Ask a bounded clarification question instead of guessing whenever the evidence leaves any material ambiguity:
+9. Ask a bounded clarification question instead of guessing whenever the evidence leaves any material ambiguity. Wait for the user answer, then resume the same transaction-writing task rather than returning a terminal blocked state:
    - account identity
    - transfer versus expense or income interpretation
    - duplicate suspicion
    - missing currency
    - missing counterposting
    - unclear payee, narration, or metadata needed to match ledger conventions
+   - if the answer is still ambiguous, ask one bounded follow-up and wait again before proceeding or reporting the remaining blocker to the calling skill
 10. Validate after drafting the mutation.
     - prefer `./scripts/validate-ledger.sh`
     - otherwise use `./.venv/bin/bean-check ledger.beancount`

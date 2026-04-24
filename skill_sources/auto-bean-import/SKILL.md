@@ -23,8 +23,10 @@ Workflow:
    - require each `$auto-bean-apply` sub-agent to report ledger edits, status changes, reconciliation findings, validation results, blockers, reusable-learning candidates, and whether user input is needed
    - keep statements that need clarification, repair, or manual source handling out of apply work until resolved
 4. Surface user input:
-   - stop and ask the user a bounded question when any sub-agent or downstream skill reports missing information, risky ambiguity, validation failure, unresolved reconciliation finding, or manual extraction need
+   - when any sub-agent or downstream skill reports missing information, risky ambiguity, unresolved reconciliation finding, or manual extraction need, ask the user a bounded question and wait for the answer instead of treating the workflow as finished or blocked
+   - use the appropriate user-input tool or conversation channel; do not force clarification through a specific skill unless that skill owns the work being clarified
    - include the affected statement path, why input is needed, and the smallest useful set of choices or requested facts
+   - after the user answers, restart the same processing or apply stage for the affected statement/artifact with the answer included in the assignment context
 5. Review and close:
    - consolidate sub-agent results, downstream apply results, validation outcome, and `git diff`
    - keep parsed facts, ledger edits, warnings, blockers, and required user decisions separate
