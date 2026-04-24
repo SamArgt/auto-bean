@@ -1,7 +1,7 @@
 interface:
   display_name: "Govern Memory"
-  short_description: "Persist approved reusable ledger workflow decisions"
-  default_prompt: "Use $auto-bean-memory to validate and persist an approved reusable workflow decision under governed local memory."
+  short_description: "Inspect memory read-only or persist approved reusable ledger decisions"
+  default_prompt: "Use $auto-bean-memory to inspect governed local memory read-only, or validate and persist an approved reusable workflow decision under governed local memory."
 
 policy:
   allow_implicit_invocation: true
