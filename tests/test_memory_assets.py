@@ -449,35 +449,65 @@ def test_memory_skill_teaches_exact_file_destinations() -> None:
     assert "Python" not in text
 
 
-def test_memory_skill_defines_separate_correction_workflow() -> None:
+def test_shared_memory_rules_teach_jq_for_large_memory_files() -> None:
+    root = Path(__file__).resolve().parents[1]
+    text = (root / "skill_sources" / "shared" / "memory-access-rules.md").read_text(
+        encoding="utf-8"
+    )
+
+    for required in (
+        "Prefer `jq` for memory inspection",
+        "especially when files are large",
+        "Query only the fields needed",
+        "jq '{memory_type, count:",
+        "jq -r '.records[] |",
+        'contains("merchant name")',
+        "jq -r '.sources[] |",
+        "jq empty .auto-bean/memory/category_mappings.json",
+        '.memory_type == "category_mapping"',
+    ):
+        assert required in text
+
+
+def test_memory_skill_gives_generic_management_guidance() -> None:
     root = Path(__file__).resolve().parents[1]
     text = (root / "skill_sources" / "auto-bean-memory" / "SKILL.md").read_text(
         encoding="utf-8"
     )
 
-    assert "## Explicit correction, refinement, and removal workflow" in text
-    assert (
-        "Keep this path separate from read-only inspection and governed persistence"
-        in text
-    )
-    assert (
-        "read `.agents/skills/shared/memory-access-rules.md` before touching runtime memory"
-        in text
-    )
-    assert "memory path plus" in text
-    assert "stable record summary" in text
-    assert "previous inspection output" in text
+    assert "## Managing memory" in text
+    assert "Memory is durable advisory context" in text
+    assert "Use judgment to decide whether the task is an inspection" in text
+    assert "Good memory records are:" in text
+    assert "Avoid storing:" in text
+    assert "When correcting, pruning, or reorganizing memory" in text
+    assert "ask for clarification before changing durable memory" in text
+    assert "## Explicit correction, refinement, and removal workflow" not in text
+    assert "read-only inspection workflow" not in text
 
 
-def test_memory_skill_correction_covers_fixed_categories_and_import_sources() -> None:
+def test_memory_skill_correction_guidance_is_not_overprescriptive() -> None:
     root = Path(__file__).resolve().parents[1]
     text = (root / "skill_sources" / "auto-bean-memory" / "SKILL.md").read_text(
         encoding="utf-8"
     )
 
-    correction_section = text.split(
-        "## Explicit correction, refinement, and removal workflow", maxsplit=1
-    )[1]
+    assert "path, source context, stable summary, or prior inspection output" in text
+    assert "stable summary" in text
+    assert "preserve unrelated records" in text
+    assert "If several records could match" in text
+    assert "duplicate target matches" not in text
+    assert "zero target matches" not in text
+    assert "Story 4.3 inspection path" not in text
+
+
+def test_memory_skill_management_covers_fixed_categories_and_import_sources() -> None:
+    root = Path(__file__).resolve().parents[1]
+    text = (root / "skill_sources" / "auto-bean-memory" / "SKILL.md").read_text(
+        encoding="utf-8"
+    )
+
+    persistence_section = text.split("## Governed persistence", maxsplit=1)[1]
     for relative_path in (
         "account_mappings.json",
         "category_mappings.json",
@@ -487,34 +517,26 @@ def test_memory_skill_correction_covers_fixed_categories_and_import_sources() ->
         "clarification_outcomes.json",
         "import_sources/<source_slug>.json",
     ):
-        assert relative_path in correction_section
+        assert relative_path in persistence_section
 
-    assert (
-        "read and validate `.auto-bean/memory/import_sources/index.json` first" in text
-    )
-    assert "only edit source files referenced by valid index entries" in text
-    assert (
-        "If an import-source file loses all records, keep the empty source file" in text
-    )
-    assert "keep its index entry" in text
+    assert "read `.auto-bean/memory/import_sources/index.json` first" in text
+    assert "Use an existing indexed source file" in text
+    assert "create a deterministic `<source_slug>.json`" in text
+    assert "update the index only when there is no matching source" in text
 
 
-def test_memory_skill_correction_fails_closed_before_rewrite() -> None:
+def test_memory_skill_persistence_keeps_core_validation() -> None:
     root = Path(__file__).resolve().parents[1]
     text = (root / "skill_sources" / "auto-bean-memory" / "SKILL.md").read_text(
         encoding="utf-8"
     )
 
     for required in (
-        "missing files",
-        "invalid JSON",
-        "wrong `schema_version`",
-        "wrong `memory_type`",
-        "missing top-level `records` or `sources`",
-        "missing required record fields",
-        "path escapes",
-        "duplicate target matches",
-        "exactly one record",
+        "JSON parses",
+        "`schema_version` is `1`",
+        "`memory_type` matches the destination",
+        "required record fields are present",
+        "paths stay inside `.auto-bean/memory/`",
         "two-space indentation and a trailing newline",
     ):
         assert required in text
@@ -533,21 +555,20 @@ def test_memory_skill_correction_fails_closed_before_rewrite() -> None:
         assert field in text
 
 
-def test_memory_skill_correction_output_is_reviewable_without_raw_data() -> None:
+def test_memory_skill_output_is_reviewable_without_raw_data() -> None:
     root = Path(__file__).resolve().parents[1]
     text = (root / "skill_sources" / "auto-bean-memory" / "SKILL.md").read_text(
         encoding="utf-8"
     )
 
     for required in (
-        "before/after",
         "memory path",
-        "target record summary",
+        "decision summary",
         "source context",
         "audit context",
-        "future reuse limits",
-        "controlled memory change",
-        "Story 4.3 inspection path",
+        "known reuse limits",
+        "concise review summary",
+        "limits on future reuse",
         "raw financial statements",
         "full ledger excerpts",
         "unrelated records",
@@ -561,7 +582,7 @@ def test_memory_skill_routes_each_category_to_relevant_reference() -> None:
         encoding="utf-8"
     )
 
-    assert "Read only the reference for the chosen category" in text
+    assert "read only that example reference" in text
     for memory_type, reference in memory_reference_map().items():
         assert f"`{memory_type}`" in text
         assert f".agents/skills/auto-bean-memory/{reference}" in text
