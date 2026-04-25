@@ -1,7 +1,7 @@
 interface:
   display_name: "Import Statements"
   short_description: "Run the full statement import workflow"
-  default_prompt: "Use $auto-bean-import to inspect raw statements and import status, maintain one statement-scoped decision artifact per raw statement under .auto-bean/artifacts/import/ with matching process/categorize/import filename prefixes, process only new or stale inputs, resolve parsed_with_warning process artifacts into account_inspection, derive first-seen accounts, mark ready_for_categorization, delegate ready_for_categorization work to $auto-bean-categorize, review ready_for_review artifacts and ask the user for needed input, mark ready_to_write, post transactions with $auto-bean-write, validate into final_review, mark done only after user approval, and own any import-derived commit or push approval."
+  default_prompt: "Use $auto-bean-import to inspect raw statements, import status, and matching import-source behavior memory, maintain one statement-scoped decision artifact per raw statement under .auto-bean/artifacts/import/ with matching process/categorize/import filename prefixes, process only new or stale inputs, resolve parsed_with_warning process artifacts into account_inspection, derive first-seen accounts using memory only as checked advisory context, mark ready_for_categorization, delegate ready_for_categorization work to $auto-bean-categorize, review ready_for_review artifacts and ask the user for needed input, mark ready_to_write, post transactions with $auto-bean-write, validate into final_review, mark done only after user approval, and own any import-derived commit or push approval."
 
 policy:
   allow_implicit_invocation: true

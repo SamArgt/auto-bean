@@ -31,6 +31,7 @@ Record these sections before the workflow can be considered ready for final revi
 - `## Artifact References`: source path, parsed artifact path, process artifact path, categorize artifact path, write/validation references, and any memory handoff references
 - `## Questions`: unresolved and answered process, first-seen-account, categorize, and write-stage questions with stable ids, answers, owning stage, source artifact paths, and resolution notes
 - `## First-Seen Account Decisions`: proposed, approved, rejected, or written account-opening decisions with target files, evidence references, validation references, and user approval context
+- `## Memory Attribution`: governed memory records considered or used by `$auto-bean-import`, including `import_source_behavior` hints used for processing handoff or first-seen account inspection, current-evidence checks, and rejection reasons for skipped memory
 - `## Posting Decisions`: transaction-writing inputs or decisions handed to `$auto-bean-write`, write result references, validation references, and user approval context
 - `## Memory Candidates`: reusable-learning candidates summarized from worker returns or user-approved import decisions, with provenance, originating artifact path, source statement, user approval state, eligibility, and deduplication status
 - `## Ignored Or Rejected Inputs`: path-unsafe artifacts, stale files, invalid suggestions, unresolved blockers, or memory candidates rejected from governed handoff
@@ -39,10 +40,11 @@ Do not include workflow counts, current status, highest status reached, retry co
 
 ## Ownership Boundaries
 
-- For `$auto-bean-process`, record only parsed output paths, process question artifact paths, warning or blocker summaries that require an import-owned decision, and import-brokered answers. Do not copy parse status, retry/manual-resolution metadata, full parsed payloads, redo normalization, or reinterpret raw statement evidence in this artifact.
+- For `$auto-bean-process`, record only parsed output paths, process artifact paths, warning or blocker summaries that require an import-owned decision, processing-related memory suggestion summaries, and import-brokered answers. Do not copy parse status, retry/manual-resolution metadata, full parsed payloads, redo normalization, or reinterpret raw statement evidence in this artifact.
 - For `$auto-bean-categorize`, record only categorize artifact paths, finding summaries that require an import-owned decision, unresolved or answered question ids, memory-suggestion provenance, and import-brokered answers. Do not copy categorization status, posting-readiness state, the full categorization analysis, rewrite reconciliation or deduplication findings, or make category decisions that belong to `$auto-bean-categorize`.
 - If the human-readable import summary needs detail from a worker-owned artifact, link to that artifact and summarize only the import decision or blocker that affects orchestration.
 - Import-owned first-seen account decisions, write handoffs, user approval decisions, and governed memory handoff decisions may be recorded in detail because those belong to `$auto-bean-import`.
+- For `import_source_behavior` memory, record only the memory path, stable summary, matched current evidence, decision influenced, and limits on reuse. Do not copy entire memory files into the import artifact.
 
 ## Update Rules
 

@@ -4,7 +4,9 @@ Index destination: `.auto-bean/memory/import_sources/index.json`
 
 Source destination: `.auto-bean/memory/import_sources/<source_slug>.json`
 
-Use this memory type when an approved workflow learns source-specific statement behavior: file naming, parser hints, column semantics, account identity hints, statement-shape quirks, or reusable import handling rules.
+Use this memory type when an approved workflow learns source-specific statement behavior that is useful for processing future statements: file naming, parser hints, column semantics, account identity hints, statement-shape quirks, or reusable import handling rules.
+
+The records should contain practical information that helps `$auto-bean-process` recognize the source and normalize raw evidence without replacing current evidence. Keep processing guidance concrete: expected format, stable headers or sections, date/amount semantics, source identity checks, parser warnings that are safe to expect, and conditions that should block reuse.
 
 Read the index before reading or writing a source file.
 

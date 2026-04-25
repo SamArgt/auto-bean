@@ -10,6 +10,7 @@ Read before acting:
 - `.agents/skills/shared/import-status.example.yml`
 - `.agents/skills/auto-bean-import/references/import-artifact-contract.md`
 - `.agents/skills/shared/question-handling-contract.md` before surfacing or resuming process, categorize, first-seen-account, or write-stage questions
+- `.agents/skills/shared/memory-access-rules.md` before using governed memory hints, especially `import_source_behavior` memory under `.auto-bean/memory/import_sources/`
 
 Workflow:
 
@@ -18,19 +19,21 @@ Workflow:
    - create or refresh one import-owned Markdown artifact per raw statement under `.auto-bean/artifacts/import/` according to the shared import artifact contract
    - use the same deterministic raw-statement filename prefix for that statement's process, categorize, and import artifacts
    - fingerprint supported raw files: `.pdf`, `.csv`, `.xlsx`, `.xls`
+   - inspect `.auto-bean/memory/import_sources/index.json` and select only narrow matching `import_source_behavior` records by source identity, institution, account hints, statement shape, filename pattern, or fingerprint
+   - keep matched import-source memory advisory and statement-scoped; record reuse attribution in the import-owned artifact when it influences processing handoff, first-seen account inspection, or memory handoff
    - send raw files to `$auto-bean-process` only when they have no current parsed output, missing status, changed fingerprint, eligible `ready` status, or an explicit user reprocess request
    - treat `ready` as eligible for automatic processing only when `manual_resolution_required` is not true and `process_attempts` is below 2 for the current fingerprint
-   - when a current-fingerprint `ready` entry has `process_attempts` of 2 or more, keep it out of automatic processing, preserve the last failure reason and process question artifact, and surface the manual-resolution requirement to the user
+   - when a current-fingerprint `ready` entry has `process_attempts` of 2 or more, keep it out of automatic processing, preserve the last failure reason and process artifact, and surface the manual-resolution requirement to the user
    - allow an explicit user reprocess request to retry a manually held `ready` entry; record the new attempt and reason instead of clearing prior retry history silently
    - continue orchestration for existing entries at `parsed`, `parsed_with_warning`, `account_inspection`, `ready_for_categorization`, `ready_for_review`, `ready_to_write`, or `final_review`
    - skip entries already current at `done` unless the user explicitly requests rework
 2. Use sub-agents in parallel for statement work:
    - Spawn in parallel one sub-agent per statement
-   - give each sub-agent the source path, current status entry including retry metadata, expected parsed-output path or naming rule, the shared raw-statement artifact prefix, and the instruction to use `$auto-bean-process`
-   - require sub-agents to follow the shared question-handling contract and to report parsed output paths, status changes, warnings, blockers, process question artifacts under `.auto-bean/artifacts/process/` using the shared prefix, and structured `memory_suggestions`
+   - give each sub-agent the source path, current status entry including retry metadata, expected parsed-output path or naming rule, the shared raw-statement artifact prefix, any narrowly matched `import_source_behavior` memory path or summary, and the instruction to use `$auto-bean-process`
+   - require sub-agents to follow the shared question-handling contract and to report parsed output paths, status changes, warnings, blockers, process artifacts under `.auto-bean/artifacts/process/` using the shared prefix, and structured `memory_suggestions`
    - wait for all assigned processing sub-agents to finish before starting any parsed-statement handoff
 3. Resolve process questions and update intermediate statements:
-   - inspect every reported process question artifact under `.auto-bean/artifacts/process/`
+   - inspect every reported process artifact under `.auto-bean/artifacts/process/`
    - for `parsed_with_warning`, read the artifact produced by `$auto-bean-process` and ask the user any bounded questions needed to make the parsed intermediate statement trustworthy before downstream work
    - use the shared question-handling contract for question shape, batching, answer capture, and stage resume
    - after the user answers, update the relevant intermediate parsed statement, status entry, and process artifact when the answer resolves or changes parsed evidence
@@ -41,14 +44,18 @@ Workflow:
    - keep statements that still have unresolved process questions out of first-seen derivation, categorization, and posting work
 4. Derive first-seen accounts:
    - for each statement with resolved process questions and status `account_inspection`, inspect `beancount/accounts.beancount` first, then `ledger.beancount` and included `beancount/**` files for existing `open` directives and account names
+   - before proposing account-structure changes, read any matching `import_source_behavior` memory selected during discovery or reported by `$auto-bean-process`
+   - use import-source behavior memory to recognize stable institution identity, account fragments, account type hints, operating currency, recurring statement descriptors, and duplicate-risk checks that are useful for account inspection
+   - verify every memory-derived hint against the current parsed statement evidence and current ledger state before using it in a first-seen account decision
    - classify inferred accounts as `existing_account`, `first_seen_candidate`, or `blocked_inference`
    - consider only banking, credit card, loans, cash, and investment account types for first-seen structure inference
    - do not infer mutable categories such as expense accounts
    - infer Beancount-safe account names and minimal supporting directives only when institution, account identity, type hints, and currency provide strong evidence
    - current parsed statement evidence and current ledger state remain authoritative; memory may provide hints, not authority
+   - ignore or flag memory that is missing, malformed, stale, too broad, inconsistent with parsed evidence, inconsistent with existing accounts, or outside the matched statement source
    - when top-level branch, account identity, currency, duplicate risk, mutation target, or syntax is unclear, ask the user a bounded question before mutating account structure
    - before writing any new `open` directive, present the exact proposed directive, target file, supporting parsed evidence, and reason the account appears first-seen; ask the user to approve or correct it, then wait for the response
-   - record each proposed, approved, rejected, or written first-seen account decision in the statement's import-owned artifact with evidence references, target file, user approval context, and validation references
+   - record each proposed, approved, rejected, or written first-seen account decision in the statement's import-owned artifact with evidence references, memory attribution or rejection notes, target file, user approval context, and validation references
    - after the user approves or corrects the proposal, write only the approved account-opening structure and minimal supporting directives such as missing operating currencies; prefer `beancount/accounts.beancount` and explain any fallback target
    - avoid duplicate directives and keep mutations deterministic for the same parsed input and ledger state
    - run `./scripts/validate-ledger.sh` or `./.venv/bin/bean-check ledger.beancount` after account-structure edits
@@ -103,7 +110,7 @@ Guardrails:
 - Keep statement-scoped import-owned artifacts under `.auto-bean/artifacts/import/`; `$auto-bean-import` is the only stage that creates or updates them.
 - Keep each import-owned artifact at the decision/provenance level: link to process and categorize artifacts and summarize only import-owned decisions, questions, memory suggestions, blockers, and handoffs.
 - Do not duplicate operational progress in import-owned artifacts. Current status, retry metadata, status transitions, and queue state belong only in `statements/import-status.yml`.
-- Keep `$auto-bean-process` responsible only for raw-to-parsed processing, process question artifacts, and process-stage memory suggestions.
+- Keep `$auto-bean-process` responsible only for raw-to-parsed processing, process artifacts, and process-stage memory suggestions.
 - Keep `$auto-bean-import` responsible for process question surfacing, intermediate-statement updates, moving parsed statements to `account_inspection`, first-seen account derivation, moving inspected statements to `ready_for_categorization`, categorize artifact review, moving reviewed categorization output to `ready_to_write`, invoking `$auto-bean-write`, setting `final_review`, final user approval to `done`, and the final governed memory handoff.
 - Keep `$auto-bean-categorize` responsible only for categorization, reconciliation, deduplication, user-input needs, and memory suggestions.
 - Keep `$auto-bean-write` responsible for posting categorized transactions and transaction-specific validation after `$auto-bean-import` resumes the main thread; commit and push authority remains with `$auto-bean-import` during import workflows.

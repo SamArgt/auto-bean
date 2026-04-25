@@ -20,6 +20,7 @@ Read before acting:
 - `.agents/skills/shared/parsed-statement-jq-reading.md` before inspecting large parsed statement artifacts
 - `.agents/skills/shared/import-status.example.yml`
 - `.agents/skills/shared/question-handling-contract.md` before recording process questions
+- `.auto-bean/memory/import_sources/index.json`, then the matching indexed `import_source_behavior` memory file when source identity, institution, account hints, statement shape, filename pattern, or fingerprint suggests a narrow match
 
 Workflow:
 
@@ -27,11 +28,13 @@ Workflow:
    - process only the assigned raw statement path
    - do not scan `statements/raw/` for more work
    - do not invoke `$auto-bean-categorize`
-   - keep raw inputs in `statements/raw/`, parsed outputs in `statements/parsed/`, parse state in `statements/import-status.yml`, and process question artifacts in `.auto-bean/artifacts/process/`
+   - keep raw inputs in `statements/raw/`, parsed outputs in `statements/parsed/`, parse state in `statements/import-status.yml`, and the process artifact in `.auto-bean/artifacts/process/`
 2. Plan from this input:
    - verify the source exists and is `.pdf`, `.csv`, `.xlsx`, or `.xls`
    - compute a deterministic fingerprint such as `sha256`
    - compare the fingerprint to the supplied status entry, if any
+   - look for applicable `import_source_behavior` memory through `.auto-bean/memory/import_sources/index.json`, opening only matching indexed source files
+   - use source-behavior memory only for processing-relevant facts such as parser hints, statement shape, column semantics, filename/source identity patterns, account identity hints, and reusable import handling checks
    - treat selected source memory as advisory guidance only; fail closed if memory is missing, malformed, too broad, stale, or conflicts with current evidence
 3. Parse with the local Docling CLI:
    - call `./.venv/bin/docling` directly on the assigned source
@@ -61,19 +64,21 @@ Workflow:
 6. Continue through safe raw-to-parsed work while collecting questions:
    - follow the shared question-handling contract
    - keep progressing through every deterministic parsing, normalization, status, and evidence-quality step that does not require guessing
-   - collect user questions in one deterministic artifact under `.auto-bean/artifacts/process/`, using the shared raw-statement artifact prefix from `$auto-bean-import`, such as `.auto-bean/artifacts/process/<artifact_prefix>--process.md`
-   - reflect the question artifact path in the parsed output or status entry; do not embed long question payloads in the final response when the artifact can carry them
+   - write one deterministic process artifact under `.auto-bean/artifacts/process/`, using the shared raw-statement artifact prefix from `$auto-bean-import`, such as `.auto-bean/artifacts/process/<artifact_prefix>--process.md`
+   - use that process artifact for process-stage questions, manual extraction notes, source-memory reuse attribution, and processing-related `memory_suggestions`
+   - reflect the process artifact path in the parsed output or status entry; do not embed long question payloads in the final response when the artifact can carry them
    - make unresolved items visible by recording explicit warnings or blocking issues in parsed/status artifacts
-   - return the question artifact to `$auto-bean-import` so the orchestrator can ask and update or resume the intermediate statement
+   - return the process artifact to `$auto-bean-import` so the orchestrator can ask and update or resume the intermediate statement
    - collect eligible reusable learning as `memory_suggestions` while working; include memory type, source context, decision, scope, confidence or review state, supporting evidence, current-evidence checks, and why it should be reused later
-   - keep memory candidates in the returned `memory_suggestions` structure and, when needed for auditability, summarize their provenance in the process question or parsed/status artifact; do not create a separate temporary memory-suggestions artifact
+   - write every processing-related memory candidate into a `Memory Suggestions` section of the process artifact, even when there are no user questions
+   - keep memory candidates in the returned `memory_suggestions` structure as well; do not create a separate temporary memory-suggestions artifact
 7. Return control to `$auto-bean-import` with:
    - assigned source path and source fingerprint
    - parsed output path and parse run id
    - status change for this input
    - warnings, blockers, retry metadata, and evidence-quality result
    - memory reuse attribution if governed memory influenced parsing or source handling
-   - every process question artifact written under `.auto-bean/artifacts/process/`, with a short summary of the exact question/reason and affected intermediate-statement fields
+   - every process artifact written under `.auto-bean/artifacts/process/`, with a short summary of the exact question/reason, affected intermediate-statement fields, source-memory attribution, and processing-related memory suggestions
    - `memory_suggestions`: every eligible reusable-learning candidate, or `[]` when none were found
 
 Guardrails:
