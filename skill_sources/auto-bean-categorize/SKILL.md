@@ -65,6 +65,7 @@ Workflow:
    - use the shared raw-statement artifact prefix from `$auto-bean-import`, such as `.auto-bean/artifacts/categorize/<artifact_prefix>--categorize.md`
    - make the artifact directly fillable by a non-technical user: concise summary, clear sections, stable question IDs, checkboxes for choices, short blanks for account/category names, and explicit "leave blank if unknown" guidance where appropriate
    - include the source parsed artifact, statement/status id, categorization results, reconciliation and deduplication findings, pending user questions, and memory suggestions
+   - preserve any clearly labeled `Import Batch Cross-Statement Review` section that `$auto-bean-import` appended after parallel categorization; update it only when `$auto-bean-import` resumes this artifact with cross-statement context or user answers
    - keep every user-editable field visibly separated from observed facts and agent suggestions so user answers can be read back without ambiguity
    - keep artifacts factual and reviewable; do not include raw statement dumps, unrelated ledger excerpts, or accepted-history language
 7. Handle clarification needs for this artifact:
@@ -103,3 +104,4 @@ Guardrails:
 - Do not write `.auto-bean/memory/**`; report possible reusable learning back to `$auto-bean-import` so it can decide whether to invoke `$auto-bean-memory`.
 - Do not imply working-tree mutations have been accepted into history.
 - Do not ask for user input before following the shared question-handling contract and making unresolved requirements visible in the relevant artifacts.
+- Do not erase import-batch cross-statement review notes when resuming or updating a categorize artifact.

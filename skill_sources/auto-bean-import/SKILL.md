@@ -61,34 +61,45 @@ Workflow:
    - run `./scripts/validate-ledger.sh` or `./.venv/bin/bean-check ledger.beancount` after account-structure edits
    - after first-seen account inspection, any needed account-structure edits, and validation are complete, mark the statement `ready_for_categorization`
    - keep statements with unresolved first-seen account questions out of posting work until resolved
-5. Handoff parsed statements:
+5. Handoff parsed statements to `$auto-bean-categorize` sub-agents:
    - for each statement at `ready_for_categorization` with resolved process and first-seen account questions, start one sub-agent assigned to that single parsed statement with the instruction to use `$auto-bean-categorize` for categorization, reconciliation, and deduplication work
-   - run categorize sub-agents sequentially: wait for the current `$auto-bean-categorize` sub-agent to finish before starting the next one
+   - run categorize sub-agents in parallel, then wait for all to finish before starting any categorize-to-post work
    - require each `$auto-bean-categorize` sub-agent to follow the shared question-handling contract and to report categorization results, posting inputs, status changes or pending-question metadata, reconciliation findings, blockers, categorize artifact paths using the shared prefix, persisted pending user questions, and structured `memory_suggestions`
    - keep statements that need clarification, repair, or manual source handling out of posting and final approval until resolved
-6. Surface categorize user input:
+6. Review cross-statement transfer and duplicate candidates:
+   - before surfacing categorize findings to the user, read every produced categorize artifact and returned posting input for statements in the same import batch that reached `ready_for_review`
+   - compare candidate postings across statements for likely transfers between imported accounts, mirror-image amounts, nearby dates, matching currencies, complementary descriptions, shared references, fees, FX legs, or account-pair patterns
+   - compare batch candidates against existing ledger activity when needed through `$auto-bean-query`; do not approximate ledger reads by grepping when `$auto-bean-query` can answer them
+   - treat this as a batch-level review that augments, but does not replace, each statement-scoped `$auto-bean-categorize` result
+   - record only reviewable cross-statement candidates; do not auto-drop, auto-net, or silently mark either side as duplicate without strong evidence or approved user input
+   - when a likely transfer or possible duplicate spans multiple categorize artifacts, update each affected categorize artifact with a clearly labeled `Import Batch Cross-Statement Review` section containing the paired artifact paths, transaction ids or stable row references, matched facts, confidence, suggested deduplication or transfer-handling action, and any bounded user question id
+   - update each affected import-owned artifact with the cross-statement finding summary, affected categorize artifact paths, question ids, and posting-decision impact; do not copy full categorization analysis into import-owned artifacts
+   - if a cross-statement match changes a prior posting suggestion or deduplication decision materially, either update the affected categorize artifact directly with the import-batch review note or resume the same `$auto-bean-categorize` artifact with the cross-statement context when statement-local categorization must be recomputed
+   - keep statements with unresolved cross-statement transfer or duplicate questions out of `ready_to_write`
+7. Surface categorize user input:
    - for each statement at `ready_for_review`, read the artifact produced by `$auto-bean-categorize`
    - when any sub-agent or downstream skill reports missing information, risky ambiguity, unresolved reconciliation finding, or manual extraction need, follow the shared question-handling contract
+   - include cross-statement transfer or duplicate candidates from the import-batch review when batching questions, so the user can approve one coherent transfer/deduplication decision across all affected statements
    - when a categorize artifact path is reported under `.auto-bean/artifacts/categorize/`, present that path to the user as the fillable review surface and ask them either to answer in conversation or complete the artifact
    - ask the user the collected bounded question or question set and wait for the answer instead of treating the workflow as finished or blocked
    - use the appropriate user-input tool or conversation channel; do not force clarification through a specific skill unless that skill owns the work being clarified
    - after the user answers or fills the artifact, read the completed artifact if applicable, then make the appropriate artifact/status changes or resume the same first-seen derivation or categorize stage for the affected statement/artifact with the answer and existing persisted artifacts included in the assignment context
-   - update the statement's import-owned artifact with categorize artifact paths, answered question ids, unresolved blocker summaries, memory-suggestion provenance, and posting decisions; do not copy status fields, full categorization analysis, or replace categorize-owned artifacts
+   - update the statement's import-owned artifact with categorize artifact paths, answered question ids, unresolved blocker summaries, cross-statement transfer or duplicate decisions, memory-suggestion provenance, and posting decisions; do not copy status fields, full categorization analysis, or replace categorize-owned artifacts
    - when categorization output and required user input are resolved, mark the statement `ready_to_write`
-7. Post categorized transactions:
+8. Post categorized transactions:
    - for each statement at `ready_to_write`, take back the main thread and invoke `$auto-bean-write` with parsed facts, category/account suggestions, reconciliation and deduplication decisions, memory attribution, and any approved user answers
    - record each `$auto-bean-write` handoff decision in the statement's import-owned artifact before invoking it, then record references to the returned mutation package and validation result
    - keep `$auto-bean-write` focused on drafting Beancount transaction entries and transaction-specific validation; do not make `$auto-bean-categorize` draft ledger mutations
    - if `$auto-bean-write` returns a bounded clarification question, use the shared question-handling contract to ask in the main import thread, then resume `$auto-bean-write` with the answer and the existing categorize artifact/status context
    - set `final_review` only after import-derived transactions for that statement are written and validated
-8. Review and close:
+9. Review and close:
    - consolidate sub-agent results, process question outcomes, first-seen account derivation, downstream categorize results, write results, validation outcome, and `git diff`
    - reconcile `statements/import-status.yml` against per-statement artifact references before presenting final review; fail closed on source, prefix, or artifact-path conflicts
    - keep parsed facts, first-seen account edits, ledger postings, warnings, blockers, and required user decisions separate
    - for statements at `final_review`, ask the user to validate the final import result
    - mark entries `done` only after the user approves the final import result
    - keep commit and push finalization orchestrator-owned: after import approval and any `done` transitions, `$auto-bean-import` is the only workflow stage that may ask for or act on commit or push approval for import-derived mutations
-9. Hand off governed memory persistence:
+10. Hand off governed memory persistence:
    - collect all workflow artifacts produced during this import: process artifacts under `.auto-bean/artifacts/process/`, categorize artifacts under `.auto-bean/artifacts/categorize/`, and statement-scoped import-owned artifacts under `.auto-bean/artifacts/import/`
    - explicitly call the `$auto-bean-memory` skill with those artifact paths and any returned `memory_suggestions`, asking it to persist only approved reusable memory through the governed workflow
    - report the `$auto-bean-memory` result separately from import parsing, posting, validation, and final approval status
@@ -111,7 +122,8 @@ Guardrails:
 - Keep each import-owned artifact at the decision/provenance level: link to process and categorize artifacts and summarize only import-owned decisions, questions, memory suggestions, blockers, and handoffs.
 - Do not duplicate operational progress in import-owned artifacts. Current status, retry metadata, status transitions, and queue state belong only in `statements/import-status.yml`.
 - Keep `$auto-bean-process` responsible only for raw-to-parsed processing, process artifacts, and process-stage memory suggestions.
-- Keep `$auto-bean-import` responsible for process question surfacing, intermediate-statement updates, moving parsed statements to `account_inspection`, first-seen account derivation, moving inspected statements to `ready_for_categorization`, categorize artifact review, moving reviewed categorization output to `ready_to_write`, invoking `$auto-bean-write`, setting `final_review`, final user approval to `done`, and the final governed memory handoff.
+- Keep `$auto-bean-import` responsible for process question surfacing, intermediate-statement updates, moving parsed statements to `account_inspection`, first-seen account derivation, moving inspected statements to `ready_for_categorization`, cross-statement transfer and duplicate review after parallel categorization, categorize artifact review, moving reviewed categorization output to `ready_to_write`, invoking `$auto-bean-write`, setting `final_review`, final user approval to `done`, and the final governed memory handoff.
+- `$auto-bean-import` may update categorize artifacts only for clearly labeled import-batch cross-statement review notes, user answers it brokered, or resume context needed by `$auto-bean-categorize`; it must not rewrite statement-local categorization analysis outside that scope.
 - Keep `$auto-bean-categorize` responsible only for categorization, reconciliation, deduplication, user-input needs, and memory suggestions.
 - Keep `$auto-bean-write` responsible for posting categorized transactions and transaction-specific validation after `$auto-bean-import` resumes the main thread; commit and push authority remains with `$auto-bean-import` during import workflows.
 - Do not silently reprocess current statements or repeatedly retry `ready` statements that have reached the current-fingerprint manual-resolution threshold.

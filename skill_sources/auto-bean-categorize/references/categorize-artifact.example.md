@@ -43,6 +43,12 @@ Note: `____________________________`
 
 - R1: `likely_transfer`; `ONLINE TRANSFER TO SAV 8842` may match the savings deposit. Needs Q2.
 
+## Import Batch Cross-Statement Review
+
+This section is appended or updated by `$auto-bean-import` only when another statement in the same import batch may be the matching transfer or duplicate side.
+
+- X1: possible cross-statement transfer with `.auto-bean/artifacts/categorize/savings-2026-03--categorize.md` T7; same `500.00 USD`, nearby date, opposite cash movement. Needs Q2.
+
 ## Memory Suggestions
 
 - `category_mapping`: `SQ *BLUE BOTTLE*` -> account chosen in Q1
