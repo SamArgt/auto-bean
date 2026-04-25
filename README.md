@@ -102,15 +102,15 @@ $auto-bean-import
 
 ### `auto-bean-process`
 
-Internal import stage. It handles raw-to-parsed statement processing, Docling-backed extraction, parsed artifacts, status updates, and first-seen account structure when evidence is strong enough.
+Internal import stage. It handles raw-to-parsed statement processing, Docling-backed extraction, parsed artifacts, process question artifacts, and parse-stage status updates.
 
 Users normally should not call this directly. `auto-bean-import` delegates to it.
 
-### `auto-bean-apply`
+### `auto-bean-categorize`
 
-Internal apply and reconciliation stage. It turns reviewed parsed evidence into candidate ledger postings, validates outcomes, tracks review status, and presents finalization details.
+Internal categorization, reconciliation, and deduplication stage. It reviews parsed statement evidence, records category/account suggestions, flags duplicate or transfer decisions, and persists any needed user-input artifact under `.auto-bean/artifacts/categorize/`.
 
-Users normally should not call this directly. `auto-bean-import` delegates to it.
+Users normally should not call this directly. `auto-bean-import` delegates to it, then resumes the main thread to ask for input and post transactions with `auto-bean-write`.
 
 ### `auto-bean-memory`
 
@@ -152,7 +152,7 @@ Check what would change:
 auto-bean update . --check
 ```
 
-Apply updates:
+Categorize updates:
 
 ```bash
 auto-bean update .
@@ -211,6 +211,7 @@ my-ledger/
 |   `-- import-status.yml
 |-- .auto-bean/
 |   |-- artifacts/
+|   |   `-- categorize/
 |   |-- proposals/
 |   `-- memory/
 |       |-- account_mappings.json
@@ -227,7 +228,7 @@ my-ledger/
 |       |-- auto-bean-write/
 |       |-- auto-bean-import/
 |       |-- auto-bean-process/
-|       |-- auto-bean-apply/
+|       |-- auto-bean-categorize/
 |       `-- auto-bean-memory/
 |-- scripts/
 |   |-- validate-ledger.sh
@@ -262,8 +263,8 @@ The import workflow is staged:
 1. `$auto-bean-import` inspects `statements/raw/`, `statements/parsed/`, and `statements/import-status.yml`.
 2. New or stale supported files are assigned to processing work.
 3. `$auto-bean-process` normalizes raw `.pdf`, `.csv`, `.xlsx`, and `.xls` statements into parsed JSON evidence.
-4. Parsed statement evidence is handed to `$auto-bean-apply`.
-5. `$auto-bean-apply` uses `auto-bean-query` for ledger reads and `auto-bean-write` for transaction drafting or correction.
+4. Parsed statement evidence is handed to `$auto-bean-categorize` for categorization, reconciliation, and deduplication.
+5. `$auto-bean-import` asks the user for any needed input, then invokes `$auto-bean-write` to post categorized transactions.
 6. The workflow validates the ledger, reports warnings and reconciliation findings, shows changed files and diff context, and waits for user approval before finalization.
 
 Memory is governed:
@@ -342,7 +343,7 @@ auto-bean/
 |   |-- auto-bean-write/
 |   |-- auto-bean-import/
 |   |-- auto-bean-process/
-|   |-- auto-bean-apply/
+|   |-- auto-bean-categorize/
 |   |-- auto-bean-memory/
 |   `-- shared/
 |-- workspace_template/

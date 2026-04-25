@@ -28,6 +28,9 @@ def test_memory_skill_and_shared_policy_are_authored() -> None:
     assert (
         root / "skill_sources" / "shared" / "parsed-statement-jq-reading.md"
     ).is_file()
+    assert (
+        root / "workspace_template" / ".auto-bean" / "artifacts" / "categorize"
+    ).is_dir()
     for reference in memory_reference_map().values():
         assert (root / "skill_sources" / "auto-bean-memory" / reference).is_file()
 
@@ -49,7 +52,7 @@ def test_init_required_assets_check_only_skill_entrypoints() -> None:
         failure_message="Authored skill source assets are missing.",
         root=root / "skill_sources",
         required_paths=(
-            "auto-bean-apply/SKILL.md",
+            "auto-bean-categorize/SKILL.md",
             "auto-bean-query/SKILL.md",
             "auto-bean-write/SKILL.md",
             "auto-bean-import/SKILL.md",
@@ -172,7 +175,7 @@ def test_non_memory_skills_do_not_claim_direct_memory_write_authority() -> None:
     for skill_name in (
         "auto-bean-import",
         "auto-bean-process",
-        "auto-bean-apply",
+        "auto-bean-categorize",
         "auto-bean-query",
         "auto-bean-write",
     ):
@@ -190,14 +193,14 @@ def test_import_stages_return_memory_suggestions_for_governed_handoff() -> None:
     process_text = (
         root / "skill_sources" / "auto-bean-process" / "SKILL.md"
     ).read_text(encoding="utf-8")
-    apply_text = (root / "skill_sources" / "auto-bean-apply" / "SKILL.md").read_text(
-        encoding="utf-8"
-    )
+    categorize_text = (
+        root / "skill_sources" / "auto-bean-categorize" / "SKILL.md"
+    ).read_text(encoding="utf-8")
     import_text = (root / "skill_sources" / "auto-bean-import" / "SKILL.md").read_text(
         encoding="utf-8"
     )
 
-    for text in (process_text, apply_text):
+    for text in (process_text, categorize_text):
         assert "`memory_suggestions`" in text
         assert "`memory_suggestion_files`" in text
         assert ".auto-bean/tmp/memory-suggestions/" in text
@@ -212,6 +215,22 @@ def test_import_stages_return_memory_suggestions_for_governed_handoff() -> None:
         "memory suggestions collected and `$auto-bean-memory` persistence result"
         in import_text
     )
+
+
+def test_categorize_does_not_write_ledger_transactions() -> None:
+    root = Path(__file__).resolve().parents[1]
+    categorize_text = (
+        root / "skill_sources" / "auto-bean-categorize" / "SKILL.md"
+    ).read_text(encoding="utf-8")
+    import_text = (root / "skill_sources" / "auto-bean-import" / "SKILL.md").read_text(
+        encoding="utf-8"
+    )
+
+    assert "Do not invoke `$auto-bean-write`." in categorize_text
+    assert "Do not write or edit Beancount ledger entries." in categorize_text
+    assert "Do not set statements `in_review`" in categorize_text
+    assert "invoke `$auto-bean-write`" in import_text
+    assert "set `in_review` only after" in import_text
 
 
 def test_first_seen_account_derivation_belongs_to_import() -> None:
@@ -239,14 +258,14 @@ def test_first_seen_account_derivation_belongs_to_import() -> None:
     )
 
 
-def test_process_and_apply_share_parsed_statement_references() -> None:
+def test_process_and_categorize_share_parsed_statement_references() -> None:
     root = Path(__file__).resolve().parents[1]
     process_text = (
         root / "skill_sources" / "auto-bean-process" / "SKILL.md"
     ).read_text(encoding="utf-8")
-    apply_text = (root / "skill_sources" / "auto-bean-apply" / "SKILL.md").read_text(
-        encoding="utf-8"
-    )
+    categorize_text = (
+        root / "skill_sources" / "auto-bean-categorize" / "SKILL.md"
+    ).read_text(encoding="utf-8")
     shared_references = (
         ".agents/skills/shared/parsed-statement-output.example.json",
         ".agents/skills/shared/parsed-statement-jq-reading.md",
@@ -254,7 +273,7 @@ def test_process_and_apply_share_parsed_statement_references() -> None:
 
     for reference in shared_references:
         assert reference in process_text
-        assert reference in apply_text
+        assert reference in categorize_text
 
     assert (
         ".agents/skills/auto-bean-process/references/parsed-statement-output.example.json"

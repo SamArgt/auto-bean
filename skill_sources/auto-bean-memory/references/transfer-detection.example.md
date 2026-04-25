@@ -11,7 +11,7 @@ Example record:
   "schema_version": 1,
   "memory_type": "transfer_detection",
   "source": {
-    "workflow": "auto-bean-apply",
+    "workflow": "auto-bean-categorize",
     "statement_source": "statements/parsed/example-checking-2026-04.json",
     "evidence": "user confirmed likely transfer finding"
   },
@@ -36,8 +36,8 @@ Example record:
   "created_at": "2026-04-24T10:20:00Z",
   "updated_at": "2026-04-24T10:20:00Z",
   "audit": {
-    "originating_workflow": "auto-bean-apply",
-    "run_id": "apply-20260424T102000Z"
+    "originating_workflow": "auto-bean-categorize",
+    "run_id": "categorize-20260424T102000Z"
   }
 }
 ```

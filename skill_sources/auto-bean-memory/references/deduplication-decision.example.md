@@ -11,7 +11,7 @@ Example record:
   "schema_version": 1,
   "memory_type": "deduplication_decision",
   "source": {
-    "workflow": "auto-bean-apply",
+    "workflow": "auto-bean-categorize",
     "statement_source": "statements/parsed/example-card-2026-04.json",
     "evidence": "user resolved possible_duplicate finding"
   },
@@ -33,8 +33,8 @@ Example record:
   "created_at": "2026-04-24T10:25:00Z",
   "updated_at": "2026-04-24T10:25:00Z",
   "audit": {
-    "originating_workflow": "auto-bean-apply",
-    "run_id": "apply-20260424T102500Z"
+    "originating_workflow": "auto-bean-categorize",
+    "run_id": "categorize-20260424T102500Z"
   }
 }
 ```

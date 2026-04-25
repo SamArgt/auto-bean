@@ -17,7 +17,7 @@ Use `auto-bean-write` when a workflow needs to add or correct Beancount transact
 
 Users should start imports with `$auto-bean-import`.
 
-`auto-bean-import` discovers unprocessed raw statements, skips already-current statements, uses sub-agents for bounded statement work, delegates raw-to-parsed work to `$auto-bean-process`, resolves any process question artifacts and updates intermediate statements, derives first-seen account structure, delegates posting/reconciliation work to `$auto-bean-apply`, and handles governed memory suggestions through `$auto-bean-memory` at the end.
+`auto-bean-import` discovers unprocessed raw statements, skips already-current statements, uses sub-agents for bounded statement work, delegates raw-to-parsed work to `$auto-bean-process`, resolves any process question artifacts and updates intermediate statements, derives first-seen account structure, delegates categorization/reconciliation/deduplication work to `$auto-bean-categorize`, asks the user for needed input, posts transactions with `$auto-bean-write`, and handles governed memory suggestions through `$auto-bean-memory` at the end.
 
 Workflow statuses in `statements/import-status.yml`:
 
@@ -25,7 +25,7 @@ Workflow statuses in `statements/import-status.yml`:
 - `parsed`: parsed evidence exists and is ready for posting work
 - `parsed_with_warnings`: parsed evidence exists but warnings need review
 - `in_review`: import-derived transactions have been written but not finalized
-- `done`: the full import/apply workflow is complete
+- `done`: the full import workflow is complete
 
 Only mark a statement `done` after user approval of the final import result.
 
@@ -61,6 +61,7 @@ Before commit or push for ledger mutations:
 - `statements/parsed/`: normalized statement evidence
 - `statements/import-status.yml`: import state
 - `.auto-bean/artifacts/`: diagnostics and audit artifacts
+- `.auto-bean/artifacts/categorize/`: optional categorization, reconciliation, deduplication, and user-input artifacts
 - `.auto-bean/memory/`: governed memory
 - `.agents/skills/`: installed runtime skills
 

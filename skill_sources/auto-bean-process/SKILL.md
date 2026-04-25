@@ -24,7 +24,7 @@ Workflow:
 1. Confirm the assigned scope:
    - process only the assigned raw statement path
    - do not scan `statements/raw/` for more work
-   - do not invoke `$auto-bean-apply`
+   - do not invoke `$auto-bean-categorize`
    - keep raw inputs in `statements/raw/`, parsed outputs in `statements/parsed/`, parse state in `statements/import-status.yml`, and process question artifacts in `.auto-bean/artifacts/process/`
 2. Plan from this input:
    - verify the source exists and is `.pdf`, `.csv`, `.xlsx`, or `.xls`

@@ -46,7 +46,7 @@ Inspection is read-only. Keep this path separate from persistence unless the use
 
 ## Explicit correction, refinement, and removal workflow
 
-Keep this path separate from read-only inspection and governed persistence. Use it only when the user explicitly asks to correct, refine, or remove existing governed memory. Do not treat correction as an opaque side effect of import, apply, query, write, recovery, or general feedback work.
+Keep this path separate from read-only inspection and governed persistence. Use it only when the user explicitly asks to correct, refine, or remove existing governed memory. Do not treat correction as an opaque side effect of import, categorize, query, write, recovery, or general feedback work.
 
 1. First, read `.agents/skills/shared/memory-access-rules.md` before touching runtime memory, then apply its fixed file, advisory-use, fail-closed, and authority-boundary rules.
 2. Confirm the request targets one governed memory record and one of these actions:
@@ -100,7 +100,7 @@ Keep this path separate from read-only inspection and governed persistence. Use 
 13. Present removals as a controlled memory change, not silent deletion. Include the memory path, memory type, target record summary, source context, why removal was requested, audit context, and what future workflows should no longer infer.
 14. Tell the user how to inspect the changed memory afterward through the Story 4.3 inspection path. Mention that later workflows should prefer the corrected record, refined scope, or absence of a removed record only as advisory context checked against current evidence.
 15. Avoid printing raw financial statements, full ledger excerpts, unrelated records, or unrelated financial data in correction output.
-16. Do not grant import, apply, query, write, or recovery direct write authority to `.auto-bean/memory/**`; those workflows may request this governed correction path when memory needs to change.
+16. Do not grant import, categorize, query, write, or recovery direct write authority to `.auto-bean/memory/**`; those workflows may request this governed correction path when memory needs to change.
 
 
 ## Governed persistence workflow
@@ -167,7 +167,7 @@ Guardrails:
 
 - Treat memory as advisory context, not silent authority.
 - Do not store user financial decisions in installed skill files, templates, or product-repo `.agents/skills/`.
-- Do not write `.auto-bean/memory/**` from import, apply, query, or write workflows directly; those workflows must hand eligible persistence requests to this governed workflow.
+- Do not write `.auto-bean/memory/**` from import, categorize, query, or write workflows directly; those workflows must hand eligible persistence requests to this governed workflow.
 - Do not create additional category files, databases, vector stores, caches, YAML files, or ad hoc memory blobs for MVP.
 - Do not create broad semantic retrieval layers, persistent caches, or unused support services for memory correction.
 - Fail closed when the destination file, record type, source context, approval state, target identity, or storage path is unclear.

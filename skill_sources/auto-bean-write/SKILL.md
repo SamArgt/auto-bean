@@ -20,9 +20,9 @@ Follow this workflow:
    - an existing ledger correction request
    - explicit user-provided transaction facts
    - another bounded workspace artifact with concrete transaction details
-   - memory-derived suggestions handed off by `$auto-bean-apply`, with current evidence and attribution already attached
+   - memory-derived suggestions handed off by `$auto-bean-import` from `$auto-bean-categorize`, with current evidence and attribution already attached
    - this skill verifies ledger context and does not independently treat governed memory as authority
-4. If the evidence does not establish the core transaction facts, ask a bounded clarification question, wait for the answer, then resume drafting with that answer in context. When invoked by `$auto-bean-apply`, return the question and blocker details to that calling stage instead of asking directly, so `$auto-bean-apply` can persist safe progress and batch user input:
+4. If the evidence does not establish the core transaction facts, ask a bounded clarification question, wait for the answer, then resume drafting with that answer in context. When invoked by `$auto-bean-import`, return the question and blocker details to that calling stage instead of asking directly, so `$auto-bean-import` can keep the main import thread and batch user input:
    - date
    - payee or narration shape when materially needed by the ledger style
    - posting accounts
@@ -48,7 +48,7 @@ Follow this workflow:
    - inspect same-date and same-amount activity for possible transfers
    - verify each posting account is already open for the relevant currency, or ask and wait before introducing supporting directives
    - check that no posting silently changes the economic meaning of the evidence
-9. Ask a bounded clarification question instead of guessing whenever the evidence leaves any material ambiguity. When invoked by `$auto-bean-apply`, return the pending question to the caller after reporting any safe draft/review work already completed; otherwise wait for the user answer, then resume the same transaction-writing task rather than returning a terminal blocked state:
+9. Ask a bounded clarification question instead of guessing whenever the evidence leaves any material ambiguity. When invoked by `$auto-bean-import`, return the pending question to the caller after reporting any safe draft/review work already completed; otherwise wait for the user answer, then resume the same transaction-writing task rather than returning a terminal blocked state:
    - account identity
    - transfer versus expense or income interpretation
    - duplicate suspicion

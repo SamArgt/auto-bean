@@ -43,7 +43,7 @@ This repository authors the product, not a live user ledger workspace.
 
 - Codex skills are the primary user interface.
 - Narrow foundation skills own ledger-specific mechanics: `auto-bean-query` for read-only Beancount analysis and `auto-bean-write` for transaction drafting, validation, and transaction-specific clarification.
-- Orchestration skills such as `auto-bean-import` and `auto-bean-apply` should rely on those foundation skills when they need ledger reads or transaction writes.
+- Orchestration skills such as `auto-bean-import` and `auto-bean-categorize` should rely on those foundation skills when they need ledger reads or transaction-writing inputs.
 - Python helpers should support skill execution, validation, installation, and packaging.
 - Avoid introducing CLI-first workflows when the architecture expects agent-led review and approval.
 

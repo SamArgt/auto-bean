@@ -325,6 +325,7 @@ class InitService:
                     ".auto-bean/memory/import_sources/index.json",
                     ".auto-bean/memory/naming_conventions.json",
                     ".auto-bean/memory/transfer_detection.json",
+                    ".auto-bean/artifacts/categorize/.gitkeep",
                     "statements/parsed/.gitkeep",
                     "statements/import-status.yml",
                 ),
@@ -345,7 +346,7 @@ class InitService:
                 failure_message="Authored skill source assets are missing.",
                 root=Path(context.skill_sources_directory),
                 required_paths=(
-                    "auto-bean-apply/SKILL.md",
+                    "auto-bean-categorize/SKILL.md",
                     "auto-bean-query/SKILL.md",
                     "auto-bean-write/SKILL.md",
                     "auto-bean-import/SKILL.md",
@@ -392,7 +393,7 @@ class InitService:
             "key_files": [
                 "ledger.beancount",
                 "AGENTS.md",
-                ".agents/skills/auto-bean-apply/SKILL.md",
+                ".agents/skills/auto-bean-categorize/SKILL.md",
                 ".agents/skills/auto-bean-import/SKILL.md",
                 ".agents/skills/auto-bean-process/SKILL.md",
                 ".agents/skills/auto-bean-memory/SKILL.md",
@@ -963,7 +964,7 @@ class InitService:
             str(path)
             for path in (
                 template_directory / "AGENTS.md",
-                skill_sources_directory / "auto-bean-apply" / "SKILL.md",
+                skill_sources_directory / "auto-bean-categorize" / "SKILL.md",
                 skill_sources_directory / "auto-bean-query" / "SKILL.md",
                 skill_sources_directory / "auto-bean-write" / "SKILL.md",
                 skill_sources_directory / "auto-bean-import" / "SKILL.md",

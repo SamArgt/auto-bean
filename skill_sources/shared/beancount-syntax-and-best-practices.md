@@ -54,7 +54,7 @@ YYYY-MM-DD custom "import_marker" Assets:Checking "statement-2026-01"
 - Postings may include units, lot cost `{...}`, price `@ ...`, metadata, and an optional posting flag.
 - Prefer explicit balancing amounts even though Beancount can infer one missing amount.
 - Leave at most one posting amount omitted, and only when the intended balance is unambiguous.
-- If the missing piece is account identity, transfer intent, duplicate suspicion, or source-specific meaning, record the bounded clarification needed, persist safe progress first when operating inside `$auto-bean-process` or `$auto-bean-apply`, then ask and resume instead of relying on interpolation or a guessed counterposting.
+- If the missing piece is account identity, transfer intent, duplicate suspicion, or source-specific meaning, record the bounded clarification needed and persist safe progress first. When operating inside `$auto-bean-categorize`, return the question to `$auto-bean-import`; otherwise ask and resume instead of relying on interpolation or a guessed counterposting.
 - Only emit costs or prices when the source evidence clearly supports them.
 - When import-derived postings resemble transfers or duplicates, surface the evidence for review instead of silently netting or deleting entries.
 - Preserve the ledger's established metadata keys, quoting style, and posting order.
