@@ -39,7 +39,7 @@ Workflow:
    - record explicit warnings, blocking issues, and requested user inputs in the artifact/status entry; do not add Beancount placeholders or draft ledger mutations
    - return control to `$auto-bean-import` after all safe progress for this assigned artifact is persisted, so `$auto-bean-import` can ask the user or continue to posting through `$auto-bean-write`
    - collect eligible reusable learning as `memory_suggestions` throughout categorization, reconciliation, deduplication, and clarification; include memory type, source context, decision, scope, confidence or review state, supporting evidence, current-evidence checks, and why it should be reused later
-   - if the final response cannot carry all `memory_suggestions`, persist them in one JSON file under `.auto-bean/tmp/memory-suggestions/` named from the artifact id, status id, or source fingerprint, then return that path to `$auto-bean-import`
+   - keep memory candidates in the returned `memory_suggestions` structure and, when useful for auditability, include them in the categorize artifact; do not create a separate temporary memory-suggestions artifact
 4. Categorize each transaction in this artifact:
    - use current parsed facts plus governed memory hints from `.auto-bean/memory/category_mappings.json`, `.auto-bean/memory/account_mappings.json`, `.auto-bean/memory/import_sources/index.json`, matching import-source memory, and other fixed memory files only when they directly apply
    - treat memory as advisory; confirm each reused category, account, transfer pattern, duplicate decision, naming convention, clarification outcome, or import-source behavior fits current evidence and current ledger context
@@ -62,7 +62,7 @@ Workflow:
    - read `.agents/skills/auto-bean-categorize/references/categorize-artifact.example.md` first
    - write a user-friendly Markdown artifact under `.auto-bean/artifacts/categorize/` when the categorized result, reconciliation findings, deduplication decisions, or user-input needs are too large or structured for the parsed artifact/status entry
    - make the artifact directly fillable by a non-technical user: concise summary, clear sections, stable question IDs, checkboxes for choices, short blanks for account/category names, and explicit "leave blank if unknown" guidance where appropriate
-   - include the source parsed artifact, statement/status id, categorization results, reconciliation and deduplication findings, pending user questions, and memory suggestions or memory suggestion file paths
+   - include the source parsed artifact, statement/status id, categorization results, reconciliation and deduplication findings, pending user questions, and memory suggestions
    - keep every user-editable field visibly separated from observed facts and agent suggestions so user answers can be read back without ambiguity
    - keep artifacts factual and reviewable; do not include raw statement dumps, unrelated ledger excerpts, or accepted-history language
 7. Handle clarification needs for this artifact:
@@ -87,7 +87,6 @@ Workflow:
    - reconciliation/deduplication findings with suggested actions
    - every persisted pending user question, with the exact question/reason and where it was recorded
    - `memory_suggestions`: every eligible reusable-learning candidate for `$auto-bean-import` to consider via `$auto-bean-memory`, or `[]` when none were found
-   - `memory_suggestion_files`: any `.auto-bean/tmp/memory-suggestions/*.json` files created because suggestions were too large for the response
 
 Guardrails:
 

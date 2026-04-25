@@ -183,14 +183,14 @@ Scope: All authored skills under `skill_sources/*/SKILL.md` and their interface 
 3. **Create shared “question-handling contract” snippet** DONE
    - Put common guidance in shared reference and link from process/categorize/write/import to reduce duplication.
 
-4. **Add a global import-owned artifact contract**
+4. **Add a global import-owned artifact contract** DONE
    - Require `auto-bean-import` to maintain a deterministic artifact (for example under `.auto-bean/artifacts/import/`) that records whole-import state, stage ownership boundaries, first-seen account decisions, unresolved/answered questions, posting-readiness transitions, and memory candidate provenance so `$auto-bean-memory` can consume governed context without re-deriving workflow history.
+
+6. **Add contributor note for source vs installed skill paths** DONE
+   - Explain that `skill_sources/` authoring material is rendered/installed to `.agents/skills/...` in workspace.
 
 5. **Remove redundant need for a temporary memory suggestions artifact**
    - Remove the intermediate temp file handoff for memory suggestions from process/categorize/import; instead, have each skill return memory suggestions as part of its artifact, which can then consolidate them in the last stage if needed for memory persistence.
-
-6. **Add contributor note for source vs installed skill paths**
-   - Explain that `skill_sources/` authoring material is rendered/installed to `.agents/skills/...` in workspace.
 
 7. **Tighten minor wording defects**
    - Fix duplicated phrase in `auto-bean-memory` inspection workflow step 1.

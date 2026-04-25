@@ -26,7 +26,7 @@ Workflow:
 2. Use sub-agents for statement work:
    - assign each sub-agent one raw statement
    - give each sub-agent the source path, current status entry including retry metadata, expected parsed-output path or naming rule, and the instruction to use `$auto-bean-process`
-   - require sub-agents to follow the shared question-handling contract and to report parsed output paths, status changes, warnings, blockers, process question artifacts under `.auto-bean/artifacts/process/`, `memory_suggestions`, and `memory_suggestion_files`
+   - require sub-agents to follow the shared question-handling contract and to report parsed output paths, status changes, warnings, blockers, process question artifacts under `.auto-bean/artifacts/process/`, and structured `memory_suggestions`
    - wait for all assigned processing sub-agents to finish before starting any parsed-statement handoff
 3. Resolve process questions and update intermediate statements:
    - inspect every reported process question artifact under `.auto-bean/artifacts/process/`
@@ -56,7 +56,7 @@ Workflow:
 5. Handoff parsed statements:
    - for each statement at `ready_for_categorization` with resolved process and first-seen account questions, start one sub-agent assigned to that single parsed statement with the instruction to use `$auto-bean-categorize` for categorization, reconciliation, and deduplication work
    - run categorize sub-agents sequentially: wait for the current `$auto-bean-categorize` sub-agent to finish before starting the next one
-   - require each `$auto-bean-categorize` sub-agent to follow the shared question-handling contract and to report categorization results, posting inputs, status changes or pending-question metadata, reconciliation findings, blockers, categorize artifact paths, persisted pending user questions, `memory_suggestions`, and `memory_suggestion_files`
+   - require each `$auto-bean-categorize` sub-agent to follow the shared question-handling contract and to report categorization results, posting inputs, status changes or pending-question metadata, reconciliation findings, blockers, categorize artifact paths, persisted pending user questions, and structured `memory_suggestions`
    - keep statements that need clarification, repair, or manual source handling out of posting and final approval until resolved
 6. Surface categorize user input:
    - for each statement at `ready_for_review`, read the artifact produced by `$auto-bean-categorize`
@@ -80,21 +80,10 @@ Workflow:
    - for statements at `final_review`, ask the user to validate the final import result
    - mark entries `done` only after the user approves the final import result
    - keep commit and push finalization orchestrator-owned: after import approval and any `done` transitions, `$auto-bean-import` is the only workflow stage that may ask for or act on commit or push approval for import-derived mutations
-9. Collect and govern memory suggestions at the end:
-   - collect `memory_suggestions` returned by every `$auto-bean-process` and `$auto-bean-categorize` sub-agent, including resumed stages after user answers
-   - read any returned `memory_suggestion_files` only when the path stays under `.auto-bean/tmp/memory-suggestions/`
-   - collect produced categorize artifact paths returned by `$auto-bean-categorize` and read only those under `.auto-bean/artifacts/categorize/`
-   - before final response, look for memory suggestion files created during this import under `.auto-bean/tmp/memory-suggestions/`, include eligible files not already reported by sub-agents, and ignore unrelated files with a warning
-   - before final response, look for categorize artifacts created during this import under `.auto-bean/artifacts/categorize/`, include eligible files not already reported by sub-agents, and ignore unrelated files with a warning
-   - ignore missing, invalid, path-unsafe, or unrelated suggestion files and report them as warnings
-   - extract any explicit memory suggestions or user-approved reusable decisions from completed categorize artifacts, keeping the artifact path as supporting evidence
-   - collect eligible memory candidates from the import-owned artifact, keeping provenance, approval state, originating artifact, and deduplication status attached
-   - deduplicate suggestions that describe the same memory type, source, decision, and scope
-   - keep raw statements, parsed statement dumps, ledger entries, diagnostics, and proposal artifacts out of the memory handoff
-   - if no eligible suggestions or completed categorize artifacts with memory-relevant answers remain, record that no governed memory persistence was requested
-   - if eligible suggestions, completed categorize artifacts with memory-relevant answers, or import-artifact memory candidates remain, invoke `$auto-bean-memory` with the active import-owned artifact path, collected suggestions, eligible memory suggestion artifacts, completed categorize artifacts as source/audit context, and explicit instruction to validate eligibility and persist only approved reusable operational learning through the governed workflow
+9. Hand off governed memory persistence:
+   - collect all workflow artifacts produced during this import: process artifacts under `.auto-bean/artifacts/process/`, categorize artifacts under `.auto-bean/artifacts/categorize/`, and the active import-owned artifact under `.auto-bean/artifacts/import/`
+   - explicitly call the `$auto-bean-memory` skill with those artifact paths and any returned `memory_suggestions`, asking it to persist only approved reusable memory through the governed workflow
    - report the `$auto-bean-memory` result separately from import parsing, posting, validation, and final approval status
-   - include memory suggestions and categorize artifacts collected, ignored, deduplicated, handed to `$auto-bean-memory`, and persisted by `$auto-bean-memory`
    - do not write `.auto-bean/memory/**` directly
 
 End with:

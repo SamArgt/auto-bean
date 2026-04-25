@@ -65,7 +65,7 @@ Workflow:
    - make unresolved items visible by recording explicit warnings or blocking issues in parsed/status artifacts
    - return the question artifact to `$auto-bean-import` so the orchestrator can ask and update or resume the intermediate statement
    - collect eligible reusable learning as `memory_suggestions` while working; include memory type, source context, decision, scope, confidence or review state, supporting evidence, current-evidence checks, and why it should be reused later
-   - if the final response cannot carry all `memory_suggestions`, persist them in one JSON file under `.auto-bean/tmp/memory-suggestions/` named from the parse run id or source fingerprint, then return that path to `$auto-bean-import`
+   - keep memory candidates in the returned `memory_suggestions` structure and, when needed for auditability, summarize their provenance in the process question or parsed/status artifact; do not create a separate temporary memory-suggestions artifact
 7. Return control to `$auto-bean-import` with:
    - assigned source path and source fingerprint
    - parsed output path and parse run id
@@ -74,7 +74,6 @@ Workflow:
    - memory reuse attribution if governed memory influenced parsing or source handling
    - every process question artifact written under `.auto-bean/artifacts/process/`, with a short summary of the exact question/reason and affected intermediate-statement fields
    - `memory_suggestions`: every eligible reusable-learning candidate, or `[]` when none were found
-   - `memory_suggestion_files`: any `.auto-bean/tmp/memory-suggestions/*.json` files created because suggestions were too large for the response
 
 Guardrails:
 

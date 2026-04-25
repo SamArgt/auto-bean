@@ -205,15 +205,24 @@ def test_import_stages_return_memory_suggestions_for_governed_handoff() -> None:
 
     for text in (process_text, categorize_text):
         assert "`memory_suggestions`" in text
-        assert "`memory_suggestion_files`" in text
-        assert ".auto-bean/tmp/memory-suggestions/" in text
+        assert "`memory_suggestion_files`" not in text
+        assert ".auto-bean/tmp/memory-suggestions/" not in text
         assert "memory type, source context, decision, scope" in text
+        assert "do not create a separate temporary memory-suggestions artifact" in text
 
-    assert "Collect and govern memory suggestions" in import_text
-    assert "collect `memory_suggestions`" in import_text
-    assert "read any returned `memory_suggestion_files`" in import_text
-    assert "look for memory suggestion files created during this import" in import_text
-    assert "invoke `$auto-bean-memory`" in import_text
+    assert "Hand off governed memory persistence" in import_text
+    assert "collect all workflow artifacts produced during this import" in import_text
+    assert "process artifacts under `.auto-bean/artifacts/process/`" in import_text
+    assert (
+        "categorize artifacts under `.auto-bean/artifacts/categorize/`" in import_text
+    )
+    assert (
+        "active import-owned artifact under `.auto-bean/artifacts/import/`"
+        in import_text
+    )
+    assert "`memory_suggestion_files`" not in import_text
+    assert ".auto-bean/tmp/memory-suggestions/" not in import_text
+    assert "explicitly call the `$auto-bean-memory` skill" in import_text
     assert (
         "memory suggestions collected and `$auto-bean-memory` persistence result"
         in import_text
@@ -263,7 +272,7 @@ def test_categorize_artifacts_are_user_fillable_and_feed_memory_handoff() -> Non
     assert "- [ ] use suggestion" in example_text
     assert "- [ ] use: `____________________________`" in example_text
     assert "`.auto-bean/artifacts/categorize/`" in import_text
-    assert "completed categorize artifacts as source/audit context" in import_text
+    assert "collect all workflow artifacts produced during this import" in import_text
 
 
 def test_first_seen_account_derivation_belongs_to_import() -> None:
