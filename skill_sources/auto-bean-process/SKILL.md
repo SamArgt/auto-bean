@@ -16,7 +16,8 @@ Read before acting:
 
 - `.agents/skills/shared/beancount-syntax-and-best-practices.md` when inferring Beancount account names, `open` directives, currency constraints, or other ledger syntax
 - `.agents/skills/shared/memory-access-rules.md` before using governed memory hints
-- `.agents/skills/auto-bean-process/references/parsed-statement-output.example.json`
+- `.agents/skills/shared/parsed-statement-output.example.json`
+- `.agents/skills/shared/parsed-statement-jq-reading.md` before inspecting large parsed statement artifacts
 - `.agents/skills/auto-bean-process/references/import-status.example.yml`
 
 Workflow:

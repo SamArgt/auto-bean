@@ -14,6 +14,8 @@ Inputs from `$auto-bean-import`:
 Read before acting:
 
 - `.agents/skills/shared/memory-access-rules.md` before using governed memory hints
+- `.agents/skills/shared/parsed-statement-output.example.json`
+- `.agents/skills/shared/parsed-statement-jq-reading.md` before inspecting large parsed statement artifacts
 - `.agents/skills/auto-bean-apply/references/reconciliation-findings.md` for transfer, duplicate, balance, currency, or future-transfer findings
 - `.agents/skills/auto-bean-apply/references/clarification-guidance.md` when postings remain ambiguous, unfamiliar, or blocked on user clarification
 

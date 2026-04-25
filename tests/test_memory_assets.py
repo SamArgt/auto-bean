@@ -22,6 +22,12 @@ def test_memory_skill_and_shared_policy_are_authored() -> None:
         root / "skill_sources" / "auto-bean-memory" / "agents" / "openai.yaml"
     ).is_file()
     assert (root / "skill_sources" / "shared" / "memory-access-rules.md").is_file()
+    assert (
+        root / "skill_sources" / "shared" / "parsed-statement-output.example.json"
+    ).is_file()
+    assert (
+        root / "skill_sources" / "shared" / "parsed-statement-jq-reading.md"
+    ).is_file()
     for reference in memory_reference_map().values():
         assert (root / "skill_sources" / "auto-bean-memory" / reference).is_file()
 
@@ -204,6 +210,29 @@ def test_import_stages_return_memory_suggestions_for_governed_handoff() -> None:
     assert (
         "memory suggestions collected and `$auto-bean-memory` persistence result"
         in import_text
+    )
+
+
+def test_process_and_apply_share_parsed_statement_references() -> None:
+    root = Path(__file__).resolve().parents[1]
+    process_text = (
+        root / "skill_sources" / "auto-bean-process" / "SKILL.md"
+    ).read_text(encoding="utf-8")
+    apply_text = (root / "skill_sources" / "auto-bean-apply" / "SKILL.md").read_text(
+        encoding="utf-8"
+    )
+    shared_references = (
+        ".agents/skills/shared/parsed-statement-output.example.json",
+        ".agents/skills/shared/parsed-statement-jq-reading.md",
+    )
+
+    for reference in shared_references:
+        assert reference in process_text
+        assert reference in apply_text
+
+    assert (
+        ".agents/skills/auto-bean-process/references/parsed-statement-output.example.json"
+        not in process_text
     )
 
 

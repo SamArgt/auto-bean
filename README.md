@@ -1,212 +1,367 @@
 # auto-bean
 
-`auto-bean` is a local-first, Codex-first foundation for Beancount ledger workflows.
+`auto-bean` creates a local, Git-backed Beancount ledger workspace designed to be operated through Codex skills.
 
-Right now this repository gives you a supported first session for:
+The product repo contains the installer, workspace template, and authored skill behavior. Your generated workspace contains the real ledger, raw statements, parsed evidence, governed memory, installed runtime skills, and review history.
 
-- installing `auto-bean` from this product repo
-- creating a separate runtime ledger workspace
-- validating `ledger.beancount`
-- inspecting that ledger in Fava
-- querying ledger balances, account activity, registers, and existing transactions through the read-only `auto-bean-query` skill
-- drafting and validating Beancount transaction entries through the focused `auto-bean-write` skill
-- normalizing supported statement files into inspectable parsed outputs through a workspace skill
-- creating or extending first-seen ledger account structure directly from imported statement evidence, then reviewing parsed statement facts, derived ledger edits, validation output, and the diff together before commit or push
-- turning reviewed normalized statement evidence into candidate Beancount postings through a separate apply workflow, with advisory reuse of repeated-import source context and the same commit-gated review boundary
-- surfacing likely transfers, possible duplicates, and unbalanced or currency-risk outcomes as explicit review findings before finalization
-- pausing ambiguous or unfamiliar reconciliation outcomes to ask the user a bounded clarification question before any risky interpretation is applied
-- persisting approved reusable decisions through governed local memory under `.auto-bean/memory/`
-- explaining committed recovery through git-backed revert guidance
+The current scope is intentionally local-first and Codex-first. There is no public SDK or hosted service.
 
-It does not expose a public SDK or external API today. The stable user interface is the coding-agent workflow inside the generated workspace.
+## Quick Start
 
-## Supported scope
+### Requirements
 
-- Platform: macOS only
-- Install surface: `uv tool install --from . --force auto-bean`
-- Workspace creation surface: `auto-bean init <PROJECT-NAME>`
-- Supported coding agent during init: `Codex`
+- macOS
+- Python `>=3.13,<3.14`
+- [`uv`](https://docs.astral.sh/uv/)
+- Git
+- Codex as the coding agent for the generated workspace
 
-## First-session quickstart
+`auto-bean init` installs a workspace-local runtime with Beancount, Fava, and Docling. It fails closed if the platform, tools, template assets, skill assets, generated ledger, Fava runtime, or Docling runtime are not ready.
 
-### 1. Install from the product repo
+### Install
 
-From the root of this repository:
+From this product repository:
 
 ```bash
 uv tool install --from . --force auto-bean
 ```
 
-This installs the local package as the `auto-bean` tool without asking you to mutate global Python by hand.
+That installs the `auto-bean` CLI from the local checkout.
 
-### 2. Create your runtime ledger workspace
+### Init Ledger Workspace
 
-Create a new workspace next to this product repo:
+Create a separate runtime workspace:
 
 ```bash
 auto-bean init my-ledger
 ```
 
-`init` asks which coding agent should back the workspace. Only `Codex` is supported right now.
+When prompted for the coding agent, choose the default:
 
-On success, `auto-bean` creates a separate runtime Git repository with:
+```text
+Codex
+```
 
-- `ledger.beancount` as the stable ledger entrypoint
-- `beancount/` for included ledger fragments
-- `beancount/accounts.beancount` for durable account `open` directives
-- `statements/raw/` for statement files that later import stories will process
-- `.auto-bean/` for governed runtime artifacts and diagnostics
-- `.auto-bean/memory/` for governed runtime memory that stores approved reusable decisions
-  - one JSON file per non-import memory category
-  - `import_sources/index.json` plus one source file per import source
-- `.agents/skills/` for installed runtime skills
-  - `auto-bean-query` for read-only ledger analysis
-  - `auto-bean-write` for transaction drafting and validation
-  - `auto-bean-import` for the full statement import workflow
-  - `auto-bean-process` for the internal statement processing stage
-  - `auto-bean-apply` for reviewed structural mutation orchestration and finalization
-  - `auto-bean-memory` for governed persistence of approved reusable decisions
-- `AGENTS.md` for workspace operating guidance
-- a workspace-local `.venv` with `beancount`, `fava`, and `docling`
-- `scripts/validate-ledger.sh` and `scripts/open-fava.sh`
-- `statements/parsed/` for normalized statement parse outputs
-- `statements/import-status.yml` for durable statement parse state
-
-This matters operationally: the product repo is where `auto-bean` is authored, while the generated workspace is where your live ledger, statements, and governed runtime state live.
-
-If `uv` is missing or the machine is unsupported, `auto-bean init` fails immediately with structured remediation details instead of sending you through a separate readiness command.
-If the workspace-local Docling CLI cannot be installed or is not runnable, `auto-bean init` also fails closed instead of claiming statement intake is ready.
-
-### 3. Move into the workspace and validate the ledger
-
-After init finishes, change into the new workspace:
+Then enter the workspace:
 
 ```bash
 cd ../my-ledger
 ```
 
-Validate the generated base ledger with either the helper script or the direct Beancount command:
+Validate the fresh ledger:
 
 ```bash
 ./scripts/validate-ledger.sh
-./.venv/bin/bean-check ledger.beancount
 ```
 
-“First meaningful use” for the current V1 scope means you now have a bootstrapped workspace, a valid `ledger.beancount`, and a clear place to continue operating.
-
-### 4. Inspect the ledger in Fava
-
-Open the generated ledger in Fava with either the helper script or the direct command:
+Open it in Fava:
 
 ```bash
 ./scripts/open-fava.sh
+```
+
+### First Import
+
+Put bank, card, or account statements in:
+
+```text
+statements/raw/
+```
+
+Then ask Codex from inside the generated workspace:
+
+```text
+$auto-bean-import
+```
+
+The dollar-sign prefix matters: it tells Codex to use the installed `auto-bean-import` skill as the import entrypoint.
+
+The import workflow discovers new or stale statement files, parses supported raw files into `statements/parsed/`, proposes ledger updates, validates the ledger, surfaces reconciliation findings, collects governed memory suggestions, and stops for user approval before finalizing accepted ledger history.
+
+## Skill Set
+
+Runtime skills are installed into the generated workspace under `.agents/skills/`.
+
+### `auto-bean-query`
+
+Read-only Beancount analysis. Use it for balances, account activity, registers, date windows, transaction existence checks, duplicate checks, and other ledger reads.
+
+### `auto-bean-write`
+
+Transaction drafting, correction, and transaction-specific validation. Higher-level workflows use this when they need to write or repair Beancount entries.
+
+### `auto-bean-import`
+
+The user-facing statement import workflow. Start here when importing statements from `statements/raw/`.
+
+Use it with:
+
+```text
+$auto-bean-import
+```
+
+### `auto-bean-process`
+
+Internal import stage. It handles raw-to-parsed statement processing, Docling-backed extraction, parsed artifacts, status updates, and first-seen account structure when evidence is strong enough.
+
+Users normally should not call this directly. `auto-bean-import` delegates to it.
+
+### `auto-bean-apply`
+
+Internal apply and reconciliation stage. It turns reviewed parsed evidence into candidate ledger postings, validates outcomes, tracks review status, and presents finalization details.
+
+Users normally should not call this directly. `auto-bean-import` delegates to it.
+
+### `auto-bean-memory`
+
+Governed memory persistence for approved reusable decisions such as account mappings, categorization patterns, transfer detection behavior, naming conventions, import-source behavior, deduplication decisions, and clarification outcomes.
+
+Workflows may suggest memory. Only this skill should write `.auto-bean/memory/**`.
+
+## CLI Commands
+
+### `auto-bean init <PROJECT-NAME>`
+
+Creates a new ledger workspace. It copies the workspace template, installs managed skills, initializes Git, creates a workspace-local `.venv`, validates `ledger.beancount`, verifies Fava and Docling, and creates an initial commit.
+
+Useful options:
+
+```bash
+auto-bean init my-ledger --verbose
+auto-bean init my-ledger --json
+```
+
+### `auto-bean update [WORKSPACE]`
+
+Updates managed workspace files from the current packaged product assets.
+
+It updates:
+
+- `AGENTS.md`
+- managed files under `.agents/skills/`
+
+It does not overwrite:
+
+- `ledger.beancount`
+- `beancount/`
+- `.auto-bean/`
+
+Check what would change:
+
+```bash
+auto-bean update . --check
+```
+
+Apply updates:
+
+```bash
+auto-bean update .
+```
+
+Useful options:
+
+```bash
+auto-bean update . --verbose
+auto-bean update . --json
+auto-bean update . --check --json
+```
+
+## Workspace Scripts
+
+Generated workspaces include helper scripts under `scripts/`.
+
+### Beancount Validation
+
+```bash
+./scripts/validate-ledger.sh
+```
+
+Equivalent direct command:
+
+```bash
+./.venv/bin/bean-check ledger.beancount
+```
+
+### Fava
+
+```bash
+./scripts/open-fava.sh
+```
+
+Equivalent direct command:
+
+```bash
 ./.venv/bin/fava ledger.beancount
 ```
 
-This is the supported inspection path today.
+## Workspace Tree
 
-### 5. Use Codex-first workflows inside the workspace
-
-Once you are in the generated workspace, treat Codex and the installed skills as the primary workflow surface.
-
-For read-only ledger analysis, use:
+A generated workspace looks like this:
 
 ```text
-.agents/skills/auto-bean-query/
+my-ledger/
+|-- AGENTS.md
+|-- ledger.beancount
+|-- beancount/
+|   |-- accounts.beancount
+|   `-- opening-balances.beancount
+|-- statements/
+|   |-- raw/
+|   |-- parsed/
+|   `-- import-status.yml
+|-- .auto-bean/
+|   |-- artifacts/
+|   |-- proposals/
+|   `-- memory/
+|       |-- account_mappings.json
+|       |-- category_mappings.json
+|       |-- clarification_outcomes.json
+|       |-- deduplication_decisions.json
+|       |-- naming_conventions.json
+|       |-- transfer_detection.json
+|       `-- import_sources/
+|           `-- index.json
+|-- .agents/
+|   `-- skills/
+|       |-- auto-bean-query/
+|       |-- auto-bean-write/
+|       |-- auto-bean-import/
+|       |-- auto-bean-process/
+|       |-- auto-bean-apply/
+|       `-- auto-bean-memory/
+|-- scripts/
+|   |-- validate-ledger.sh
+|   `-- open-fava.sh
+`-- .venv/
 ```
 
-For transaction drafting, correction, and transaction-specific validation, use:
+Important boundaries:
 
-```text
-.agents/skills/auto-bean-write/
-```
+- `ledger.beancount` is the stable ledger entrypoint.
+- `beancount/` contains included ledger fragments.
+- `statements/raw/` contains source statement files.
+- `statements/parsed/` contains normalized statement evidence, not accepted ledger history.
+- `statements/import-status.yml` tracks parse and import state.
+- `.auto-bean/artifacts/` stores diagnostics and audit artifacts.
+- `.auto-bean/memory/` stores approved reusable workflow memory.
+- `.agents/skills/` contains installed runtime skills.
 
-For trust-sensitive structural ledger changes and finalization orchestration, use the installed runtime skill under:
+## For Developers
 
-```text
-.agents/skills/auto-bean-apply/
-```
+### Under-the-Hood Workflow
 
-That runtime skill is materialized into the workspace during `auto-bean init`. In this product repo, the authored source of truth for that behavior lives under `skill_sources/`.
+`auto-bean` separates product authoring from ledger operation:
 
-### 6. Import statements through the installed import skill
+- This repo authors the CLI, workspace scaffold, and skill behavior.
+- `auto-bean init` materializes those assets into a user-owned workspace.
+- The generated workspace is a Git repo with a first valid Beancount ledger and an initial commit.
+- Codex skills are the primary user interface after initialization.
 
-Statement intake is now a supported skill-driven workflow inside the generated workspace.
+The import workflow is staged:
 
-Use the installed runtime skill under:
+1. `$auto-bean-import` inspects `statements/raw/`, `statements/parsed/`, and `statements/import-status.yml`.
+2. New or stale supported files are assigned to processing work.
+3. `$auto-bean-process` normalizes raw `.pdf`, `.csv`, `.xlsx`, and `.xls` statements into parsed JSON evidence.
+4. Parsed statement evidence is handed to `$auto-bean-apply`.
+5. `$auto-bean-apply` uses `auto-bean-query` for ledger reads and `auto-bean-write` for transaction drafting or correction.
+6. The workflow validates the ledger, reports warnings and reconciliation findings, shows changed files and diff context, and waits for user approval before finalization.
 
-```text
-.agents/skills/auto-bean-import/
-```
+Memory is governed:
 
-That workflow inspects `statements/raw/`, skips files that are already current in `statements/import-status.yml`, invokes the internal `auto-bean-process` stage only for new or stale statement files, and then coordinates posting application, validation, review, and final approval. `auto-bean-process` uses the workspace-local Docling CLI to normalize supported `PDF`, `CSV`, and Excel statement files into inspectable JSON outputs under `statements/parsed/`, then, when the imported evidence is strong enough, extends first-seen ledger account structure directly in the workspace.
+- Workflows can propose reusable decisions.
+- Memory suggestions are advisory and must stay separate from raw statements, parsed dumps, diagnostics, and ledger entries.
+- `auto-bean-memory` validates and persists approved reusable decisions.
+- Other skills should read memory according to the shared memory access rules, but should not write `.auto-bean/memory/**` directly.
 
-When import decisions require ledger analysis, `auto-bean-import` relies on `auto-bean-query` instead of manually approximating balances, activity, register rows, or transaction existence from file scans. When reviewed normalized evidence is ready to become transaction postings, `auto-bean-import` hands that evidence to `auto-bean-apply`; `auto-bean-apply` then relies on `auto-bean-query` for ledger reads and `auto-bean-write` for transaction drafting or correction.
+Review boundaries are deliberate:
 
-The durable boundaries for this workflow are:
+- Parsed facts are evidence.
+- Ledger edits are candidate mutations.
+- Reused memory is guidance, not silent authority.
+- Validation and review happen before commit or push.
+- Recovery is expected to use Git history instead of overwriting accepted state.
 
-- `statements/raw/`: raw source statements
-- `statements/parsed/`: normalized parse outputs only
-- `statements/import-status.yml`: parse-state index for new, stale, blocked, failed, or parsed files
-- `.agents/skills/auto-bean-import/`: installed runtime skill for full statement import orchestration
-- `.agents/skills/auto-bean-process/`: installed runtime skill for bounded raw statement processing
-- `.agents/skills/auto-bean-query/`: installed foundation skill for read-only ledger analysis
-- `.agents/skills/auto-bean-write/`: installed foundation skill for transaction drafting and validation
+### Toolset
 
+Runtime and development tools:
 
-That review surface should make these distinctions obvious:
+- Python `>=3.13,<3.14`
+- `uv` for local environments, scripts, and installs
+- Click for the CLI
+- Rich for CLI progress rendering
+- Beancount for ledger validation and query mechanics
+- Fava for ledger inspection
+- Docling for statement extraction support
+- Ruff for linting and formatting
+- mypy for strict type checks
+- pytest for tests
+- Git for workspace history and recovery
 
-- parsed statement facts under `statements/parsed/` and `statements/import-status.yml` are inspectable evidence, not accepted ledger history
-- reused governed memory hints under `.auto-bean/memory/` are advisory guidance, not silent authority
-- derived ledger edits under `ledger.beancount` or `beancount/**` are the candidate mutation produced from that evidence
-- reconciliation findings make the workflow's suggested action visible, but the user still decides what happens to each finding
-- warnings, blocked inferences, and `git diff` appear before any finalization request
-- the user can stop, defer, or reject finalization without corrupting prior accepted ledger history
-- committed recovery is explained as reverting the recorded commit, not silently overwriting ledger state
-
-The boundaries that matter now are:
-
-- `ledger.beancount`: stable ledger entrypoint
-- `beancount/`: included ledger files
-- `beancount/accounts.beancount`: preferred location for account `open` directives
-- `statements/raw/`: where raw statement files land
-- `statements/parsed/`: where normalized parse outputs are written
-- `statements/import-status.yml`: where parse-state tracking lives
-- `.auto-bean/`: governed runtime artifacts and workflow state
-- `.auto-bean/memory/`: governed runtime memory for approved reusable decisions
-- `.agents/skills/auto-bean-query/`: installed foundation skill for read-only Beancount ledger analysis
-- `.agents/skills/auto-bean-write/`: installed foundation skill for transaction drafting, correction, and validation
-- `.agents/skills/auto-bean-import/`: installed skill for the full statement import workflow from raw discovery through final review
-- `.agents/skills/auto-bean-process/`: installed internal skill for Docling-driven statement normalization, first-seen account mutation, and reviewed evidence handoff
-- `.agents/skills/auto-bean-apply/`: installed skill for turning reviewed evidence into candidate transaction postings or other reviewed structural mutations
-- `.agents/skills/auto-bean-memory/`: installed skill for validating and persisting approved reusable workflow decisions
-
-## Failure and remediation behavior
-
-- If `uv` is missing, `auto-bean init <PROJECT-NAME>` fails with installation guidance.
-- If the machine is not macOS, the workflow fails closed rather than pretending partial support exists.
-- `auto-bean init <PROJECT-NAME>` fails closed when the project name is unsafe, the destination already exists and is non-empty, the workspace template is incomplete, or the requested coding agent is unsupported.
-- `auto-bean init <PROJECT-NAME>` validates the generated `ledger.beancount` and checks that both Fava and Docling are runnable before it reports success.
-- `auto-bean init <PROJECT-NAME>` fails if the authored skill sources needed for runtime installation are missing.
-
-## Repo boundaries
-
-- `src/auto_bean/` contains the packaged application and thin CLI surface.
-- `skill_sources/` is the source of truth for authored skill behavior in the product repo.
-- `workspace_template/` is the source of truth for generated workspace scaffolding.
-- The generated workspace, not this repo, owns the live ledger, imported statements, and governed runtime state.
-- Installed runtime skills belong under workspace-local `.agents/skills/`, not the product-repo `.agents/skills/`.
-
-## Maintainer checks
-
-Keep local verification aligned with CI:
+Use the local dev environment:
 
 ```bash
 uv sync --group dev
-uv run ruff check src tests scripts
-uv run mypy src tests scripts
+```
+
+Run checks after code changes:
+
+```bash
+uv run ruff check
+uv run ruff format
+uv run mypy
 uv run pytest
+```
+
+Optional smoke checks:
+
+```bash
 uv run python scripts/run_smoke_checks.py
 ```
 
-Workflow diagnostics are persisted under `.auto-bean/artifacts/` so maintainers can inspect validation outcomes and troubleshooting context without scraping stack traces. Approved reusable decisions live separately under governed runtime memory, not in ledger files or ad hoc statement-side artifacts.
+### Repo Tree
+
+The product repository is organized around a small Python package plus authored workspace assets:
+
+```text
+auto-bean/
+|-- AGENTS.md
+|-- README.md
+|-- LICENSE
+|-- pyproject.toml
+|-- uv.lock
+|-- src/
+|   `-- auto_bean/
+|       |-- __init__.py
+|       |-- __main__.py
+|       |-- cli.py
+|       |-- init.py
+|       |-- smoke.py
+|       `-- py.typed
+|-- skill_sources/
+|   |-- auto-bean-query/
+|   |-- auto-bean-write/
+|   |-- auto-bean-import/
+|   |-- auto-bean-process/
+|   |-- auto-bean-apply/
+|   |-- auto-bean-memory/
+|   `-- shared/
+|-- workspace_template/
+|   |-- AGENTS.md
+|   |-- ledger.beancount
+|   |-- beancount/
+|   |-- statements/
+|   `-- .auto-bean/
+|-- scripts/
+|   `-- run_smoke_checks.py
+`-- tests/
+    `-- test_memory_assets.py
+```
+
+Development boundaries:
+
+- Keep the CLI thin and support-oriented.
+- Keep the end-to-end bootstrap and update workflow in `src/auto_bean/init.py`.
+- Author skill behavior in `skill_sources/` first.
+- Treat `workspace_template/` as scaffold only.
+- Do not add live installed runtime skills to the product repo `.agents/skills/`.
+- Prefer changing skill markdown behavior before adding new Python surfaces.
