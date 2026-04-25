@@ -8,6 +8,7 @@ Use this as the user-facing import entrypoint. Delegate mechanics to narrower sk
 
 Read before acting:
 - `.agents/skills/shared/import-status.example.yml`
+- `.agents/skills/shared/question-handling-contract.md` before surfacing or resuming process, categorize, first-seen-account, or write-stage questions
 
 Workflow:
 
@@ -23,12 +24,12 @@ Workflow:
 2. Use sub-agents for statement work:
    - assign each sub-agent one raw statement
    - give each sub-agent the source path, current status entry including retry metadata, expected parsed-output path or naming rule, and the instruction to use `$auto-bean-process`
-   - require sub-agents to persist all safe progress without asking the user directly, and to report parsed output paths, status changes, warnings, blockers, process question artifacts under `.auto-bean/artifacts/process/`, `memory_suggestions`, and `memory_suggestion_files`
+   - require sub-agents to follow the shared question-handling contract and to report parsed output paths, status changes, warnings, blockers, process question artifacts under `.auto-bean/artifacts/process/`, `memory_suggestions`, and `memory_suggestion_files`
    - wait for all assigned processing sub-agents to finish before starting any parsed-statement handoff
 3. Resolve process questions and update intermediate statements:
    - inspect every reported process question artifact under `.auto-bean/artifacts/process/`
    - for `parsed_with_warning`, read the artifact produced by `$auto-bean-process` and ask the user any bounded questions needed to make the parsed intermediate statement trustworthy before downstream work
-   - include the affected statement path, observed facts, why input is needed, and the smallest useful set of choices or requested facts
+   - use the shared question-handling contract for question shape, batching, answer capture, and stage resume
    - after the user answers, update the relevant intermediate parsed statement, status entry, and process artifact when the answer resolves or changes parsed evidence
    - resume `$auto-bean-process` only when the answer requires parser-specific regeneration or normalization that should stay inside the raw-to-parsed worker boundary
    - when a `parsed` statement needs no process-stage user input, mark it `account_inspection`
@@ -51,21 +52,20 @@ Workflow:
 5. Handoff parsed statements:
    - for each statement at `ready_for_categorization` with resolved process and first-seen account questions, start one sub-agent assigned to that single parsed statement with the instruction to use `$auto-bean-categorize` for categorization, reconciliation, and deduplication work
    - run categorize sub-agents sequentially: wait for the current `$auto-bean-categorize` sub-agent to finish before starting the next one
-   - require each `$auto-bean-categorize` sub-agent to persist all safe progress before requesting user input, and to report categorization results, posting inputs, status changes or pending-question metadata, reconciliation findings, blockers, categorize artifact paths, persisted pending user questions, `memory_suggestions`, and `memory_suggestion_files`
+   - require each `$auto-bean-categorize` sub-agent to follow the shared question-handling contract and to report categorization results, posting inputs, status changes or pending-question metadata, reconciliation findings, blockers, categorize artifact paths, persisted pending user questions, `memory_suggestions`, and `memory_suggestion_files`
    - keep statements that need clarification, repair, or manual source handling out of posting and final approval until resolved
 6. Surface categorize user input:
    - for each statement at `ready_for_review`, read the artifact produced by `$auto-bean-categorize`
-   - when any sub-agent or downstream skill reports missing information, risky ambiguity, unresolved reconciliation finding, or manual extraction need, first verify the relevant artifact/status/file records all safe progress and clearly names what remains required from the user
+   - when any sub-agent or downstream skill reports missing information, risky ambiguity, unresolved reconciliation finding, or manual extraction need, follow the shared question-handling contract
    - when a categorize artifact path is reported under `.auto-bean/artifacts/categorize/`, present that path to the user as the fillable review surface and ask them either to answer in conversation or complete the artifact
    - ask the user the collected bounded question or question set and wait for the answer instead of treating the workflow as finished or blocked
    - use the appropriate user-input tool or conversation channel; do not force clarification through a specific skill unless that skill owns the work being clarified
-   - include the affected statement path, why input is needed, and the smallest useful set of choices or requested facts
    - after the user answers or fills the artifact, read the completed artifact if applicable, then make the appropriate artifact/status changes or resume the same first-seen derivation or categorize stage for the affected statement/artifact with the answer and existing persisted artifacts included in the assignment context
    - when categorization output and required user input are resolved, mark the statement `ready_to_write`
 7. Post categorized transactions:
    - for each statement at `ready_to_write`, take back the main thread and invoke `$auto-bean-write` with parsed facts, category/account suggestions, reconciliation and deduplication decisions, memory attribution, and any approved user answers
    - keep `$auto-bean-write` focused on drafting Beancount transaction entries and transaction-specific validation; do not make `$auto-bean-categorize` draft ledger mutations
-   - if `$auto-bean-write` returns a bounded clarification question, ask the user in the main import thread, then resume `$auto-bean-write` with the answer and the existing categorize artifact/status context
+   - if `$auto-bean-write` returns a bounded clarification question, use the shared question-handling contract to ask in the main import thread, then resume `$auto-bean-write` with the answer and the existing categorize artifact/status context
    - set `final_review` only after import-derived transactions for that statement are written and validated
 8. Review and close:
    - consolidate sub-agent results, process question outcomes, first-seen account derivation, downstream categorize results, write results, validation outcome, and `git diff`

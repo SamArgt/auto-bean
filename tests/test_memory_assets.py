@@ -315,6 +315,29 @@ def test_process_and_categorize_share_parsed_statement_references() -> None:
     )
 
 
+def test_import_stages_share_question_handling_contract() -> None:
+    root = Path(__file__).resolve().parents[1]
+    shared = root / "skill_sources" / "shared" / "question-handling-contract.md"
+    shared_text = shared.read_text(encoding="utf-8")
+    shared_reference = ".agents/skills/shared/question-handling-contract.md"
+
+    assert shared.is_file()
+    assert "Import-Invoked Broker Rule" in shared_text
+    assert "Minimum Question Fields" in shared_text
+
+    for skill_name in (
+        "auto-bean-import",
+        "auto-bean-process",
+        "auto-bean-categorize",
+        "auto-bean-write",
+    ):
+        text = (root / "skill_sources" / skill_name / "SKILL.md").read_text(
+            encoding="utf-8"
+        )
+        assert shared_reference in text
+        assert "shared question-handling contract" in text
+
+
 class NoopCommands:
     def run(self, args: object, cwd: Path | None = None) -> CommandResult:
         return CommandResult(returncode=0)

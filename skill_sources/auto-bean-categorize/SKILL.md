@@ -16,6 +16,7 @@ Read before acting:
 - `.agents/skills/shared/memory-access-rules.md` before using governed memory hints
 - `.agents/skills/shared/parsed-statement-output.example.json`
 - `.agents/skills/shared/parsed-statement-jq-reading.md` before inspecting large parsed statement artifacts
+- `.agents/skills/shared/question-handling-contract.md` before recording or returning pending user questions
 - `.agents/skills/auto-bean-categorize/references/reconciliation-findings.md` for transfer, duplicate, balance, currency, or future-transfer findings
 - `.agents/skills/auto-bean-categorize/references/clarification-guidance.md` when categorization, reconciliation, or deduplication remains ambiguous, unfamiliar, or blocked on user clarification
 - `.agents/skills/auto-bean-categorize/references/categorize-artifact.example.md` before creating or updating a user-facing categorize artifact
@@ -32,9 +33,9 @@ Workflow:
    - use `$auto-bean-query` for ledger reads, account discovery, register inspection, balances, date-bounded activity, duplicate exploration, transaction existence, and account constraints
    - do not approximate those reads by grepping ledger transactions when `$auto-bean-query` can answer them
 3. Work forward while collecting questions:
-   - do not stop at the first ambiguous transaction when other transactions or checks can progress safely
+   - follow the shared question-handling contract
    - categorize, reconcile, deduplicate, and record every item whose evidence supports safe analysis
-   - collect unresolved decisions in a categorize artifact under `.auto-bean/artifacts/categorize/`, with affected transaction/source row, observed facts, plausible interpretations, risk of guessing, and the answer needed to continue
+   - collect unresolved decisions in a categorize artifact under `.auto-bean/artifacts/categorize/`
    - record explicit warnings, blocking issues, and requested user inputs in the artifact/status entry; do not add Beancount placeholders or draft ledger mutations
    - return control to `$auto-bean-import` after all safe progress for this assigned artifact is persisted, so `$auto-bean-import` can ask the user or continue to posting through `$auto-bean-write`
    - collect eligible reusable learning as `memory_suggestions` throughout categorization, reconciliation, deduplication, and clarification; include memory type, source context, decision, scope, confidence or review state, supporting evidence, current-evidence checks, and why it should be reused later
@@ -67,10 +68,9 @@ Workflow:
 7. Handle clarification needs for this artifact:
    - read `.agents/skills/auto-bean-categorize/references/clarification-guidance.md` before returning any question
    - set `user_input_required: true` when account/category choice, transfer intent, duplicate suspicion, source-specific meaning, or categorization remains materially ambiguous
-   - persist all pending questions and safe partial results before returning control; include observed facts, plausible interpretations, risk of guessing, and what answer would unblock work
-   - do not ask the user directly unless `$auto-bean-import` explicitly delegated that interaction; normally return the question set so `$auto-bean-import` can keep the main thread
+   - follow the shared question-handling contract before returning control; normally return the question set so `$auto-bean-import` can keep the main thread unless it explicitly delegated user interaction
    - after `$auto-bean-import` supplies user answers, resume this same artifact with the persisted artifact/status context, then re-run categorization, reconciliation, and deduplication as needed
-   - if the answer is still insufficient, return one bounded follow-up question and the remaining blocker to `$auto-bean-import`
+   - if the answer is still insufficient, follow the shared follow-up rule and return the remaining blocker to `$auto-bean-import`
 8. Update only this artifact's status:
    - require the assigned statement to be at `ready_for_categorization` before categorization work starts
    - set `ready_for_review` after categorization, reconciliation, and deduplication work is persisted, including any user-input needs in the artifact/status entry
@@ -101,4 +101,4 @@ Guardrails:
 - Do not bypass clarification with a best guess when ambiguity is material.
 - Do not write `.auto-bean/memory/**`; report possible reusable learning back to `$auto-bean-import` so it can decide whether to invoke `$auto-bean-memory`.
 - Do not imply working-tree mutations have been accepted into history.
-- Do not ask for user input before persisting all safe progress and making unresolved requirements visible in the relevant artifacts.
+- Do not ask for user input before following the shared question-handling contract and making unresolved requirements visible in the relevant artifacts.

@@ -18,6 +18,7 @@ Read before acting:
 - `.agents/skills/shared/parsed-statement-output.example.json`
 - `.agents/skills/shared/parsed-statement-jq-reading.md` before inspecting large parsed statement artifacts
 - `.agents/skills/shared/import-status.example.yml`
+- `.agents/skills/shared/question-handling-contract.md` before recording process questions
 
 Workflow:
 
@@ -57,13 +58,12 @@ Workflow:
    - when setting `ready`, increment `process_attempts` for the current source fingerprint, set `last_process_failure_reason`, and set `manual_resolution_required: true` once the current-fingerprint attempt count reaches 2
    - when the source fingerprint changes, start a new retry count for that fingerprint while preserving any prior failure context that remains useful in warnings or blocking issues
 6. Continue through safe raw-to-parsed work while collecting questions:
-   - do not stop at the first missing detail once parsed evidence can be written safely
+   - follow the shared question-handling contract
    - keep progressing through every deterministic parsing, normalization, status, and evidence-quality step that does not require guessing
    - collect user questions in one deterministic artifact under `.auto-bean/artifacts/process/`, named from the parse run id or source fingerprint
-   - each process question must include the affected source record or parsed-output path, observed facts, why guessing is unsafe, the answer needed to continue, and the intermediate-statement fields that may need revision after the answer
    - reflect the question artifact path in the parsed output or status entry; do not embed long question payloads in the final response when the artifact can carry them
    - make unresolved items visible by recording explicit warnings or blocking issues in parsed/status artifacts
-   - do not ask the user directly; return the question artifact to `$auto-bean-import` so the orchestrator can ask and update or resume the intermediate statement
+   - return the question artifact to `$auto-bean-import` so the orchestrator can ask and update or resume the intermediate statement
    - collect eligible reusable learning as `memory_suggestions` while working; include memory type, source context, decision, scope, confidence or review state, supporting evidence, current-evidence checks, and why it should be reused later
    - if the final response cannot carry all `memory_suggestions`, persist them in one JSON file under `.auto-bean/tmp/memory-suggestions/` named from the parse run id or source fingerprint, then return that path to `$auto-bean-import`
 7. Return control to `$auto-bean-import` with:
@@ -83,4 +83,4 @@ Guardrails:
 - Do not overwrite prior parse outputs silently unless `$auto-bean-import` explicitly assigned overwrite behavior.
 - Do not claim success when evidence is ambiguous, structure is risky, or validation fails.
 - Do not process unassigned statements.
-- Do not ask for user input; persist all safe progress and make unresolved requirements visible in the relevant artifacts for `$auto-bean-import`.
+- Do not ask for user input; follow the shared question-handling contract and make unresolved requirements visible in the relevant artifacts for `$auto-bean-import`.
