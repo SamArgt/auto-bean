@@ -24,8 +24,8 @@ Workflow:
    - allow an explicit user reprocess request to retry a manually held `ready` entry; record the new attempt and reason instead of clearing prior retry history silently
    - continue orchestration for existing entries at `parsed`, `parsed_with_warning`, `account_inspection`, `ready_for_categorization`, `ready_for_review`, `ready_to_write`, or `final_review`
    - skip entries already current at `done` unless the user explicitly requests rework
-2. Use sub-agents for statement work:
-   - assign each sub-agent one raw statement
+2. Use sub-agents in parallel for statement work:
+   - Spawn in parallel one sub-agent per statement
    - give each sub-agent the source path, current status entry including retry metadata, expected parsed-output path or naming rule, the shared raw-statement artifact prefix, and the instruction to use `$auto-bean-process`
    - require sub-agents to follow the shared question-handling contract and to report parsed output paths, status changes, warnings, blockers, process question artifacts under `.auto-bean/artifacts/process/` using the shared prefix, and structured `memory_suggestions`
    - wait for all assigned processing sub-agents to finish before starting any parsed-statement handoff
