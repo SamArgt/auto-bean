@@ -326,6 +326,7 @@ class InitService:
                     ".auto-bean/memory/naming_conventions.json",
                     ".auto-bean/memory/transfer_detection.json",
                     ".auto-bean/artifacts/categorize/.gitkeep",
+                    ".auto-bean/artifacts/import/.gitkeep",
                     "statements/parsed/.gitkeep",
                     "statements/import-status.yml",
                 ),

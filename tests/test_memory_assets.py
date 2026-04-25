@@ -31,6 +31,9 @@ def test_memory_skill_and_shared_policy_are_authored() -> None:
     assert (
         root / "workspace_template" / ".auto-bean" / "artifacts" / "categorize"
     ).is_dir()
+    assert (
+        root / "workspace_template" / ".auto-bean" / "artifacts" / "import"
+    ).is_dir()
     for reference in memory_reference_map().values():
         assert (root / "skill_sources" / "auto-bean-memory" / reference).is_file()
 
@@ -336,6 +339,45 @@ def test_import_stages_share_question_handling_contract() -> None:
         )
         assert shared_reference in text
         assert "shared question-handling contract" in text
+
+
+def test_import_maintains_global_import_owned_artifact_contract() -> None:
+    root = Path(__file__).resolve().parents[1]
+    shared = root / "skill_sources" / "shared" / "import-artifact-contract.md"
+    shared_text = shared.read_text(encoding="utf-8")
+    import_text = (root / "skill_sources" / "auto-bean-import" / "SKILL.md").read_text(
+        encoding="utf-8"
+    )
+    memory_text = (root / "skill_sources" / "auto-bean-memory" / "SKILL.md").read_text(
+        encoding="utf-8"
+    )
+    prompt = (
+        root / "skill_sources" / "auto-bean-import" / "agents" / "openai.yaml"
+    ).read_text(encoding="utf-8")
+
+    assert shared.is_file()
+    assert ".auto-bean/artifacts/import/" in shared_text
+    assert "current-import.md" in shared_text
+    assert "Use a deterministic Markdown file path" in shared_text
+    assert "## Stage Ownership" in shared_text
+    assert "## First-Seen Account Decisions" in shared_text
+    assert "## Posting Handoffs" in shared_text
+    assert "## Memory Candidates" in shared_text
+    assert "orchestration audit surface" in shared_text
+    assert "Do not copy full parsed payloads" in shared_text
+    assert "Do not copy the full categorization analysis" in shared_text
+    assert "current-import.yml" not in shared_text
+    assert ".agents/skills/shared/import-artifact-contract.md" in import_text
+    assert "import-owned artifact" in import_text
+    assert "active import-owned artifact path" in import_text
+    assert "do not copy full parsed payloads" in import_text
+    assert "do not copy full categorization analysis" in import_text
+    assert "link to process and categorize artifacts" in import_text
+    assert "consistent with `statements/import-status.yml`" in import_text
+    assert "import-owned artifact path under `.auto-bean/artifacts/import/`" in (
+        memory_text
+    )
+    assert "maintain the import-owned audit artifact" in prompt
 
 
 class NoopCommands:
