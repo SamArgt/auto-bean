@@ -228,9 +228,11 @@ def test_categorize_does_not_write_ledger_transactions() -> None:
 
     assert "Do not invoke `$auto-bean-write`." in categorize_text
     assert "Do not write or edit Beancount ledger entries." in categorize_text
-    assert "Do not set statements `in_review`" in categorize_text
+    assert "Do not set statements `ready_to_write` or `final_review`" in (
+        categorize_text
+    )
     assert "invoke `$auto-bean-write`" in import_text
-    assert "set `in_review` only after" in import_text
+    assert "set `final_review` only after" in import_text
 
 
 def test_categorize_artifacts_are_user_fillable_and_feed_memory_handoff() -> None:

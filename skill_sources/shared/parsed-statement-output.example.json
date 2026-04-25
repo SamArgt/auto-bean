@@ -9,7 +9,7 @@
     "output_format": "json",
     "version": "2.0.0"
   },
-  "status": "parsed_with_warnings",
+  "status": "parsed_with_warning",
   "parsed_at": "2026-04-11T09:00:00Z",
   "supersedes_parse_run_id": "20260405T102500Z-checking-jan-2026",
   "warnings": [

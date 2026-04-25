@@ -1,7 +1,7 @@
 interface:
   display_name: "Import Statements"
   short_description: "Run the full statement import workflow"
-  default_prompt: "Use $auto-bean-import to inspect raw statements, process only new or stale inputs, resolve process question artifacts, update intermediate statements as needed, derive first-seen accounts, delegate categorization/reconciliation/deduplication to $auto-bean-categorize, ask the user for needed input, post transactions with $auto-bean-write, validate the ledger, and hand memory suggestions to $auto-bean-memory at the end."
+  default_prompt: "Use $auto-bean-import to inspect raw statements and import status, process only new or stale inputs, resolve parsed_with_warning process artifacts into ready_for_categorization, derive first-seen accounts, delegate ready_for_categorization work to $auto-bean-categorize, review ready_for_review artifacts and ask the user for needed input, mark ready_to_write, post transactions with $auto-bean-write, validate into final_review, and mark done only after user approval."
 
 policy:
   allow_implicit_invocation: true

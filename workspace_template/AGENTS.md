@@ -21,10 +21,13 @@ Users should start imports with `$auto-bean-import`.
 
 Workflow statuses in `statements/import-status.yml`:
 
-- `ready`: no successful parsed evidence exists yet
-- `parsed`: parsed evidence exists and is ready for posting work
-- `parsed_with_warnings`: parsed evidence exists but warnings need review
-- `in_review`: import-derived transactions have been written but not finalized
+- `ready`: raw statement is ready for `$auto-bean-process`
+- `parsed`: parsed evidence exists without process warnings; `$auto-bean-import` should move it to `ready_for_categorization`
+- `parsed_with_warning`: parsed evidence exists but `$auto-bean-import` must review the process artifact and resolve warnings before categorization
+- `ready_for_categorization`: process-stage review is complete and `$auto-bean-categorize` can run
+- `ready_for_review`: `$auto-bean-categorize` has persisted its artifact and `$auto-bean-import` should collect any needed user input
+- `ready_to_write`: categorization review is resolved and `$auto-bean-import` can invoke `$auto-bean-write`
+- `final_review`: import-derived transactions have been written and validated but not user-approved
 - `done`: the full import workflow is complete
 
 Only mark a statement `done` after user approval of the final import result.

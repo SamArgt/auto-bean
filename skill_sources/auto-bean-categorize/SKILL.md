@@ -72,9 +72,10 @@ Workflow:
    - after `$auto-bean-import` supplies user answers, resume this same artifact with the persisted artifact/status context, then re-run categorization, reconciliation, and deduplication as needed
    - if the answer is still insufficient, return one bounded follow-up question and the remaining blocker to `$auto-bean-import`
 8. Update only this artifact's status:
-   - keep `parsed` or `parsed_with_warnings` until `$auto-bean-import` posts transactions through `$auto-bean-write`
-   - set `user_input_required: true` or equivalent pending-question metadata when categorization, reconciliation, or deduplication needs user input
-   - never set `done`
+   - require the assigned statement to be at `ready_for_categorization` before categorization work starts
+   - set `ready_for_review` after categorization, reconciliation, and deduplication work is persisted, including any user-input needs in the artifact/status entry
+
+   - never set `ready_to_write`, `final_review`, or `done`
    - refresh the matching entry in `statements/import-status.yml`; do not create a second workflow-tracking file
 9. Return control to `$auto-bean-import` with:
    - assigned parsed/intermediate artifact path
@@ -94,7 +95,7 @@ Guardrails:
 - Do not invoke `$auto-bean-write`.
 - Do not write or edit Beancount ledger entries.
 - Do not mark statements `done`.
-- Do not set statements `in_review`; that status belongs after `$auto-bean-import` posts transactions through `$auto-bean-write`.
+- Do not set statements `ready_to_write` or `final_review`; those statuses belong to `$auto-bean-import` after categorize review and transaction writing.
 - Do not request commit or push approval.
 - Do not apply a reconciliation finding decision unless `$auto-bean-import` supplies the explicit user answer for this artifact.
 - Do not bypass clarification with a best guess when ambiguity is material.
