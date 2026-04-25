@@ -51,8 +51,8 @@ Workflow:
 5. Update only this input's status:
    - set `ready` when no trustworthy parsed evidence exists yet or manual follow-up is required before parsing is trustworthy
    - set `parsed` when normalized output is written and no warnings require `$auto-bean-import` review
-   - set `parsed_with_warning` when normalized output is written but warnings need `$auto-bean-import` review before categorization
-   - never set `ready_for_categorization`, `ready_for_review`, `ready_to_write`, `final_review`, or `done`
+   - set `parsed_with_warning` when normalized output is written but warnings need `$auto-bean-import` review before account inspection
+   - never set `account_inspection`, `ready_for_categorization`, `ready_for_review`, `ready_to_write`, `final_review`, or `done`
    - record output path, parse run id, parser identifier, timestamps, warnings, and blocking issues alongside the status
 6. Continue through safe raw-to-parsed work while collecting questions:
    - do not stop at the first missing detail once parsed evidence can be written safely

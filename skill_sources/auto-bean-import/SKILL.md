@@ -15,7 +15,7 @@ Workflow:
    - inspect `statements/raw/`, `statements/parsed/`, and `statements/import-status.yml`
    - fingerprint supported raw files: `.pdf`, `.csv`, `.xlsx`, `.xls`
    - send raw files to `$auto-bean-process` only when they have no current parsed output, missing status, changed fingerprint, `ready` status, or an explicit user reprocess request
-   - continue orchestration for existing entries at `parsed`, `parsed_with_warning`, `ready_for_categorization`, `ready_for_review`, `ready_to_write`, or `final_review`
+   - continue orchestration for existing entries at `parsed`, `parsed_with_warning`, `account_inspection`, `ready_for_categorization`, `ready_for_review`, `ready_to_write`, or `final_review`
    - skip entries already current at `done` unless the user explicitly requests rework
 2. Use sub-agents for statement work:
    - assign each sub-agent one raw statement
@@ -28,20 +28,22 @@ Workflow:
    - include the affected statement path, observed facts, why input is needed, and the smallest useful set of choices or requested facts
    - after the user answers, update the relevant intermediate parsed statement, status entry, and process artifact when the answer resolves or changes parsed evidence
    - resume `$auto-bean-process` only when the answer requires parser-specific regeneration or normalization that should stay inside the raw-to-parsed worker boundary
-   - when a `parsed` statement needs no process-stage user input, mark it `ready_for_categorization`
-   - when all `parsed_with_warning` warnings or process questions are resolved enough for downstream work, make the appropriate artifact/status changes and mark it `ready_for_categorization`
+   - when a `parsed` statement needs no process-stage user input, mark it `account_inspection`
+   - when all `parsed_with_warning` warnings or process questions are resolved enough for downstream work, make the appropriate artifact/status changes and mark it `account_inspection`
    - keep statements that still have unresolved process questions out of first-seen derivation, categorization, and posting work
 4. Derive first-seen accounts:
-   - for each statement with resolved process questions and status `ready_for_categorization`, inspect `beancount/accounts.beancount` first, then `ledger.beancount` and included `beancount/**` files for existing `open` directives and account names
+   - for each statement with resolved process questions and status `account_inspection`, inspect `beancount/accounts.beancount` first, then `ledger.beancount` and included `beancount/**` files for existing `open` directives and account names
    - classify inferred accounts as `existing_account`, `first_seen_candidate`, or `blocked_inference`
    - consider only banking, credit card, loans, cash, and investment account types for first-seen structure inference
    - do not infer mutable categories such as expense accounts
    - infer Beancount-safe account names and minimal supporting directives only when institution, account identity, type hints, and currency provide strong evidence
    - current parsed statement evidence and current ledger state remain authoritative; memory may provide hints, not authority
    - when top-level branch, account identity, currency, duplicate risk, mutation target, or syntax is unclear, ask the user a bounded question before mutating account structure
-   - mutate only account-opening structure and minimal supporting directives such as missing operating currencies; prefer `beancount/accounts.beancount` and explain any fallback target
+   - before writing any new `open` directive, present the exact proposed directive, target file, supporting parsed evidence, and reason the account appears first-seen; ask the user to approve or correct it, then wait for the response
+   - after the user approves or corrects the proposal, write only the approved account-opening structure and minimal supporting directives such as missing operating currencies; prefer `beancount/accounts.beancount` and explain any fallback target
    - avoid duplicate directives and keep mutations deterministic for the same parsed input and ledger state
    - run `./scripts/validate-ledger.sh` or `./.venv/bin/bean-check ledger.beancount` after account-structure edits
+   - after first-seen account inspection, any needed account-structure edits, and validation are complete, mark the statement `ready_for_categorization`
    - keep statements with unresolved first-seen account questions out of posting work until resolved
 5. Handoff parsed statements:
    - for each statement at `ready_for_categorization` with resolved process and first-seen account questions, start one sub-agent assigned to that single parsed statement with the instruction to use `$auto-bean-categorize` for categorization, reconciliation, and deduplication work
@@ -96,7 +98,7 @@ Guardrails:
 
 - Keep raw files in `statements/raw/`, parsed evidence in `statements/parsed/`, status in `statements/import-status.yml`, and governed memory in `.auto-bean/memory/`.
 - Keep `$auto-bean-process` responsible only for raw-to-parsed processing, process question artifacts, and process-stage memory suggestions.
-- Keep `$auto-bean-import` responsible for process question surfacing, intermediate-statement updates, moving parsed statements to `ready_for_categorization`, first-seen account derivation, categorize artifact review, moving reviewed categorization output to `ready_to_write`, invoking `$auto-bean-write`, setting `final_review`, final user approval to `done`, and the final governed memory handoff.
+- Keep `$auto-bean-import` responsible for process question surfacing, intermediate-statement updates, moving parsed statements to `account_inspection`, first-seen account derivation, moving inspected statements to `ready_for_categorization`, categorize artifact review, moving reviewed categorization output to `ready_to_write`, invoking `$auto-bean-write`, setting `final_review`, final user approval to `done`, and the final governed memory handoff.
 - Keep `$auto-bean-categorize` responsible only for categorization, reconciliation, deduplication, user-input needs, and memory suggestions.
 - Keep `$auto-bean-write` responsible for posting categorized transactions and transaction-specific validation after `$auto-bean-import` resumes the main thread.
 - Do not silently reprocess current statements.

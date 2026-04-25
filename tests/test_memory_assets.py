@@ -280,6 +280,10 @@ def test_first_seen_account_derivation_belongs_to_import() -> None:
         import_text
     )
     assert "update the relevant intermediate parsed statement" in import_text
+    assert "mark it `account_inspection`" in import_text
+    assert "mark the statement `ready_for_categorization`" in import_text
+    assert "before writing any new `open` directive" in import_text
+    assert "wait for the response" in import_text
     assert "do not discover import work, derive first-seen accounts" in process_text
     assert "Do not derive first-seen accounts" in process_text
     assert "Derive first-seen account structure" not in process_text
