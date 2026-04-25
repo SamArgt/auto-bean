@@ -366,3 +366,9 @@ Development boundaries:
 - Treat `workspace_template/` as scaffold only.
 - Do not add live installed runtime skills to the product repo `.agents/skills/`.
 - Prefer changing skill markdown behavior before adding new Python surfaces.
+
+Contributor path note:
+
+- In this product repo, `skill_sources/` is the authored source of truth for skill behavior.
+- Runtime paths in skill text such as `.agents/skills/auto-bean-import/` describe the generated user workspace after `auto-bean init` installs the authored skills.
+- When reviewing or changing skill behavior here, edit `skill_sources/...`; do not create or patch product-repo `.agents/skills/...` copies.
