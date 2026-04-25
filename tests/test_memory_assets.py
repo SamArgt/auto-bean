@@ -206,10 +206,36 @@ def test_import_stages_return_memory_suggestions_for_governed_handoff() -> None:
     assert "Collect and govern memory suggestions" in import_text
     assert "collect `memory_suggestions`" in import_text
     assert "read any returned `memory_suggestion_files`" in import_text
+    assert "look for memory suggestion files created during this import" in import_text
     assert "invoke `$auto-bean-memory`" in import_text
     assert (
         "memory suggestions collected and `$auto-bean-memory` persistence result"
         in import_text
+    )
+
+
+def test_first_seen_account_derivation_belongs_to_import() -> None:
+    root = Path(__file__).resolve().parents[1]
+    process_text = (
+        root / "skill_sources" / "auto-bean-process" / "SKILL.md"
+    ).read_text(encoding="utf-8")
+    import_text = (root / "skill_sources" / "auto-bean-import" / "SKILL.md").read_text(
+        encoding="utf-8"
+    )
+    process_prompt = (
+        root / "skill_sources" / "auto-bean-process" / "agents" / "openai.yaml"
+    ).read_text(encoding="utf-8")
+
+    assert "4. Derive first-seen accounts:" in import_text
+    assert "process question artifacts under `.auto-bean/artifacts/process/`" in (
+        import_text
+    )
+    assert "update the relevant intermediate parsed statement" in import_text
+    assert "do not discover import work, derive first-seen accounts" in process_text
+    assert "Do not derive first-seen accounts" in process_text
+    assert "Derive first-seen account structure" not in process_text
+    assert "make only directly supported first-seen account-structure edits" not in (
+        process_prompt
     )
 
 

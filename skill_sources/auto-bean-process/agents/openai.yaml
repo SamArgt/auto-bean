@@ -1,7 +1,7 @@
 interface:
   display_name: "Process Statements"
   short_description: "Process one raw statement into parsed evidence"
-  default_prompt: "Use $auto-bean-process for one assigned raw statement: normalize it into `statements/parsed/`, update only that input's `statements/import-status.yml` entry, make only directly supported first-seen account-structure edits, persist all safe progress and pending questions, then request any required user input through $auto-bean-import before resuming the same statement."
+  default_prompt: "Use $auto-bean-process for one assigned raw statement: normalize it into `statements/parsed/`, update only that input's `statements/import-status.yml` entry, persist process questions under `.auto-bean/artifacts/process/`, collect memory suggestions, and return control to $auto-bean-import without asking the user or deriving first-seen accounts."
 
 policy:
   allow_implicit_invocation: false

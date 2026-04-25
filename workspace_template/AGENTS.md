@@ -17,7 +17,7 @@ Use `auto-bean-write` when a workflow needs to add or correct Beancount transact
 
 Users should start imports with `$auto-bean-import`.
 
-`auto-bean-import` discovers unprocessed raw statements, skips already-current statements, uses sub-agents for bounded statement work, delegates raw-to-parsed work to `$auto-bean-process`, delegates posting/reconciliation work to `$auto-bean-apply`, and surfaces any user input required before continuing.
+`auto-bean-import` discovers unprocessed raw statements, skips already-current statements, uses sub-agents for bounded statement work, delegates raw-to-parsed work to `$auto-bean-process`, resolves any process question artifacts and updates intermediate statements, derives first-seen account structure, delegates posting/reconciliation work to `$auto-bean-apply`, and handles governed memory suggestions through `$auto-bean-memory` at the end.
 
 Workflow statuses in `statements/import-status.yml`:
 
