@@ -8,7 +8,7 @@ Scope: All authored skills under `skill_sources/*/SKILL.md` and their interface 
 
 - The overall architecture is coherent: `auto-bean-import` orchestrates, `auto-bean-process` handles raw-to-parsed conversion, `auto-bean-categorize` handles categorization/reconciliation, `auto-bean-write` performs ledger mutation, `auto-bean-query` is read-only analysis, and `auto-bean-memory` governs durable memory.
 - Cross-skill boundaries are mostly explicit and conservative (fail-closed behavior, no silent guessing, no direct memory writes outside `$auto-bean-memory`).
-- The biggest quality risks are not major contradictions, but **instruction density/repetition**, a few **ownership ambiguities**, and one likely **workflow loop risk** around `ready` status reprocessing.
+- The biggest quality risks are not major contradictions, but **instruction density/repetition**, a few **ownership ambiguities**, one likely **workflow loop risk** around `ready` status reprocessing, and an avoidable split between inline memory suggestions vs temporary memory-suggestion files.
 
 ---
 
@@ -114,12 +114,12 @@ Scope: All authored skills under `skill_sources/*/SKILL.md` and their interface 
 ### 2.2 Interaction graph (intended)
 
 1. `auto-bean-import` discovers and dispatches raw files -> `auto-bean-process`.
-2. `auto-bean-process` returns parsed artifacts/status/questions/memory suggestions -> `auto-bean-import`.
+2. `auto-bean-process` returns parsed artifacts/status/questions and process artifacts that include memory-relevant notes -> `auto-bean-import`.
 3. `auto-bean-import` resolves process questions, performs first-seen account work, then hands parsed items -> `auto-bean-categorize`.
-4. `auto-bean-categorize` returns categorizations/findings/questions/posting inputs/memory suggestions -> `auto-bean-import`.
+4. `auto-bean-categorize` returns categorizations/findings/questions/posting inputs and categorize artifacts that include memory-relevant notes -> `auto-bean-import`.
 5. `auto-bean-import` resolves user input and dispatches posting -> `auto-bean-write`.
 6. `auto-bean-write` returns written changes + validation (+clarification loop if needed) -> `auto-bean-import`.
-7. `auto-bean-import` gathers approved reusable learnings -> `auto-bean-memory`.
+7. `auto-bean-import` gathers process/categorize artifacts and approved reusable learnings -> `auto-bean-memory`.
 8. `auto-bean-memory` persists governed memory and returns persistence summary -> `auto-bean-import`.
 
 ### 2.3 Shared artifacts/data ownership
@@ -129,7 +129,7 @@ Scope: All authored skills under `skill_sources/*/SKILL.md` and their interface 
 - `statements/import-status.yml`: orchestrated by import; stage workers only update assigned scope.
 - `.auto-bean/artifacts/process/*`: owned by process for question artifacts; surfaced by import.
 - `.auto-bean/artifacts/categorize/*`: owned by categorize for review/question artifacts; surfaced by import.
-- `.auto-bean/tmp/memory-suggestions/*`: temporary handoff from process/categorize, consolidated by import.
+- Memory suggestions should be artifact-first: persist memory-relevant notes in stage-owned artifacts (`process` or `categorize`) so import can pass those artifacts to memory governance.
 - `.auto-bean/memory/*`: writable only by memory skill.
 
 ---
@@ -148,7 +148,12 @@ Scope: All authored skills under `skill_sources/*/SKILL.md` and their interface 
    - Import owns final review + done and also mentions readiness for commit/push.
    - A single authoritative owner is implied but not explicitly fixed in all invocation modes.
 
-3. **Path mental model mismatch for contributors**
+3. **Memory handoff channel split (should be unified)**
+   - Current wording across skills allows both inline `memory_suggestions` and overflow files under `.auto-bean/tmp/memory-suggestions/`.
+   - This duplicates handoff mechanisms and adds parsing/validation overhead to import.
+   - Prefer one path: stage-owned artifacts containing memory-relevant notes, with `auto-bean-memory` extracting reusable records.
+
+4. **Path mental model mismatch for contributors**
    - Skill text references runtime paths under `.agents/skills/...` (valid for installed skills), while authoring source lives under `skill_sources/...`.
    - This is expected architecture-wise but can be confusing during repo-only reviews if not called out in contributor docs.
 
@@ -181,8 +186,10 @@ Scope: All authored skills under `skill_sources/*/SKILL.md` and their interface 
 3. **Create shared “question-handling contract” snippet**
    - Put common guidance in shared reference and link from process/categorize/write/import to reduce duplication.
 
-4. **Create shared “memory suggestion envelope schema”**
-   - Define required keys once, then reference from process/categorize/import.
+4. **Adopt artifact-first memory capture**
+   - Remove temporary memory suggestion file flow.
+   - Require process and categorize to store memory-relevant notes in their normal artifacts.
+   - Require import to pass those artifacts to `auto-bean-memory`, which extracts and persists governed reusable learning.
 
 5. **Add contributor note for source vs installed skill paths**
    - Explain that `skill_sources/` authoring material is rendered/installed to `.agents/skills/...` in workspace.
@@ -198,7 +205,7 @@ Scope: All authored skills under `skill_sources/*/SKILL.md` and their interface 
 - **Single raw parser worker:** `auto-bean-process`.
 - **Single categorization/reconciliation worker:** `auto-bean-categorize`.
 - **Single transaction mutation worker:** `auto-bean-write`.
-- **Single durable memory writer:** `auto-bean-memory`.
+- **Single durable memory writer + extractor:** `auto-bean-memory` extracts reusable learning from process/categorize artifacts and writes governed memory.
 - **Single read-only ledger query tool:** `auto-bean-query`.
 
 This model already exists implicitly; the main recommendation is to make the boundary language shorter and even more explicit to reduce interpretation drift.
