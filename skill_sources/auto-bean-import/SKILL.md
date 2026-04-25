@@ -5,6 +5,10 @@ description: Orchestrate statement imports from raw statement discovery through 
 
 Use this as the user-facing import entrypoint. Delegate mechanics to narrower skills instead of duplicating their procedures.
 
+
+Read before acting:
+- `.agents/skills/shared/import-status.example.yml`
+
 Workflow:
 
 1. Discover unprocessed work:
@@ -43,10 +47,11 @@ Workflow:
    - keep statements that need clarification, repair, or manual source handling out of posting and final approval until resolved
 6. Surface categorize user input:
    - when any sub-agent or downstream skill reports missing information, risky ambiguity, unresolved reconciliation finding, or manual extraction need, first verify the relevant artifact/status/file records all safe progress and clearly names what remains required from the user
+   - when a categorize artifact path is reported under `.auto-bean/artifacts/categorize/`, present that path to the user as the fillable review surface and ask them either to answer in conversation or complete the artifact
    - ask the user the collected bounded question or question set and wait for the answer instead of treating the workflow as finished or blocked
    - use the appropriate user-input tool or conversation channel; do not force clarification through a specific skill unless that skill owns the work being clarified
    - include the affected statement path, why input is needed, and the smallest useful set of choices or requested facts
-   - after the user answers, resume the same first-seen derivation or categorize stage for the affected statement/artifact with the answer and existing persisted artifacts included in the assignment context
+   - after the user answers or fills the artifact, read the completed artifact if applicable, then resume the same first-seen derivation or categorize stage for the affected statement/artifact with the answer and existing persisted artifacts included in the assignment context
 7. Post categorized transactions:
    - after categorization and required user input are resolved for a statement, take back the main thread and invoke `$auto-bean-write` with parsed facts, category/account suggestions, reconciliation and deduplication decisions, memory attribution, and any approved user answers
    - keep `$auto-bean-write` focused on drafting Beancount transaction entries and transaction-specific validation; do not make `$auto-bean-categorize` draft ledger mutations
@@ -59,14 +64,17 @@ Workflow:
 9. Collect and govern memory suggestions at the end:
    - collect `memory_suggestions` returned by every `$auto-bean-process` and `$auto-bean-categorize` sub-agent, including resumed stages after user answers
    - read any returned `memory_suggestion_files` only when the path stays under `.auto-bean/tmp/memory-suggestions/`
+   - collect produced categorize artifact paths returned by `$auto-bean-categorize` and read only those under `.auto-bean/artifacts/categorize/`
    - before final response, look for memory suggestion files created during this import under `.auto-bean/tmp/memory-suggestions/`, include eligible files not already reported by sub-agents, and ignore unrelated files with a warning
+   - before final response, look for categorize artifacts created during this import under `.auto-bean/artifacts/categorize/`, include eligible files not already reported by sub-agents, and ignore unrelated files with a warning
    - ignore missing, invalid, path-unsafe, or unrelated suggestion files and report them as warnings
+   - extract any explicit memory suggestions or user-approved reusable decisions from completed categorize artifacts, keeping the artifact path as supporting evidence
    - deduplicate suggestions that describe the same memory type, source, decision, and scope
    - keep raw statements, parsed statement dumps, ledger entries, diagnostics, and proposal artifacts out of the memory handoff
-   - if no eligible suggestions remain, record that no governed memory persistence was requested
-   - if eligible suggestions remain, invoke `$auto-bean-memory` with the collected suggestions, source/audit context, and explicit instruction to validate eligibility and persist only approved reusable operational learning through the governed workflow
+   - if no eligible suggestions or completed categorize artifacts with memory-relevant answers remain, record that no governed memory persistence was requested
+   - if eligible suggestions or completed categorize artifacts with memory-relevant answers remain, invoke `$auto-bean-memory` with the collected suggestions, eligible memory suggestion artifacts, completed categorize artifacts as source/audit context, and explicit instruction to validate eligibility and persist only approved reusable operational learning through the governed workflow
    - report the `$auto-bean-memory` result separately from import parsing, posting, validation, and final approval status
-   - include memory suggestions collected, ignored, deduplicated, handed to `$auto-bean-memory`, and persisted by `$auto-bean-memory`
+   - include memory suggestions and categorize artifacts collected, ignored, deduplicated, handed to `$auto-bean-memory`, and persisted by `$auto-bean-memory`
    - do not write `.auto-bean/memory/**` directly
 
 End with:

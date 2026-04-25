@@ -17,7 +17,7 @@ Read before acting:
 - `.agents/skills/shared/memory-access-rules.md` before using governed memory hints
 - `.agents/skills/shared/parsed-statement-output.example.json`
 - `.agents/skills/shared/parsed-statement-jq-reading.md` before inspecting large parsed statement artifacts
-- `.agents/skills/auto-bean-process/references/import-status.example.yml`
+- `.agents/skills/shared/import-status.example.yml`
 
 Workflow:
 

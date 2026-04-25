@@ -233,6 +233,34 @@ def test_categorize_does_not_write_ledger_transactions() -> None:
     assert "set `in_review` only after" in import_text
 
 
+def test_categorize_artifacts_are_user_fillable_and_feed_memory_handoff() -> None:
+    root = Path(__file__).resolve().parents[1]
+    categorize_text = (
+        root / "skill_sources" / "auto-bean-categorize" / "SKILL.md"
+    ).read_text(encoding="utf-8")
+    import_text = (root / "skill_sources" / "auto-bean-import" / "SKILL.md").read_text(
+        encoding="utf-8"
+    )
+    example = (
+        root
+        / "skill_sources"
+        / "auto-bean-categorize"
+        / "references"
+        / "categorize-artifact.example.md"
+    )
+    example_text = example.read_text(encoding="utf-8")
+
+    assert example.is_file()
+    assert "categorize-artifact.example.md" in categorize_text
+    assert "user-friendly Markdown artifact" in categorize_text
+    assert "directly fillable by a non-technical user" in categorize_text
+    assert "### Q1" in example_text
+    assert "- [ ] use suggestion" in example_text
+    assert "- [ ] use: `____________________________`" in example_text
+    assert "`.auto-bean/artifacts/categorize/`" in import_text
+    assert "completed categorize artifacts as source/audit context" in import_text
+
+
 def test_first_seen_account_derivation_belongs_to_import() -> None:
     root = Path(__file__).resolve().parents[1]
     process_text = (

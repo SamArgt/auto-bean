@@ -18,6 +18,7 @@ Read before acting:
 - `.agents/skills/shared/parsed-statement-jq-reading.md` before inspecting large parsed statement artifacts
 - `.agents/skills/auto-bean-categorize/references/reconciliation-findings.md` for transfer, duplicate, balance, currency, or future-transfer findings
 - `.agents/skills/auto-bean-categorize/references/clarification-guidance.md` when categorization, reconciliation, or deduplication remains ambiguous, unfamiliar, or blocked on user clarification
+- `.agents/skills/auto-bean-categorize/references/categorize-artifact.example.md` before creating or updating a user-facing categorize artifact
 
 Workflow:
 
@@ -33,7 +34,7 @@ Workflow:
 3. Work forward while collecting questions:
    - do not stop at the first ambiguous transaction when other transactions or checks can progress safely
    - categorize, reconcile, deduplicate, and record every item whose evidence supports safe analysis
-   - collect unresolved decisions as `pending_user_questions` in the parsed/intermediate artifact, `statements/import-status.yml`, or a categorize artifact under `.auto-bean/artifacts/categorize/`, with affected transaction/source row, observed facts, plausible interpretations, risk of guessing, and the answer needed to continue
+   - collect unresolved decisions in a categorize artifact under `.auto-bean/artifacts/categorize/`, with affected transaction/source row, observed facts, plausible interpretations, risk of guessing, and the answer needed to continue
    - record explicit warnings, blocking issues, and requested user inputs in the artifact/status entry; do not add Beancount placeholders or draft ledger mutations
    - return control to `$auto-bean-import` after all safe progress for this assigned artifact is persisted, so `$auto-bean-import` can ask the user or continue to posting through `$auto-bean-write`
    - collect eligible reusable learning as `memory_suggestions` throughout categorization, reconciliation, deduplication, and clarification; include memory type, source context, decision, scope, confidence or review state, supporting evidence, current-evidence checks, and why it should be reused later
@@ -57,8 +58,11 @@ Workflow:
    - anchor findings in parsed facts, suggested accounts/categories, existing ledger entries, account constraints, links, metadata, imported ids, or nearby balance assertions
    - fail closed when a finding cannot be safely classified or resolved; do not guess, auto-net, auto-merge, silently drop, or rewrite candidate transactions
 6. Create or update a categorize artifact when useful:
-   - write reviewable findings under `.auto-bean/artifacts/categorize/` when the categorized result, reconciliation findings, deduplication decisions, or user-input needs are too large or structured for the parsed artifact/status entry
+   - read `.agents/skills/auto-bean-categorize/references/categorize-artifact.example.md` first
+   - write a user-friendly Markdown artifact under `.auto-bean/artifacts/categorize/` when the categorized result, reconciliation findings, deduplication decisions, or user-input needs are too large or structured for the parsed artifact/status entry
+   - make the artifact directly fillable by a non-technical user: concise summary, clear sections, stable question IDs, checkboxes for choices, short blanks for account/category names, and explicit "leave blank if unknown" guidance where appropriate
    - include the source parsed artifact, statement/status id, categorization results, reconciliation and deduplication findings, pending user questions, and memory suggestions or memory suggestion file paths
+   - keep every user-editable field visibly separated from observed facts and agent suggestions so user answers can be read back without ambiguity
    - keep artifacts factual and reviewable; do not include raw statement dumps, unrelated ledger excerpts, or accepted-history language
 7. Handle clarification needs for this artifact:
    - read `.agents/skills/auto-bean-categorize/references/clarification-guidance.md` before returning any question
@@ -74,7 +78,7 @@ Workflow:
    - refresh the matching entry in `statements/import-status.yml`; do not create a second workflow-tracking file
 9. Return control to `$auto-bean-import` with:
    - assigned parsed/intermediate artifact path
-   - categorize artifact path if one was created or updated
+   - categorize artifact path if one was created or updated, including whether it needs user completion
    - short summary of what was categorized, reconciled, deduplicated, or blocked
    - categorization results and memory attribution
    - suggested transaction posting inputs for `$auto-bean-import` to pass to `$auto-bean-write` after user input is resolved
