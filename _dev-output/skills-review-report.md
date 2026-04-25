@@ -186,8 +186,8 @@ Scope: All authored skills under `skill_sources/*/SKILL.md` and their interface 
 4. **Add a global import-owned artifact contract**
    - Require `auto-bean-import` to maintain a deterministic artifact (for example under `.auto-bean/artifacts/import/`) that records whole-import state, stage ownership boundaries, first-seen account decisions, unresolved/answered questions, posting-readiness transitions, and memory candidate provenance so `$auto-bean-memory` can consume governed context without re-deriving workflow history.
 
-5. **Create shared “memory suggestion envelope schema”**
-   - Define required keys once, then reference from process/categorize/import.
+5. **Remove redundant need for a temporary memory suggestion artifact**
+   - Remove the intermediate temp file handoff for memory suggestions from process/categorize/import; instead, have each skill return memory suggestions as part of its artifact, which can then consolidate them in the last stage if needed for memory persistence.
 
 6. **Add contributor note for source vs installed skill paths**
    - Explain that `skill_sources/` authoring material is rendered/installed to `.agents/skills/...` in workspace.
