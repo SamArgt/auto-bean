@@ -69,7 +69,7 @@ Follow this workflow:
     - the validation outcome
     - a `git diff -- <paths>` view or equivalent focused diff summary
     - a clear statement that the working tree is changed but not finalized until approval is granted
-12. Ask for explicit approval before commit or push finalization. If approval is denied or deferred, leave the working-tree mutation unfinalized and explain its current state.
+12. Ask for explicit approval before commit or push finalization when used directly. When invoked by `$auto-bean-import`, never own commit or push finalization; return only the mutation, validation, focused diff summary, assumptions, blockers, and pending questions to `$auto-bean-import` for orchestrator-owned approval and finalization. If approval is denied or deferred, leave the working-tree mutation unfinalized and explain its current state.
 
 Guardrails:
 
@@ -78,5 +78,5 @@ Guardrails:
 - Do not silently net transactions together, merge duplicates, or suppress suspected transfers.
 - Do not rely on an omitted posting amount when the counterposting account or balance intent is still uncertain.
 - Do not write into an account that is closed or restricted to different currencies by its `open` directive.
-- Do not bypass validation or the commit/push approval boundary.
+- Do not bypass validation or the commit/push approval boundary; when import-invoked, that boundary is owned by `$auto-bean-import`.
 - Do not imply that a drafted transaction is accepted history before explicit approval and successful finalization.

@@ -174,10 +174,10 @@ Scope: All authored skills under `skill_sources/*/SKILL.md` and their interface 
 
 ## 4) Recommended improvements (prioritized)
 
-1. **Add anti-loop rule for `ready`**
+1. **Add anti-loop rule for `ready`** DONE
    - Introduce bounded retry metadata (e.g., retry count + last failure reason) and require import to stop automatic reprocess after threshold, surfacing manual-resolution requirement.
 
-2. **Centralize commit/push authority statement**
+2. **Centralize commit/push authority statement** DONE
    - Add one unambiguous rule in import: commit/push is always orchestrator-owned; write never finalizes when invoked by import.
 
 3. **Create shared “question-handling contract” snippet**

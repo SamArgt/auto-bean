@@ -72,6 +72,7 @@ Workflow:
    - keep parsed facts, first-seen account edits, ledger postings, warnings, blockers, and required user decisions separate
    - for statements at `final_review`, ask the user to validate the final import result
    - mark entries `done` only after the user approves the final import result
+   - keep commit and push finalization orchestrator-owned: after import approval and any `done` transitions, `$auto-bean-import` is the only workflow stage that may ask for or act on commit or push approval for import-derived mutations
 9. Collect and govern memory suggestions at the end:
    - collect `memory_suggestions` returned by every `$auto-bean-process` and `$auto-bean-categorize` sub-agent, including resumed stages after user answers
    - read any returned `memory_suggestion_files` only when the path stays under `.auto-bean/tmp/memory-suggestions/`
@@ -95,7 +96,7 @@ End with:
 - first-seen account edits, ledger posting edits, and status changes
 - validation result and remaining decisions
 - memory suggestions collected and `$auto-bean-memory` persistence result, if any
-- whether the import is ready for final approval, commit, or push
+- whether the import is ready for final approval, or whether orchestrator-owned commit or push approval is needed
 
 Guardrails:
 
@@ -103,5 +104,5 @@ Guardrails:
 - Keep `$auto-bean-process` responsible only for raw-to-parsed processing, process question artifacts, and process-stage memory suggestions.
 - Keep `$auto-bean-import` responsible for process question surfacing, intermediate-statement updates, moving parsed statements to `account_inspection`, first-seen account derivation, moving inspected statements to `ready_for_categorization`, categorize artifact review, moving reviewed categorization output to `ready_to_write`, invoking `$auto-bean-write`, setting `final_review`, final user approval to `done`, and the final governed memory handoff.
 - Keep `$auto-bean-categorize` responsible only for categorization, reconciliation, deduplication, user-input needs, and memory suggestions.
-- Keep `$auto-bean-write` responsible for posting categorized transactions and transaction-specific validation after `$auto-bean-import` resumes the main thread.
+- Keep `$auto-bean-write` responsible for posting categorized transactions and transaction-specific validation after `$auto-bean-import` resumes the main thread; commit and push authority remains with `$auto-bean-import` during import workflows.
 - Do not silently reprocess current statements or repeatedly retry `ready` statements that have reached the current-fingerprint manual-resolution threshold.
