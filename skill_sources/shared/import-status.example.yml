@@ -11,6 +11,12 @@ statements:
     parser: docling-cli
     parsed_at: 2026-04-11T09:00:00Z
     updated_at: 2026-04-11T09:00:00Z
+    # Retry metadata prevents permanently blocked `ready` files from being reprocessed forever.
+    # Count attempts for the current source_fingerprint; reset the count when the fingerprint changes.
+    process_attempts: 1
+    last_process_failure_reason: null
+    manual_resolution_required: false
+    process_question_artifact: .auto-bean/artifacts/process/20260411T090000Z-checking-jan-2026.md
     warnings:
       - Docling inferred table column boundaries for pages 2-3.
     blocking_issues: []

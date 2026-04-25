@@ -14,12 +14,15 @@ Workflow:
 1. Discover unprocessed work:
    - inspect `statements/raw/`, `statements/parsed/`, and `statements/import-status.yml`
    - fingerprint supported raw files: `.pdf`, `.csv`, `.xlsx`, `.xls`
-   - send raw files to `$auto-bean-process` only when they have no current parsed output, missing status, changed fingerprint, `ready` status, or an explicit user reprocess request
+   - send raw files to `$auto-bean-process` only when they have no current parsed output, missing status, changed fingerprint, eligible `ready` status, or an explicit user reprocess request
+   - treat `ready` as eligible for automatic processing only when `manual_resolution_required` is not true and `process_attempts` is below 2 for the current fingerprint
+   - when a current-fingerprint `ready` entry has `process_attempts` of 2 or more, keep it out of automatic processing, preserve the last failure reason and process question artifact, and surface the manual-resolution requirement to the user
+   - allow an explicit user reprocess request to retry a manually held `ready` entry; record the new attempt and reason instead of clearing prior retry history silently
    - continue orchestration for existing entries at `parsed`, `parsed_with_warning`, `account_inspection`, `ready_for_categorization`, `ready_for_review`, `ready_to_write`, or `final_review`
    - skip entries already current at `done` unless the user explicitly requests rework
 2. Use sub-agents for statement work:
    - assign each sub-agent one raw statement
-   - give each sub-agent the source path, current status entry, expected parsed-output path or naming rule, and the instruction to use `$auto-bean-process`
+   - give each sub-agent the source path, current status entry including retry metadata, expected parsed-output path or naming rule, and the instruction to use `$auto-bean-process`
    - require sub-agents to persist all safe progress without asking the user directly, and to report parsed output paths, status changes, warnings, blockers, process question artifacts under `.auto-bean/artifacts/process/`, `memory_suggestions`, and `memory_suggestion_files`
    - wait for all assigned processing sub-agents to finish before starting any parsed-statement handoff
 3. Resolve process questions and update intermediate statements:
@@ -101,4 +104,4 @@ Guardrails:
 - Keep `$auto-bean-import` responsible for process question surfacing, intermediate-statement updates, moving parsed statements to `account_inspection`, first-seen account derivation, moving inspected statements to `ready_for_categorization`, categorize artifact review, moving reviewed categorization output to `ready_to_write`, invoking `$auto-bean-write`, setting `final_review`, final user approval to `done`, and the final governed memory handoff.
 - Keep `$auto-bean-categorize` responsible only for categorization, reconciliation, deduplication, user-input needs, and memory suggestions.
 - Keep `$auto-bean-write` responsible for posting categorized transactions and transaction-specific validation after `$auto-bean-import` resumes the main thread.
-- Do not silently reprocess current statements.
+- Do not silently reprocess current statements or repeatedly retry `ready` statements that have reached the current-fingerprint manual-resolution threshold.

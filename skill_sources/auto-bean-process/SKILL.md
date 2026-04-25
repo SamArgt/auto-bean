@@ -53,7 +53,9 @@ Workflow:
    - set `parsed` when normalized output is written and no warnings require `$auto-bean-import` review
    - set `parsed_with_warning` when normalized output is written but warnings need `$auto-bean-import` review before account inspection
    - never set `account_inspection`, `ready_for_categorization`, `ready_for_review`, `ready_to_write`, `final_review`, or `done`
-   - record output path, parse run id, parser identifier, timestamps, warnings, and blocking issues alongside the status
+   - record output path, parse run id, parser identifier, timestamps, warnings, blocking issues, and retry metadata alongside the status
+   - when setting `ready`, increment `process_attempts` for the current source fingerprint, set `last_process_failure_reason`, and set `manual_resolution_required: true` once the current-fingerprint attempt count reaches 2
+   - when the source fingerprint changes, start a new retry count for that fingerprint while preserving any prior failure context that remains useful in warnings or blocking issues
 6. Continue through safe raw-to-parsed work while collecting questions:
    - do not stop at the first missing detail once parsed evidence can be written safely
    - keep progressing through every deterministic parsing, normalization, status, and evidence-quality step that does not require guessing
@@ -68,7 +70,7 @@ Workflow:
    - assigned source path and source fingerprint
    - parsed output path and parse run id
    - status change for this input
-   - warnings, blockers, and evidence-quality result
+   - warnings, blockers, retry metadata, and evidence-quality result
    - memory reuse attribution if governed memory influenced parsing or source handling
    - every process question artifact written under `.auto-bean/artifacts/process/`, with a short summary of the exact question/reason and affected intermediate-statement fields
    - `memory_suggestions`: every eligible reusable-learning candidate, or `[]` when none were found
