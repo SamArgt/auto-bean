@@ -1,6 +1,8 @@
 # Categorization Review: Example Bank Checking, March 2026
 
 - Source: `statements/parsed/example-bank-checking-2026-03.json`
+- Raw statement: `statements/raw/example-bank/checking-2026-03.pdf`
+- Artifact prefix: `checking-2026-03`
 - Status id: `example-bank-checking-2026-03`
 - Prepared by: `$auto-bean-categorize`
 

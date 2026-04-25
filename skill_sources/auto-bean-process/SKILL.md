@@ -10,6 +10,7 @@ Inputs from `$auto-bean-import`:
 - one raw statement path under `statements/raw/`
 - the matching `statements/import-status.yml` entry when one exists
 - the expected parsed-output path or naming rule
+- the shared raw-statement artifact prefix to use for this source's process, categorize, and import artifacts
 - any relevant source-memory hint already selected for this input
 
 Read before acting:
@@ -60,7 +61,7 @@ Workflow:
 6. Continue through safe raw-to-parsed work while collecting questions:
    - follow the shared question-handling contract
    - keep progressing through every deterministic parsing, normalization, status, and evidence-quality step that does not require guessing
-   - collect user questions in one deterministic artifact under `.auto-bean/artifacts/process/`, named from the parse run id or source fingerprint
+   - collect user questions in one deterministic artifact under `.auto-bean/artifacts/process/`, using the shared raw-statement artifact prefix from `$auto-bean-import`, such as `.auto-bean/artifacts/process/<artifact_prefix>--process.md`
    - reflect the question artifact path in the parsed output or status entry; do not embed long question payloads in the final response when the artifact can carry them
    - make unresolved items visible by recording explicit warnings or blocking issues in parsed/status artifacts
    - return the question artifact to `$auto-bean-import` so the orchestrator can ask and update or resume the intermediate statement

@@ -8,14 +8,15 @@ Use this as the user-facing import entrypoint. Delegate mechanics to narrower sk
 
 Read before acting:
 - `.agents/skills/shared/import-status.example.yml`
-- `.agents/skills/shared/import-artifact-contract.md`
+- `.agents/skills/auto-bean-import/references/import-artifact-contract.md`
 - `.agents/skills/shared/question-handling-contract.md` before surfacing or resuming process, categorize, first-seen-account, or write-stage questions
 
 Workflow:
 
 1. Discover unprocessed work:
    - inspect `statements/raw/`, `statements/parsed/`, and `statements/import-status.yml`
-   - create or refresh the active import-owned artifact under `.auto-bean/artifacts/import/` according to the shared import artifact contract
+   - create or refresh one import-owned Markdown artifact per raw statement under `.auto-bean/artifacts/import/` according to the shared import artifact contract
+   - use the same deterministic raw-statement filename prefix for that statement's process, categorize, and import artifacts
    - fingerprint supported raw files: `.pdf`, `.csv`, `.xlsx`, `.xls`
    - send raw files to `$auto-bean-process` only when they have no current parsed output, missing status, changed fingerprint, eligible `ready` status, or an explicit user reprocess request
    - treat `ready` as eligible for automatic processing only when `manual_resolution_required` is not true and `process_attempts` is below 2 for the current fingerprint
@@ -25,15 +26,15 @@ Workflow:
    - skip entries already current at `done` unless the user explicitly requests rework
 2. Use sub-agents for statement work:
    - assign each sub-agent one raw statement
-   - give each sub-agent the source path, current status entry including retry metadata, expected parsed-output path or naming rule, and the instruction to use `$auto-bean-process`
-   - require sub-agents to follow the shared question-handling contract and to report parsed output paths, status changes, warnings, blockers, process question artifacts under `.auto-bean/artifacts/process/`, and structured `memory_suggestions`
+   - give each sub-agent the source path, current status entry including retry metadata, expected parsed-output path or naming rule, the shared raw-statement artifact prefix, and the instruction to use `$auto-bean-process`
+   - require sub-agents to follow the shared question-handling contract and to report parsed output paths, status changes, warnings, blockers, process question artifacts under `.auto-bean/artifacts/process/` using the shared prefix, and structured `memory_suggestions`
    - wait for all assigned processing sub-agents to finish before starting any parsed-statement handoff
 3. Resolve process questions and update intermediate statements:
    - inspect every reported process question artifact under `.auto-bean/artifacts/process/`
    - for `parsed_with_warning`, read the artifact produced by `$auto-bean-process` and ask the user any bounded questions needed to make the parsed intermediate statement trustworthy before downstream work
    - use the shared question-handling contract for question shape, batching, answer capture, and stage resume
    - after the user answers, update the relevant intermediate parsed statement, status entry, and process artifact when the answer resolves or changes parsed evidence
-   - update the import-owned artifact with unresolved and answered process question ids, process artifact paths, affected paths, status transitions, and resume decisions; do not copy full parsed payloads or replace process-owned artifacts
+   - update the statement's import-owned artifact with unresolved and answered process question ids, process artifact paths, affected paths, and resume decisions; do not copy current status, status transitions, full parsed payloads, or replace process-owned artifacts
    - resume `$auto-bean-process` only when the answer requires parser-specific regeneration or normalization that should stay inside the raw-to-parsed worker boundary
    - when a `parsed` statement needs no process-stage user input, mark it `account_inspection`
    - when all `parsed_with_warning` warnings or process questions are resolved enough for downstream work, make the appropriate artifact/status changes and mark it `account_inspection`
@@ -47,7 +48,7 @@ Workflow:
    - current parsed statement evidence and current ledger state remain authoritative; memory may provide hints, not authority
    - when top-level branch, account identity, currency, duplicate risk, mutation target, or syntax is unclear, ask the user a bounded question before mutating account structure
    - before writing any new `open` directive, present the exact proposed directive, target file, supporting parsed evidence, and reason the account appears first-seen; ask the user to approve or correct it, then wait for the response
-   - record each proposed, approved, rejected, or written first-seen account decision in the import-owned artifact with its evidence, target file, user approval context, and validation result
+   - record each proposed, approved, rejected, or written first-seen account decision in the statement's import-owned artifact with evidence references, target file, user approval context, and validation references
    - after the user approves or corrects the proposal, write only the approved account-opening structure and minimal supporting directives such as missing operating currencies; prefer `beancount/accounts.beancount` and explain any fallback target
    - avoid duplicate directives and keep mutations deterministic for the same parsed input and ledger state
    - run `./scripts/validate-ledger.sh` or `./.venv/bin/bean-check ledger.beancount` after account-structure edits
@@ -56,7 +57,7 @@ Workflow:
 5. Handoff parsed statements:
    - for each statement at `ready_for_categorization` with resolved process and first-seen account questions, start one sub-agent assigned to that single parsed statement with the instruction to use `$auto-bean-categorize` for categorization, reconciliation, and deduplication work
    - run categorize sub-agents sequentially: wait for the current `$auto-bean-categorize` sub-agent to finish before starting the next one
-   - require each `$auto-bean-categorize` sub-agent to follow the shared question-handling contract and to report categorization results, posting inputs, status changes or pending-question metadata, reconciliation findings, blockers, categorize artifact paths, persisted pending user questions, and structured `memory_suggestions`
+   - require each `$auto-bean-categorize` sub-agent to follow the shared question-handling contract and to report categorization results, posting inputs, status changes or pending-question metadata, reconciliation findings, blockers, categorize artifact paths using the shared prefix, persisted pending user questions, and structured `memory_suggestions`
    - keep statements that need clarification, repair, or manual source handling out of posting and final approval until resolved
 6. Surface categorize user input:
    - for each statement at `ready_for_review`, read the artifact produced by `$auto-bean-categorize`
@@ -65,23 +66,23 @@ Workflow:
    - ask the user the collected bounded question or question set and wait for the answer instead of treating the workflow as finished or blocked
    - use the appropriate user-input tool or conversation channel; do not force clarification through a specific skill unless that skill owns the work being clarified
    - after the user answers or fills the artifact, read the completed artifact if applicable, then make the appropriate artifact/status changes or resume the same first-seen derivation or categorize stage for the affected statement/artifact with the answer and existing persisted artifacts included in the assignment context
-   - update the import-owned artifact with categorize artifact paths, answered question ids, unresolved blocker summaries, memory-suggestion provenance, and posting-readiness decisions; do not copy full categorization analysis or replace categorize-owned artifacts
+   - update the statement's import-owned artifact with categorize artifact paths, answered question ids, unresolved blocker summaries, memory-suggestion provenance, and posting decisions; do not copy status fields, full categorization analysis, or replace categorize-owned artifacts
    - when categorization output and required user input are resolved, mark the statement `ready_to_write`
 7. Post categorized transactions:
    - for each statement at `ready_to_write`, take back the main thread and invoke `$auto-bean-write` with parsed facts, category/account suggestions, reconciliation and deduplication decisions, memory attribution, and any approved user answers
-   - record each `$auto-bean-write` handoff in the import-owned artifact before invoking it, then record the returned mutation package and validation result
+   - record each `$auto-bean-write` handoff decision in the statement's import-owned artifact before invoking it, then record references to the returned mutation package and validation result
    - keep `$auto-bean-write` focused on drafting Beancount transaction entries and transaction-specific validation; do not make `$auto-bean-categorize` draft ledger mutations
    - if `$auto-bean-write` returns a bounded clarification question, use the shared question-handling contract to ask in the main import thread, then resume `$auto-bean-write` with the answer and the existing categorize artifact/status context
    - set `final_review` only after import-derived transactions for that statement are written and validated
 8. Review and close:
    - consolidate sub-agent results, process question outcomes, first-seen account derivation, downstream categorize results, write results, validation outcome, and `git diff`
-   - reconcile `statements/import-status.yml` against the import-owned artifact before presenting final review; fail closed on status conflicts
+   - reconcile `statements/import-status.yml` against per-statement artifact references before presenting final review; fail closed on source, prefix, or artifact-path conflicts
    - keep parsed facts, first-seen account edits, ledger postings, warnings, blockers, and required user decisions separate
    - for statements at `final_review`, ask the user to validate the final import result
    - mark entries `done` only after the user approves the final import result
    - keep commit and push finalization orchestrator-owned: after import approval and any `done` transitions, `$auto-bean-import` is the only workflow stage that may ask for or act on commit or push approval for import-derived mutations
 9. Hand off governed memory persistence:
-   - collect all workflow artifacts produced during this import: process artifacts under `.auto-bean/artifacts/process/`, categorize artifacts under `.auto-bean/artifacts/categorize/`, and the active import-owned artifact under `.auto-bean/artifacts/import/`
+   - collect all workflow artifacts produced during this import: process artifacts under `.auto-bean/artifacts/process/`, categorize artifacts under `.auto-bean/artifacts/categorize/`, and statement-scoped import-owned artifacts under `.auto-bean/artifacts/import/`
    - explicitly call the `$auto-bean-memory` skill with those artifact paths and any returned `memory_suggestions`, asking it to persist only approved reusable memory through the governed workflow
    - report the `$auto-bean-memory` result separately from import parsing, posting, validation, and final approval status
    - do not write `.auto-bean/memory/**` directly
@@ -91,7 +92,7 @@ End with:
 - processed, skipped, blocked, and user-input-needed statements
 - parsed outputs written or reused
 - first-seen account edits, ledger posting edits, and status changes
-- active import-owned artifact path and whether it is consistent with `statements/import-status.yml`
+- import-owned artifact paths and whether their source, prefix, and artifact references are consistent with `statements/import-status.yml`
 - validation result and remaining decisions
 - memory suggestions collected and `$auto-bean-memory` persistence result, if any
 - whether the import is ready for final approval, or whether orchestrator-owned commit or push approval is needed
@@ -99,8 +100,9 @@ End with:
 Guardrails:
 
 - Keep raw files in `statements/raw/`, parsed evidence in `statements/parsed/`, status in `statements/import-status.yml`, and governed memory in `.auto-bean/memory/`.
-- Keep the global import-owned audit artifact under `.auto-bean/artifacts/import/`; `$auto-bean-import` is the only stage that creates or updates it.
-- Keep the import-owned artifact at the orchestration level: link to process and categorize artifacts and summarize only import-owned decisions, blockers, handoffs, and status changes.
+- Keep statement-scoped import-owned artifacts under `.auto-bean/artifacts/import/`; `$auto-bean-import` is the only stage that creates or updates them.
+- Keep each import-owned artifact at the decision/provenance level: link to process and categorize artifacts and summarize only import-owned decisions, questions, memory suggestions, blockers, and handoffs.
+- Do not duplicate operational progress in import-owned artifacts. Current status, retry metadata, status transitions, and queue state belong only in `statements/import-status.yml`.
 - Keep `$auto-bean-process` responsible only for raw-to-parsed processing, process question artifacts, and process-stage memory suggestions.
 - Keep `$auto-bean-import` responsible for process question surfacing, intermediate-statement updates, moving parsed statements to `account_inspection`, first-seen account derivation, moving inspected statements to `ready_for_categorization`, categorize artifact review, moving reviewed categorization output to `ready_to_write`, invoking `$auto-bean-write`, setting `final_review`, final user approval to `done`, and the final governed memory handoff.
 - Keep `$auto-bean-categorize` responsible only for categorization, reconciliation, deduplication, user-input needs, and memory suggestions.

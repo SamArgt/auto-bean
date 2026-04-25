@@ -9,6 +9,7 @@ Inputs from `$auto-bean-import`:
 
 - one parsed statement file or one explicit intermediate import artifact
 - the matching `statements/import-status.yml` entry
+- the shared raw-statement artifact prefix to use for this source's process, categorize, and import artifacts
 - any relevant memory hints, reconciliation context, or user answers already approved for this artifact
 
 Read before acting:
@@ -61,6 +62,7 @@ Workflow:
 6. Create or update a categorize artifact when useful:
    - read `.agents/skills/auto-bean-categorize/references/categorize-artifact.example.md` first
    - write a user-friendly Markdown artifact under `.auto-bean/artifacts/categorize/` when the categorized result, reconciliation findings, deduplication decisions, or user-input needs are too large or structured for the parsed artifact/status entry
+   - use the shared raw-statement artifact prefix from `$auto-bean-import`, such as `.auto-bean/artifacts/categorize/<artifact_prefix>--categorize.md`
    - make the artifact directly fillable by a non-technical user: concise summary, clear sections, stable question IDs, checkboxes for choices, short blanks for account/category names, and explicit "leave blank if unknown" guidance where appropriate
    - include the source parsed artifact, statement/status id, categorization results, reconciliation and deduplication findings, pending user questions, and memory suggestions
    - keep every user-editable field visibly separated from observed facts and agent suggestions so user answers can be read back without ambiguity

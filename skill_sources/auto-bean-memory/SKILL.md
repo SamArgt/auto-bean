@@ -34,7 +34,7 @@ When correcting, pruning, or reorganizing memory, preserve unrelated records and
 
 ## Governed persistence
 
-Persist only reusable decisions from an approved or finalized workflow result, or from a direct user request to remember a reusable rule. When `$auto-bean-import` invokes this skill, use the import-owned artifact path under `.auto-bean/artifacts/import/` as source/audit context when available; it is provenance, not durable memory.
+Persist only reusable decisions from an approved or finalized workflow result, or from a direct user request to remember a reusable rule. When `$auto-bean-import` invokes this skill, use the relevant statement-scoped import-owned artifact paths under `.auto-bean/artifacts/import/` as source/audit context when available; they are provenance, not durable memory.
 
 1. Classify the memory into one category and read only that example reference:
    - `account_mapping`: `.agents/skills/auto-bean-memory/references/account-mapping.example.md`
