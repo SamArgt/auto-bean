@@ -5,17 +5,10 @@
   "source_format": "pdf",
   "parser": {
     "name": "docling",
-    "mode": "cli",
-    "output_format": "json",
-    "version": "2.0.0"
+    "mode": "cli"
   },
-  "status": "parsed_with_warning",
   "parsed_at": "2026-04-11T09:00:00Z",
-  "supersedes_parse_run_id": "20260405T102500Z-checking-jan-2026",
-  "warnings": [
-    "Docling inferred table column boundaries for pages 2-3."
-  ],
-  "blocking_issues": [],
+  "process_artifact": ".auto-bean/artifacts/process/checking-jan-2026--process.md",
   "extracted_records": [
     {
       "record_id": "page-1-row-1",
@@ -29,10 +22,7 @@
         "value_date": "2026-01-03",
         "debit": "4.50",
         "credit": ""
-      },
-      "confidence_notes": [
-        "Description merged from two adjacent cells in source export."
-      ]
+      }
     }
   ]
 }

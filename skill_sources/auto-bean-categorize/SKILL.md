@@ -16,7 +16,8 @@ Read before acting:
 
 - `.agents/skills/shared/memory-access-rules.md` before using governed memory hints
 - `.agents/skills/shared/parsed-statement-output.example.json`
-- `.agents/skills/shared/parsed-statement-jq-reading.md` before inspecting large parsed statement artifacts
+- `.agents/skills/shared/parsed-statement-jq-reading.md` before inspecting large parsed statement JSON files
+- `.agents/skills/shared/import-status-reading.md` before reading or updating a large `statements/import-status.yml`
 - `.agents/skills/shared/question-handling-contract.md` before recording or returning pending user questions
 - `.agents/skills/auto-bean-categorize/references/reconciliation-findings.md` for transfer, duplicate, balance, currency, or future-transfer findings
 - `.agents/skills/auto-bean-categorize/references/clarification-guidance.md` when categorization, reconciliation, or deduplication remains ambiguous, unfamiliar, or blocked on user clarification
@@ -37,7 +38,7 @@ Workflow:
    - follow the shared question-handling contract
    - categorize, reconcile, deduplicate, and record every item whose evidence supports safe analysis
    - collect unresolved decisions in a categorize artifact under `.auto-bean/artifacts/categorize/`
-   - record explicit warnings, blocking issues, and requested user inputs in the artifact/status entry; do not add Beancount placeholders or draft ledger mutations
+   - record explicit warnings, blocking issues, and requested user inputs in the categorize artifact; keep the status entry limited to current operational status and artifact pointers
    - return control to `$auto-bean-import` after all safe progress for this assigned artifact is persisted, so `$auto-bean-import` can ask the user or continue to posting through `$auto-bean-write`
    - collect eligible reusable learning as `memory_suggestions` throughout categorization, reconciliation, deduplication, and clarification; include memory type, source context, decision, scope, confidence or review state, supporting evidence, current-evidence checks, and why it should be reused later
    - keep memory candidates in the returned `memory_suggestions` structure and, when useful for auditability, include them in the categorize artifact; do not create a separate temporary memory-suggestions artifact
@@ -61,10 +62,10 @@ Workflow:
    - fail closed when a finding cannot be safely classified or resolved; do not guess, auto-net, auto-merge, silently drop, or rewrite candidate transactions
 6. Create or update a categorize artifact when useful:
    - read `.agents/skills/auto-bean-categorize/references/categorize-artifact.example.md` first
-   - write a user-friendly Markdown artifact under `.auto-bean/artifacts/categorize/` when the categorized result, reconciliation findings, deduplication decisions, or user-input needs are too large or structured for the parsed artifact/status entry
+   - write a user-friendly Markdown artifact under `.auto-bean/artifacts/categorize/` when the categorized result, reconciliation findings, deduplication decisions, or user-input needs are too large or structured for the parsed statement
    - use the shared raw-statement artifact prefix from `$auto-bean-import`, such as `.auto-bean/artifacts/categorize/<artifact_prefix>--categorize.md`
    - make the artifact directly fillable by a non-technical user: concise summary, clear sections, stable question IDs, checkboxes for choices, short blanks for account/category names, and explicit "leave blank if unknown" guidance where appropriate
-   - include the source parsed artifact, statement/status id, categorization results, reconciliation and deduplication findings, pending user questions, and memory suggestions
+   - include the source parsed statement path, statement/status id, categorization results, reconciliation and deduplication findings, pending user questions, and memory suggestions
    - preserve any clearly labeled `Import Batch Cross-Statement Review` section that `$auto-bean-import` appended after parallel categorization; update it only when `$auto-bean-import` resumes this artifact with cross-statement context or user answers
    - keep every user-editable field visibly separated from observed facts and agent suggestions so user answers can be read back without ambiguity
    - keep artifacts factual and reviewable; do not include raw statement dumps, unrelated ledger excerpts, or accepted-history language
@@ -76,7 +77,7 @@ Workflow:
    - if the answer is still insufficient, follow the shared follow-up rule and return the remaining blocker to `$auto-bean-import`
 8. Update only this artifact's status:
    - require the assigned statement to be at `ready_for_categorization` before categorization work starts
-   - set `ready_for_review` after categorization, reconciliation, and deduplication work is persisted, including any user-input needs in the artifact/status entry
+   - set `ready_for_review` after categorization, reconciliation, and deduplication work is persisted, with any user-input needs recorded in the categorize artifact
 
    - never set `ready_to_write`, `final_review`, or `done`
    - refresh the matching entry in `statements/import-status.yml`; do not create a second workflow-tracking file

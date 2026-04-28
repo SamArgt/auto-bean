@@ -8,6 +8,7 @@ Use this as the user-facing import entrypoint. Delegate mechanics to narrower sk
 
 Read before acting:
 - `.agents/skills/shared/import-status.example.yml`
+- `.agents/skills/shared/import-status-reading.md` before reading or updating a large `statements/import-status.yml`
 - `.agents/skills/auto-bean-import/references/import-artifact-contract.md`
 - `.agents/skills/shared/question-handling-contract.md` before surfacing or resuming process, categorize, first-seen-account, or write-stage questions
 - `.agents/skills/shared/memory-access-rules.md` before using governed memory hints, especially `import_source_behavior` memory under `.auto-bean/memory/import_sources/`

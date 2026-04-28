@@ -1,16 +1,16 @@
 # Reading Parsed Statement JSON With jq
 
-Parsed statement artifacts can be too large to read directly into the conversation. Use `jq` to inspect only the fields needed for the current decision, then load a small excerpt if it helps explain or verify the work.
+Parsed statement JSON files can be too large to read directly into the conversation. Use `jq` to inspect only the fields needed for the current decision, then load a small excerpt if it helps explain or verify the work.
 
-Assume the assigned artifact is:
+Assume the assigned parsed statement is:
 
 ```sh
-artifact="statements/parsed/checking-jan-2026.json"
+parsed="statements/parsed/checking-jan-2026.json"
 ```
 
 ## Quick Shape Checks
 
-Confirm identity, parser, status, warnings, blockers, and record count:
+Confirm identity, parser metadata, process artifact pointer, and record count:
 
 ```sh
 jq '{
@@ -19,18 +19,16 @@ jq '{
   source_fingerprint,
   source_format,
   parser,
-  status,
   parsed_at,
-  warnings,
-  blocking_issues,
+  process_artifact,
   extracted_record_count: (.extracted_records // [] | length)
-}' "$artifact"
+}' "$parsed"
 ```
 
-Preview the first few normalized records without dumping the full artifact:
+Preview the first few normalized records without dumping the full parsed statement:
 
 ```sh
-jq '.extracted_records[:5]' "$artifact"
+jq '.extracted_records[:5]' "$parsed"
 ```
 
 List compact transaction rows for scanning:
@@ -41,7 +39,7 @@ jq -r '
   | .[]
   | [.record_id, .transaction_date, .description, .amount, .currency]
   | @tsv
-' "$artifact"
+' "$parsed"
 ```
 
 ## Targeted Lookups
@@ -52,7 +50,7 @@ Find records whose description mentions a term:
 jq '
   (.extracted_records // [])
   | map(select((.description // "" | ascii_downcase) | contains("coffee")))
-' "$artifact"
+' "$parsed"
 ```
 
 Find records in a date range:
@@ -61,7 +59,7 @@ Find records in a date range:
 jq '
   (.extracted_records // [])
   | map(select(.transaction_date >= "2026-01-01" and .transaction_date <= "2026-01-31"))
-' "$artifact"
+' "$parsed"
 ```
 
 Find records by exact amount and currency:
@@ -70,7 +68,7 @@ Find records by exact amount and currency:
 jq '
   (.extracted_records // [])
   | map(select(.amount == "-4.50" and .currency == "EUR"))
-' "$artifact"
+' "$parsed"
 ```
 
 Inspect raw field keys before relying on source-specific columns:
@@ -81,36 +79,13 @@ jq '
   | map(.raw_fields // {} | keys)
   | add
   | unique
-' "$artifact"
-```
-
-## Pending Questions And Memory Suggestions
-
-Show persisted questions without loading unrelated records:
-
-```sh
-jq '.pending_user_questions // []' "$artifact"
-```
-
-Summarize memory suggestions when present:
-
-```sh
-jq '
-  (.memory_suggestions // [])
-  | map({
-      memory_type,
-      decision,
-      scope,
-      confidence,
-      review_state,
-      supporting_evidence
-    })
-' "$artifact"
+' "$parsed"
 ```
 
 ## Safe Reading Habits
 
-- Do not paste or summarize the whole parsed artifact when it is long.
-- Start with metadata, status, warnings, blockers, and record counts.
-- Use filters for the specific record, date range, amount, source reference, or question being handled.
+- Do not paste or summarize the whole parsed statement when it is long.
+- Start with metadata and record counts.
+- Use filters for the specific record, date range, amount, or source reference being handled.
 - Preserve `record_id`, `source_reference`, and source file context in any excerpt used for posting, clarification, deduplication, or reconciliation.
+- Read warnings, blockers, questions, memory suggestions, and review notes from the referenced process, categorize, or import artifacts.

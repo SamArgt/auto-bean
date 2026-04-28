@@ -17,8 +17,9 @@ Read before acting:
 
 - `.agents/skills/shared/memory-access-rules.md` before using governed memory hints
 - `.agents/skills/shared/parsed-statement-output.example.json`
-- `.agents/skills/shared/parsed-statement-jq-reading.md` before inspecting large parsed statement artifacts
+- `.agents/skills/shared/parsed-statement-jq-reading.md` before inspecting large parsed statement JSON files
 - `.agents/skills/shared/import-status.example.yml`
+- `.agents/skills/shared/import-status-reading.md` before reading or updating a large `statements/import-status.yml`
 - `.agents/skills/shared/question-handling-contract.md` before recording process questions
 - `.auto-bean/memory/import_sources/index.json`, then the matching indexed `import_source_behavior` memory file when source identity, institution, account hints, statement shape, filename pattern, or fingerprint suggests a narrow match
 
@@ -50,7 +51,7 @@ Workflow:
    - if a scanned or textless PDF cannot be extracted, do not guess; leave the statement `ready` and record the issue for `$auto-bean-import`
 4. Persist normalized evidence:
    - write one deterministic JSON artifact for this source or parse run under `statements/parsed/`
-   - include `parse_run_id`, `source_file`, `source_fingerprint`, `source_format`, parser details, `status`, `parsed_at`, warnings, blocking issues, and extracted records
+   - include only necessary parse metadata such as `parse_run_id`, `source_file`, `source_fingerprint`, `source_format`, parser identifier, `parsed_at`, process artifact path, and extracted records
    - keep all contract keys in `snake_case`
    - on re-parse, write a new versioned output and refresh only this statement's status entry
 5. Update only this input's status:
@@ -58,7 +59,7 @@ Workflow:
    - set `parsed` when normalized output is written and no warnings require `$auto-bean-import` review
    - set `parsed_with_warning` when normalized output is written but warnings need `$auto-bean-import` review before account inspection
    - never set `account_inspection`, `ready_for_categorization`, `ready_for_review`, `ready_to_write`, `final_review`, or `done`
-   - record output path, parse run id, parser identifier, timestamps, warnings, blocking issues, and retry metadata alongside the status
+   - record only operational status data: current status, source fingerprint, updated timestamp, parsed statement path, stage artifact paths, and retry metadata
    - when setting `ready`, increment `process_attempts` for the current source fingerprint, set `last_process_failure_reason`, and set `manual_resolution_required: true` once the current-fingerprint attempt count reaches 2
    - when the source fingerprint changes, start a new retry count for that fingerprint while preserving any prior failure context that remains useful in warnings or blocking issues
 6. Continue through safe raw-to-parsed work while collecting questions:
@@ -66,8 +67,8 @@ Workflow:
    - keep progressing through every deterministic parsing, normalization, status, and evidence-quality step that does not require guessing
    - write one deterministic process artifact under `.auto-bean/artifacts/process/`, using the shared raw-statement artifact prefix from `$auto-bean-import`, such as `.auto-bean/artifacts/process/<artifact_prefix>--process.md`
    - use that process artifact for process-stage questions, manual extraction notes, source-memory reuse attribution, and processing-related `memory_suggestions`
-   - reflect the process artifact path in the parsed output or status entry; do not embed long question payloads in the final response when the artifact can carry them
-   - make unresolved items visible by recording explicit warnings or blocking issues in parsed/status artifacts
+   - reflect the process artifact path in the parsed output and status entry; do not embed long question payloads in the final response when the artifact can carry them
+   - make warnings, blockers, questions, manual extraction notes, and memory suggestions visible in the process artifact; keep parsed statements limited to parsing metadata and records
    - return the process artifact to `$auto-bean-import` so the orchestrator can ask and update or resume the intermediate statement
    - collect eligible reusable learning as `memory_suggestions` while working; include memory type, source context, decision, scope, confidence or review state, supporting evidence, current-evidence checks, and why it should be reused later
    - write every processing-related memory candidate into a `Memory Suggestions` section of the process artifact, even when there are no user questions
