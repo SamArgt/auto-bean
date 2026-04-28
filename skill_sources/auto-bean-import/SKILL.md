@@ -90,12 +90,13 @@ Workflow:
    - update the statement's import-owned artifact with categorize artifact paths, answered question ids, unresolved blocker summaries, cross-statement transfer or duplicate decisions, memory-suggestion provenance, and posting decisions; keep the full warning, question, and answer payloads in the categorize artifact, and do not copy status fields, full categorization analysis, or replace categorize-owned artifacts
    - when categorization output and required user input are resolved, mark the statement `ready_to_write`
 8. Post categorized transactions:
-   - for each statement at `ready_to_write`, take back the main thread and invoke `$auto-bean-write` with parsed facts, category/account suggestions, reconciliation and deduplication decisions, memory attribution, and any approved user answers
+   - for each parsed statement at `ready_to_write`, take back the main thread and invoke `$auto-bean-write` with parsed records, category/account suggestions, reconciliation and deduplication decisions, memory attribution, and any approved user answers
    - record each `$auto-bean-write` handoff decision in the statement's import-owned artifact before invoking it, then record references to the returned mutation package and validation result
    - keep `$auto-bean-write` focused on drafting Beancount transaction entries and transaction-specific validation; do not make `$auto-bean-categorize` draft ledger mutations
    - if `$auto-bean-write` returns a bounded clarification question, use the shared question-handling contract to ask in the main import thread, record the question and answer in the import-owned artifact for that statement, then resume `$auto-bean-write` with the answer and the existing categorize artifact context plus status pointer
    - set `final_review` only after import-derived transactions for that statement are written and validated
-9. Review and close:
+9. Verify, review and close:
+   - Use `$auto-bean-query` to verify the posted transactions between the ledger and the parsed statement evidence; Explicitly check the accounts balances against the parsed statement.
    - consolidate sub-agent results, process question outcomes, first-seen account derivation, downstream categorize results, write results, validation outcome
    - reconcile `statements/import-status.yml` against per-statement artifact references before presenting final review; fail closed on source, prefix, or artifact-path conflicts
    - keep parsed facts, first-seen account edits, ledger postings, warnings, blockers, questions, answers, and required user decisions separate, with warning/question/answer details kept in the relevant individual artifacts
