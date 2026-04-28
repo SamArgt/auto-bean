@@ -43,6 +43,7 @@ Workflow:
    - when a `parsed` statement needs no process-stage user input, mark it `account_inspection`
    - when all `parsed_with_warning` warnings or process questions are resolved enough for downstream work, make the appropriate artifact and status changes and mark it `account_inspection`
    - keep statements that still have unresolved process questions out of first-seen derivation, categorization, and posting work
+   - once all process questions are resolved, close all the sub-agents that ran `$auto-bean-process` for this batch of statements; do not keep them alive for the rest of the workflow
 4. Derive first-seen accounts:
    - for each statement with resolved process questions and status `account_inspection`, inspect `beancount/accounts.beancount` first, then `ledger.beancount` and included `beancount/**` files for existing `open` directives and account names
    - before proposing account-structure changes, read any matching `import_source_behavior` memory selected during discovery or reported by `$auto-bean-process`
@@ -67,6 +68,7 @@ Workflow:
    - run categorize sub-agents in parallel, then wait for all to finish before starting any categorize-to-post work
    - require each `$auto-bean-categorize` sub-agent to follow the shared question-handling contract and to report categorization results, posting inputs, status changes or compact pending-question metadata, reconciliation findings, blocker presence flags, categorize artifact paths using the shared prefix, persisted pending user question ids; full warning, question, and answer details stay in the categorize artifact
    - keep statements that need clarification, repair, or manual source handling out of posting and final approval until resolved
+   - once all categorize-assigned sub-agents finish, close them; do not keep them alive for the rest of the workflow
 6. Review cross-statement transfer and duplicate candidates:
    - before surfacing categorize findings to the user, read every produced categorize artifact and returned posting input for statements in the same import batch that reached `ready_for_review`
    - compare candidate postings across statements for likely transfers between imported accounts, mirror-image amounts, nearby dates, matching currencies, complementary descriptions, shared references, fees, FX legs, or account-pair patterns
@@ -100,9 +102,9 @@ Workflow:
    - for statements at `final_review`, ask the user to validate the final import result
    - mark entries `done` only after the user approves the final import result
    - keep commit and push finalization orchestrator-owned: after import approval and any `done` transitions, `$auto-bean-import` is the only workflow stage that may ask for or act on commit or push approval for import-derived mutations
-10. Hand off governed memory persistence:
+10. Hand off governed memory persistence to `$auto-bean-memory` via sub-agent:
    - collect all workflow artifacts produced during this import: process artifacts under `.auto-bean/artifacts/process/`, categorize artifacts under `.auto-bean/artifacts/categorize/`, and statement-scoped import-owned artifacts under `.auto-bean/artifacts/import/`
-   - explicitly call the `$auto-bean-memory` skill with those artifact paths, asking it to persist any reusable learning as governed memory for future import work; do not call `$auto-bean-memory` separately for each artifact.
+   - Spawn a sub-agent that invokes the `$auto-bean-memory` skill with those artifact paths, asking it to persist any reusable learning as governed memory for future import work; do not call `$auto-bean-memory` separately for each artifact.
    - report the `$auto-bean-memory` result separately from import parsing, posting, validation, and final approval status
 
 
