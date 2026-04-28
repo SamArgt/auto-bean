@@ -1,7 +1,7 @@
 interface:
   display_name: "Write Ledger Transactions"
   short_description: "Draft and review Beancount transactions safely"
-  default_prompt: "Use $auto-bean-write to add or correct Beancount transaction entries in `ledger.beancount` or `beancount/**`, inspect current ledger conventions and relevant `open` directives first, write explicit balanced postings from trusted evidence, ask and wait for bounded clarification instead of guessing when used directly, return pending questions and the mutation/validation package to $auto-bean-import when called by the import workflow, then resume, validate, and present the exact ledger change for review without owning import commit or push finalization."
+  default_prompt: "Use $auto-bean-write to add or correct Beancount transaction entries in `ledger.beancount` or `beancount/**`, inspect current ledger conventions and relevant `open` directives first, write explicit balanced postings from trusted evidence, ask and wait for bounded clarification instead of guessing when used directly, return pending-question ids and the mutation/validation package to $auto-bean-import when called by the import workflow so full questions/answers stay in the import artifact, then resume, validate, and present the exact ledger change for review without owning import commit or push finalization."
 
 policy:
   allow_implicit_invocation: true

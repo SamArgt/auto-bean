@@ -59,7 +59,7 @@ Workflow:
    - set `parsed` when normalized output is written and no warnings require `$auto-bean-import` review
    - set `parsed_with_warning` when normalized output is written but warnings need `$auto-bean-import` review before account inspection
    - never set `account_inspection`, `ready_for_categorization`, `ready_for_review`, `ready_to_write`, `final_review`, or `done`
-   - record only operational status data: current status, source fingerprint, updated timestamp, parsed statement path, stage artifact paths, and retry metadata
+   - record only operational status data: current status, source fingerprint, updated timestamp, parsed statement path, stage artifact paths, retry metadata, and compact user-input flags; keep warning, question, and answer payloads in the process artifact only
    - when setting `ready`, increment `process_attempts` for the current source fingerprint, set `last_process_failure_reason`, and set `manual_resolution_required: true` once the current-fingerprint attempt count reaches 2
    - when the source fingerprint changes, start a new retry count for that fingerprint while preserving any prior failure context that remains useful in warnings or blocking issues
 6. Continue through safe raw-to-parsed work while collecting questions:
@@ -67,8 +67,8 @@ Workflow:
    - keep progressing through every deterministic parsing, normalization, status, and evidence-quality step that does not require guessing
    - write one deterministic process artifact under `.auto-bean/artifacts/process/`, using the shared raw-statement artifact prefix from `$auto-bean-import`, such as `.auto-bean/artifacts/process/<artifact_prefix>--process.md`
    - use that process artifact for process-stage questions, manual extraction notes, source-memory reuse attribution, and processing-related `memory_suggestions`
-   - reflect the process artifact path in the parsed output and status entry; do not embed long question payloads in the final response when the artifact can carry them
-   - make warnings, blockers, questions, manual extraction notes, and memory suggestions visible in the process artifact; keep parsed statements limited to parsing metadata and records
+   - reflect only the process artifact path in the parsed output and status entry; do not embed warning, question, or answer payloads outside the process artifact
+   - make warnings, blockers, questions, answers received from `$auto-bean-import`, manual extraction notes, and memory suggestions visible in the process artifact; keep parsed statements limited to parsing metadata and records
    - return the process artifact to `$auto-bean-import` so the orchestrator can ask and update or resume the intermediate statement
    - collect eligible reusable learning as `memory_suggestions` while working; include memory type, source context, decision, scope, confidence or review state, supporting evidence, current-evidence checks, and why it should be reused later
    - write every processing-related memory candidate into a `Memory Suggestions` section of the process artifact, even when there are no user questions
@@ -77,9 +77,9 @@ Workflow:
    - assigned source path and source fingerprint
    - parsed output path and parse run id
    - status change for this input
-   - warnings, blockers, retry metadata, and evidence-quality result
+   - whether warnings or blockers exist, retry metadata, and evidence-quality result, with warning details kept in the process artifact
    - memory reuse attribution if governed memory influenced parsing or source handling
-   - every process artifact written under `.auto-bean/artifacts/process/`, with a short summary of the exact question/reason, affected intermediate-statement fields, source-memory attribution, and processing-related memory suggestions
+   - every process artifact written under `.auto-bean/artifacts/process/`, with question ids, affected intermediate-statement fields, source-memory attribution, and processing-related memory suggestions
    - `memory_suggestions`: every eligible reusable-learning candidate, or `[]` when none were found
 
 Guardrails:

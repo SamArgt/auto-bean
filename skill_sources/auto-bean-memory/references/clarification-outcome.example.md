@@ -2,7 +2,7 @@
 
 Destination: `.auto-bean/memory/clarification_outcomes.json`
 
-Use this memory type when a user answer resolves an ambiguous or unfamiliar pattern and the user approves reusing that answer later.
+Use this memory type when an answer recorded in a statement-scoped artifact resolves an ambiguous or unfamiliar pattern and the user approves reusing the resulting rule later. Keep the original question and answer in the originating artifact; durable memory stores only the reusable outcome and an artifact reference.
 
 Example record:
 
@@ -13,11 +13,12 @@ Example record:
   "source": {
     "workflow": "auto-bean-categorize",
     "statement_source": "statements/parsed/example-checking-2026-04.json",
-    "evidence": "user answered bounded clarification question"
+    "evidence": "bounded clarification outcome recorded in statement artifact",
+    "originating_artifact": ".auto-bean/artifacts/categorize/example-checking-2026-04--categorize.md",
+    "question_id": "Q3"
   },
   "decision": {
-    "question": "Should Example Payroll Reversal be treated as income reversal or expense refund?",
-    "answer": "Treat it as income reversal for this employer pattern.",
+    "clarified_rule": "Treat Example Payroll Reversal as an income reversal for this employer pattern.",
     "reuse_rule": {
       "payee_contains": "Example Payroll Reversal",
       "posting_account": "Income:Salary"
@@ -37,4 +38,4 @@ Example record:
 }
 ```
 
-Only store clarification outcomes when the user explicitly approves reuse. A clarification that unblocks one transaction is not automatically durable memory.
+Only store clarification outcomes when the user explicitly approves reuse. A clarification that unblocks one transaction is not automatically durable memory. Do not copy original question or answer text into memory; link to the artifact and store the approved reusable rule.

@@ -1,7 +1,7 @@
 interface:
   display_name: "Process Statements"
   short_description: "Process one raw statement into parsed evidence"
-  default_prompt: "Use $auto-bean-process for one assigned raw statement: look for matching import-source behavior memory, normalize it into `statements/parsed/`, update only that input's `statements/import-status.yml` entry to ready, parsed, or parsed_with_warning, persist process questions and processing memory suggestions in the process artifact under `.auto-bean/artifacts/process/` using the shared raw-statement filename prefix, and return control to $auto-bean-import without asking the user or deriving first-seen accounts."
+  default_prompt: "Use $auto-bean-process for one assigned raw statement: look for matching import-source behavior memory, normalize it into `statements/parsed/`, update only that input's `statements/import-status.yml` entry to ready, parsed, or parsed_with_warning, keep warnings/questions/answers only in the process artifact under `.auto-bean/artifacts/process/` using the shared raw-statement filename prefix, persist processing memory suggestions there too, and return control to $auto-bean-import without asking the user or deriving first-seen accounts."
 
 policy:
   allow_implicit_invocation: false

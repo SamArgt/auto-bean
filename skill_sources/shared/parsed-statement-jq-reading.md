@@ -88,4 +88,4 @@ jq '
 - Start with metadata and record counts.
 - Use filters for the specific record, date range, amount, or source reference being handled.
 - Preserve `record_id`, `source_reference`, and source file context in any excerpt used for posting, clarification, deduplication, or reconciliation.
-- Read warnings, blockers, questions, memory suggestions, and review notes from the referenced process, categorize, or import artifacts.
+- Read warnings, blockers, questions, answers, memory suggestions, and review notes from the referenced individual process, categorize, or import artifacts. Parsed statement JSON should only point to those artifacts, not duplicate their warning, question, or answer payloads.

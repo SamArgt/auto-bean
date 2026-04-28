@@ -13,7 +13,7 @@ Keep clarification bounded, concrete, and easy for the user to answer.
 
 - Return only the minimum bounded questions needed to unblock the risky interpretation.
 - Let `$auto-bean-import` ask the user unless it explicitly delegated that interaction to this skill.
-- Before returning questions, persist every safe partial result and record unresolved questions in the parsed artifact, status entry, or `.auto-bean/artifacts/categorize/` so a restarted process can resume from the checkpoint.
+- Before returning questions, persist every safe partial result and record unresolved questions in the individual categorize artifact under `.auto-bean/artifacts/categorize/` so a restarted process can resume from the checkpoint. Do not store question or answer text in the parsed statement or status entry.
 - Continue unrelated safe work for the affected artifact before returning questions; do not stop at the first ambiguous row when later rows can still be categorized, reconciled, or deduplicated safely.
 - Wait for the user answer before continuing unresolved decisions for the affected artifact.
 - Lead with observed facts, then separate them from inferences.
@@ -24,7 +24,7 @@ Keep clarification bounded, concrete, and easy for the user to answer.
 
 ## How to resume
 
-- After `$auto-bean-import` supplies the user answer, update the persisted categorization or finding artifacts to reflect that answer.
+- After `$auto-bean-import` supplies the user answer, update the persisted categorize artifact to reflect that answer.
 - Resume the same artifact from persisted artifacts and status; do not throw away earlier safe work or treat clarification as a terminal blocked state.
 - Show how the answer changed the category suggestion, reconciliation finding, deduplication decision, or posting input.
 - Re-run reconciliation and deduplication checks if the clarification changed the interpretation.

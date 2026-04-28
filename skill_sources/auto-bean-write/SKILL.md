@@ -23,7 +23,7 @@ Follow this workflow:
    - another bounded workspace artifact with concrete transaction details
    - memory-derived suggestions handed off by `$auto-bean-import` from `$auto-bean-categorize`, with current evidence and attribution already attached
    - this skill verifies ledger context and does not independently treat governed memory as authority
-4. If the evidence does not establish the core transaction facts, follow the shared question-handling contract. When invoked by `$auto-bean-import`, return the question and blocker details to that calling stage instead of asking directly, so `$auto-bean-import` can keep the main import thread and batch user input:
+4. If the evidence does not establish the core transaction facts, follow the shared question-handling contract. When invoked by `$auto-bean-import`, return the pending-question id, artifact path, and blocker flags to that calling stage instead of asking directly, so `$auto-bean-import` can keep the main import thread, batch user input, and record the full question and answer in that statement's import-owned artifact:
    - date
    - payee or narration shape when materially needed by the ledger style
    - posting accounts
@@ -56,7 +56,7 @@ Follow this workflow:
    - missing currency
    - missing counterposting
    - unclear payee, narration, or metadata needed to match ledger conventions
-   - when invoked by `$auto-bean-import`, return the pending question to the caller after reporting any safe draft/review work already completed
+   - when invoked by `$auto-bean-import`, return the pending-question id and import artifact path to the caller after reporting any safe draft/review work already completed; full question and answer payloads belong in the statement's import-owned artifact, not in status files or parsed statements
    - otherwise wait for the user answer, then resume the same transaction-writing task rather than returning a terminal blocked state
    - if the answer is still ambiguous, follow the shared follow-up rule before proceeding or reporting the remaining blocker to the calling skill
 10. Validate after drafting the mutation.
@@ -72,7 +72,7 @@ Follow this workflow:
     - the validation outcome
     - a `git diff -- <paths>` view or equivalent focused diff summary
     - a clear statement that the working tree is changed but not finalized until approval is granted
-12. Ask for explicit approval before commit or push finalization when used directly. When invoked by `$auto-bean-import`, never own commit or push finalization; return only the mutation, validation, focused diff summary, assumptions, blockers, and pending questions to `$auto-bean-import` for orchestrator-owned approval and finalization. If approval is denied or deferred, leave the working-tree mutation unfinalized and explain its current state.
+12. Ask for explicit approval before commit or push finalization when used directly. When invoked by `$auto-bean-import`, never own commit or push finalization; return only the mutation, validation, focused diff summary, assumptions, blockers, pending-question ids, and import artifact path to `$auto-bean-import` for orchestrator-owned approval and finalization. If approval is denied or deferred, leave the working-tree mutation unfinalized and explain its current state.
 
 Guardrails:
 
