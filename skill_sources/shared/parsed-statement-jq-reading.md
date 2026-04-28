@@ -23,6 +23,7 @@ jq '{
   process_artifact,
   account_owner,
   account_names,
+  statement_metadata,
   extracted_record_count: (.extracted_records // [] | length)
 }' "$parsed"
 ```
@@ -39,7 +40,7 @@ List compact transaction rows for scanning:
 jq -r '
   (.extracted_records // [])
   | .[]
-  | [.record_id, .transaction_date, .description, .amount, .currency]
+  | [.record_id, .account_id, .transaction_date, .description, .amount, .currency]
   | @tsv
 ' "$parsed"
 ```
