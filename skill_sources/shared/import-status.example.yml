@@ -1,0 +1,18 @@
+version: 1
+statements:
+  statements/raw/checking/jan-2026.pdf:
+    source_path: statements/raw/checking/jan-2026.pdf
+    source_fingerprint: sha256:1ef7e13fdb0f1f282ea6f8a8d3e59b84c55b57f4a9f0c9eb9b0cf2a3e64b2d12
+    # allowed values: ready, parsed, parsed_with_warning, account_inspection, ready_for_categorization, ready_for_review, ready_to_write, final_review, done
+    current_status: ready_for_review
+    updated_at: 2026-04-11T10:15:00Z
+    parsed_statement: statements/parsed/checking-jan-2026--1ef7e13f--20260411T090000Z.json
+    artifacts:
+      process: .auto-bean/artifacts/process/checking-jan-2026--process.md
+      categorize: .auto-bean/artifacts/categorize/checking-jan-2026--categorize.md
+      import: .auto-bean/artifacts/import/checking-jan-2026--import.md
+    # Retry metadata prevents permanently blocked `ready` files from being reprocessed forever.
+    # Count attempts for the current source_fingerprint; reset the count when the fingerprint changes.
+    process_attempts: 1
+    last_process_failure_reason: null
+    manual_resolution_required: false

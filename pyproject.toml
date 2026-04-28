@@ -1,0 +1,60 @@
+[project]
+name = "auto-bean"
+version = "0.1.0"
+description = "Local-first coding-agent helpers for operating Beancount ledgers."
+readme = "README.md"
+authors = [
+    { name = "SamArgt", email = "36817478+SamArgt@users.noreply.github.com" }
+]
+requires-python = ">=3.13,<3.14"
+dependencies = [
+    "beancount",
+    "click>=8.3.1,<9",
+    "fava",
+    "rich>=14,<15",
+]
+
+[dependency-groups]
+dev = [
+    "mypy>=1.18.2,<2",
+    "pytest>=7.4,<9",
+    "ruff>=0.15.2,<0.16",
+]
+
+[project.scripts]
+auto-bean = "auto_bean:main"
+
+[build-system]
+requires = ["hatchling>=1.27,<2"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/auto_bean"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"workspace_template" = "auto_bean/_packaged_assets/workspace_template"
+"skill_sources" = "auto_bean/_packaged_assets/skill_sources"
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/src",
+    "/tests",
+    "/workspace_template",
+    "/skill_sources",
+    "/README.md",
+    "/LICENSE",
+    "/AGENTS.md",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+
+[tool.mypy]
+python_version = "3.13"
+files = ["src", "tests", "scripts"]
+strict = true
+warn_unused_ignores = true
+
+[tool.ruff]
+target-version = "py313"

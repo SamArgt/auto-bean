@@ -1,0 +1,7 @@
+interface:
+  display_name: "Govern Memory"
+  short_description: "Manage governed reusable ledger memory"
+  default_prompt: "Use $auto-bean-memory to inspect, correct, prune, or persist approved reusable workflow decisions under governed local memory."
+
+policy:
+  allow_implicit_invocation: true

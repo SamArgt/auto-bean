@@ -1,0 +1,2 @@
+; Opening balance transactions belong here after account structure exists.
+; Keep account `open` directives in `beancount/accounts.beancount`.

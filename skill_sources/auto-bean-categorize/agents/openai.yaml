@@ -1,0 +1,7 @@
+interface:
+  display_name: "Categorize Statement"
+  short_description: "Categorize, reconcile, and deduplicate one parsed statement"
+  default_prompt: "Use $auto-bean-categorize for one assigned ready_for_categorization parsed statement or intermediate import artifact: categorize transactions with governed memory or evidence-based suggestions, use $auto-bean-query for ledger reads, identify reconciliation and deduplication findings, keep warnings/questions/answers in the user-friendly fillable Markdown review artifact under `.auto-bean/artifacts/categorize/` using the shared raw-statement filename prefix, mark ready_for_review, and return posting inputs, blockers, required user input, artifact paths, and memory suggestions back to $auto-bean-import for ledger-writing handoff and finalization."
+
+policy:
+  allow_implicit_invocation: false
