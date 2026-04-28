@@ -70,7 +70,6 @@ Follow this workflow:
     - any assumptions that remained after evidence review
     - duplicate, transfer, balancing, or currency risks found
     - the validation outcome
-    - a `git diff -- <paths>` view or equivalent focused diff summary
     - a clear statement that the working tree is changed but not finalized until approval is granted
 12. Ask for explicit approval before commit or push finalization when used directly. When invoked by `$auto-bean-import`, never own commit or push finalization; return only the mutation, validation, focused diff summary, assumptions, blockers, pending-question ids, and import artifact path to `$auto-bean-import` for orchestrator-owned approval and finalization. If approval is denied or deferred, leave the working-tree mutation unfinalized and explain its current state.
 

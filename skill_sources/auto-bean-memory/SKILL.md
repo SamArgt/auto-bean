@@ -64,8 +64,7 @@ Persist only reusable decisions from an approved or finalized workflow result, o
    - `import_source_behavior` -> `.auto-bean/memory/import_sources/<source_slug>.json`
 4. For non-import-source categories, keep the top-level shape as `schema_version`, `memory_type`, and `records`; append or update only the relevant record.
 5. For `import_source_behavior`, read `.auto-bean/memory/import_sources/index.json` first. Use an existing indexed source file when source identity, institution, account hints, statement shape, or fingerprint matches; create a deterministic `<source_slug>.json` and update the index only when there is no matching source.
-6. Before writing, validate that JSON parses, `schema_version` is `1`, `memory_type` matches the destination, required record fields are present, and all paths stay inside `.auto-bean/memory/`.
-7. Store deterministic JSON with two-space indentation and a trailing newline.
+6. Store deterministic JSON with two-space indentation and a trailing newline.
 
 After any durable change, give a concise review summary: what reusable decision changed, why it is eligible, source and audit context, exact memory path written, and limits on future reuse. Avoid printing raw financial statements, full ledger excerpts, unrelated records, or unrelated financial data.
 

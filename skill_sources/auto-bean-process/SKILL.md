@@ -1,6 +1,6 @@
 ---
 name: auto-bean-process
-description: Process exactly one assigned raw statement file into normalized parsed evidence through the local Docling CLI, recording process questions and memory suggestions for `$auto-bean-import`. Use only as an internal worker stage for `$auto-bean-import`; do not discover import work, derive first-seen accounts, invoke posting workflows, or orchestrate finalization.
+description: Process exactly one assigned raw statement file into normalized parsed evidence through the local Docling CLI. Use as the `$auto-bean-import` raw-to-parsed worker stage. It owns parsing, process artifacts, per-input parse status updates, and processing memory suggestions; `$auto-bean-import` owns work discovery, first-seen accounts, posting workflows, and finalization.
 ---
 
 Use this only for the raw-to-parsed stage assigned by `$auto-bean-import`.
@@ -58,7 +58,7 @@ Workflow:
    - set `ready` when no trustworthy parsed evidence exists yet or manual follow-up is required before parsing is trustworthy
    - set `parsed` when normalized output is written and no warnings require `$auto-bean-import` review
    - set `parsed_with_warning` when normalized output is written but warnings need `$auto-bean-import` review before account inspection
-   - never set `account_inspection`, `ready_for_categorization`, `ready_for_review`, `ready_to_write`, `final_review`, or `done`
+   - allowed status updates from this stage are `ready`, `parsed`, and `parsed_with_warning`; all later workflow statuses are advanced by `$auto-bean-import`
    - record only operational status data: current status, source fingerprint, updated timestamp, parsed statement path, stage artifact paths, retry metadata, and compact user-input flags; keep warning, question, and answer payloads in the process artifact only
    - when setting `ready`, increment `process_attempts` for the current source fingerprint, set `last_process_failure_reason`, and set `manual_resolution_required: true` once the current-fingerprint attempt count reaches 2
    - when the source fingerprint changes, start a new retry count for that fingerprint while preserving any prior failure context that remains useful in warnings or blocking issues
@@ -70,9 +70,7 @@ Workflow:
    - reflect only the process artifact path in the parsed output and status entry; do not embed warning, question, or answer payloads outside the process artifact
    - make warnings, blockers, questions, answers received from `$auto-bean-import`, manual extraction notes, and memory suggestions visible in the process artifact; keep parsed statements limited to parsing metadata and records
    - return the process artifact to `$auto-bean-import` so the orchestrator can ask and update or resume the intermediate statement
-   - collect eligible reusable learning as `memory_suggestions` while working; include memory type, source context, decision, scope, confidence or review state, supporting evidence, current-evidence checks, and why it should be reused later
-   - write every processing-related memory candidate into a `Memory Suggestions` section of the process artifact, even when there are no user questions
-   - keep memory candidates in the returned `memory_suggestions` structure as well; do not create a separate temporary memory-suggestions artifact
+   - collect eligible reusable learning into a `Memory Suggestions` section of the process artifact, even when there are no user questions
 7. Return control to `$auto-bean-import` with:
    - assigned source path and source fingerprint
    - parsed output path and parse run id
@@ -89,4 +87,4 @@ Guardrails:
 - Do not overwrite prior parse outputs silently unless `$auto-bean-import` explicitly assigned overwrite behavior.
 - Do not claim success when evidence is ambiguous, structure is risky, or validation fails.
 - Do not process unassigned statements.
-- Do not ask for user input; follow the shared question-handling contract and make unresolved requirements visible in the relevant artifacts for `$auto-bean-import`.
+- Persist process-stage questions in the process artifact and return question ids to `$auto-bean-import`; `$auto-bean-import` asks the user in the main import thread.

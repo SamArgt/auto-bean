@@ -44,7 +44,7 @@ Follow this workflow:
 9. Preserve boundaries.
    - Do not mutate `ledger.beancount`, `beancount/**`, or other workspace files in this skill.
    - Do not write `.auto-bean/memory/**`; if an approved query outcome should become reusable learning, hand it to `$auto-bean-memory`.
-   - Do not add Beancount `query` directives or saved reports unless the user explicitly asks for a ledger edit.
+   - Saved Beancount `query` directives are ledger edits; route those requests to the appropriate mutation workflow.
    - If the user wants to change the ledger rather than inspect it, hand off to the structural mutation workflow instead of expanding this skill's scope.
 
 Guardrails:

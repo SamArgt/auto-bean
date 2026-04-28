@@ -2,7 +2,9 @@
 
 `$auto-bean-import` owns one Markdown decision artifact per raw statement under `.auto-bean/artifacts/import/`. Worker skills may report paths, question ids, findings, and suggestions, but they do not create or update import-owned artifacts.
 
-The import artifact is a statement-scoped decision and provenance surface, not a status tracker and not a replacement for stage-owned artifacts. It records stable ids, key user or agent decisions brokered by `$auto-bean-import`, import-owned pending or answered questions, memory suggestions, and references to source, parsed, process, categorize, write, validation, and memory artifacts. Warning, question, and answer payloads must remain in the individual artifact that owns them: process artifacts for processing issues, categorize artifacts for categorization/reconciliation/deduplication issues, and import artifacts for first-seen account, write-stage, final approval, and import-brokered decisions. The import artifact must not duplicate operational state from `statements/import-status.yml`, re-author the detailed raw-to-parsed evidence owned by `$auto-bean-process`, or re-author the detailed categorization, reconciliation, and deduplication analysis owned by `$auto-bean-categorize`.
+The import artifact stores statement-scoped decisions and provenance: stable ids, import-brokered user decisions, memory suggestions, and references to source, parsed, process, categorize, write, validation, and memory artifacts.
+
+Stage-owned detail remains in the owning artifact. Process artifacts own processing warnings, questions, and answers. Categorize artifacts own categorization, reconciliation, and deduplication warnings, questions, and answers. Import artifacts own first-seen account, write-stage, final approval, and import-brokered decisions. `statements/import-status.yml` owns operational state.
 
 ## Path
 

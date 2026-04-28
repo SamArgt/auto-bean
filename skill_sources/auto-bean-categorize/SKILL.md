@@ -1,6 +1,6 @@
 ---
 name: auto-bean-categorize
-description: Categorize transactions and identify reconciliation or deduplication decisions for exactly one assigned parsed statement or intermediate import artifact. Use only as a bounded internal stage for `$auto-bean-import`; do not write ledger postings, finalize the full import, commit, push, or mark statements done.
+description: Categorize transactions and identify reconciliation or deduplication decisions for exactly one assigned parsed statement or intermediate import artifact. Use as the `$auto-bean-import` parsed-evidence-to-categorization worker stage. It owns statement-scoped categorization, reconciliation findings, pending questions, and posting inputs; `$auto-bean-import` owns batching, ledger writing handoff, final review, commit, and push decisions.
 ---
 
 Use this only for the parsed-evidence-to-categorization stage assigned by `$auto-bean-import`.
@@ -40,8 +40,7 @@ Workflow:
    - collect unresolved decisions in a categorize artifact under `.auto-bean/artifacts/categorize/`
    - record explicit warnings, blocking issues, questions, and answers in the categorize artifact only; keep the status entry limited to current operational status, compact user-input flags, and artifact pointers
    - return control to `$auto-bean-import` after all safe progress for this assigned artifact is persisted, so `$auto-bean-import` can ask the user or continue to posting through `$auto-bean-write`
-   - collect eligible reusable learning as `memory_suggestions` throughout categorization, reconciliation, deduplication, and clarification; include memory type, source context, decision, scope, confidence or review state, supporting evidence, current-evidence checks, and why it should be reused later
-   - keep memory candidates in the returned `memory_suggestions` structure and, when useful for auditability, include them in the categorize artifact; do not create a separate temporary memory-suggestions artifact
+   - collect eligible reusable learning throughout categorization, reconciliation, deduplication, and clarification; include memory type, source context, decision, scope, confidence or review state, supporting evidence, current-evidence checks, and why it should be reused later
 4. Categorize each transaction in this artifact:
    - use current parsed facts plus governed memory hints from `.auto-bean/memory/category_mappings.json`, `.auto-bean/memory/account_mappings.json`, `.auto-bean/memory/import_sources/index.json`, matching import-source memory, and other fixed memory files only when they directly apply
    - treat memory as advisory; confirm each reused category, account, transfer pattern, duplicate decision, naming convention, clarification outcome, or import-source behavior fits current evidence and current ledger context
@@ -79,7 +78,7 @@ Workflow:
    - require the assigned statement to be at `ready_for_categorization` before categorization work starts
    - set `ready_for_review` after categorization, reconciliation, and deduplication work is persisted, with any user-input needs recorded in the categorize artifact
 
-   - never set `ready_to_write`, `final_review`, or `done`
+   - allowed status update from this stage is `ready_for_review`; `$auto-bean-import` advances later statuses after review, posting, validation, and approval
    - refresh the matching entry in `statements/import-status.yml`; do not create a second workflow-tracking file, and do not copy warning, question, or answer payloads into the status entry
 9. Return control to `$auto-bean-import` with:
    - assigned parsed/intermediate artifact path
@@ -90,8 +89,8 @@ Workflow:
    - status changes and compact pending-question metadata for this artifact, with full warning, question, and answer details kept in the categorize artifact
    - reconciliation/deduplication findings with suggested actions
    - every persisted pending user question id and the artifact path where the full question is recorded
-   - `memory_suggestions`: every eligible reusable-learning candidate for `$auto-bean-import` to consider via `$auto-bean-memory`, or `[]` when none were found
 
+   
 Guardrails:
 
 - Do not discover, batch, or orchestrate import work.
@@ -104,5 +103,5 @@ Guardrails:
 - Do not bypass clarification with a best guess when ambiguity is material.
 - Do not write `.auto-bean/memory/**`; report possible reusable learning back to `$auto-bean-import` so it can decide whether to invoke `$auto-bean-memory`.
 - Do not imply working-tree mutations have been accepted into history.
-- Do not ask for user input before following the shared question-handling contract and making unresolved requirements visible in the relevant artifacts.
+- Before any user clarification, persist safe progress and unresolved requirements in the categorize artifact, then return question ids and artifact paths through the shared question-handling contract.
 - Do not erase import-batch cross-statement review notes when resuming or updating a categorize artifact.
