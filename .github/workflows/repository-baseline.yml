@@ -27,7 +27,7 @@ jobs:
 
       - name: Ruff
         run: uv run ruff check src scripts
-s
+
       # - name: Pytest
       #   run: uv run pytest
 
