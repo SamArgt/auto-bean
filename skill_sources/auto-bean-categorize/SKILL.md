@@ -43,6 +43,7 @@ Workflow:
    - collect eligible reusable learning throughout categorization, reconciliation, deduplication, and clarification; include memory type, source context, decision, scope, confidence or review state, supporting evidence, current-evidence checks, and why it should be reused later
 4. Categorize each transaction in this artifact:
    - use current parsed facts plus governed memory hints from `.auto-bean/memory/category_mappings.json`, `.auto-bean/memory/account_mappings.json`, `.auto-bean/memory/import_sources/index.json`, matching import-source memory, and other fixed memory files only when they directly apply
+   - treat parsed `account_owner` and `account_names` as statement evidence for selecting account mappings, transfer context, and memory applicability; do not treat them as ledger account names unless a current ledger check or approved mapping supports that
    - treat memory as advisory; confirm each reused category, account, transfer pattern, duplicate decision, naming convention, clarification outcome, or import-source behavior fits current evidence and current ledger context
    - if memory gives a confident match, record the matched memory path, record identity or stable summary, matched transaction facts, and resulting category/account suggestion
    - if no reliable memory matches, provide evidence-based suggestions: likely category/account, supporting statement facts, relevant ledger conventions, confidence, and plausible alternatives

@@ -6,7 +6,7 @@ Source destination: `.auto-bean/memory/import_sources/<source_slug>.json`
 
 Use this memory type when an approved workflow learns source-specific statement behavior that is useful for processing future statements: file naming, parser hints, column semantics, account identity hints, statement-shape quirks, or reusable import handling rules.
 
-The records should contain practical information that helps `$auto-bean-process` recognize the source and normalize raw evidence without replacing current evidence. Keep processing guidance concrete: expected format, stable headers or sections, date/amount semantics, source identity checks, parser warnings that are safe to expect, and conditions that should block reuse.
+The records should contain practical information that helps `$auto-bean-process` recognize the source and normalize raw evidence without replacing current evidence. Keep processing guidance concrete: expected format, stable headers or sections, date/amount semantics, raw-statement account owner and account names, source identity checks, parser warnings that are safe to expect, and conditions that should block reuse.
 
 Read the index before reading or writing a source file.
 
@@ -21,6 +21,8 @@ Example index file:
       "source_slug": "example-bank-checking-1234",
       "path": "example-bank-checking-1234.json",
       "institution": "Example Bank",
+      "account_owner": "Sam Example",
+      "account_names": ["Everyday Checking", "Example Bank Everyday Checking"],
       "account_hint": "checking ending 1234",
       "statement_patterns": ["example_bank_checking_*.csv"],
       "updated_at": "2026-04-24T10:15:00Z"
@@ -38,6 +40,8 @@ Example source file:
   "source_slug": "example-bank-checking-1234",
   "source_identity": {
     "institution": "Example Bank",
+    "account_owner": "Sam Example",
+    "account_names": ["Everyday Checking", "Example Bank Everyday Checking"],
     "account_hint": "checking ending 1234",
     "currency": "USD"
   },
@@ -58,6 +62,8 @@ Example source file:
       },
       "scope": {
         "institution": "Example Bank",
+        "account_owner": "Sam Example",
+        "account_names": ["Everyday Checking", "Example Bank Everyday Checking"],
         "account_last4": "1234",
         "file_type": "csv"
       },

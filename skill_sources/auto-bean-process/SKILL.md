@@ -21,7 +21,7 @@ Read before acting:
 - `.agents/skills/shared/import-status.example.yml`
 - `.agents/skills/shared/import-status-reading.md` before reading or updating a large `statements/import-status.yml`
 - `.agents/skills/shared/question-handling-contract.md` before recording process questions
-- `.auto-bean/memory/import_sources/index.json`, then the matching indexed `import_source_behavior` memory file when source identity, institution, account hints, statement shape, filename pattern, or fingerprint suggests a narrow match
+- `.auto-bean/memory/import_sources/index.json`, then the matching indexed `import_source_behavior` memory file when source identity, institution, raw-statement account owner, raw-statement account names, account hints, statement shape, filename pattern, or fingerprint suggests a narrow match
 
 Workflow:
 
@@ -35,7 +35,7 @@ Workflow:
    - compute a deterministic fingerprint such as `sha256`
    - compare the fingerprint to the supplied status entry, if any
    - look for applicable `import_source_behavior` memory through `.auto-bean/memory/import_sources/index.json`, opening only matching indexed source files
-   - use source-behavior memory only for processing-relevant facts such as parser hints, statement shape, column semantics, filename/source identity patterns, account identity hints, and reusable import handling checks
+   - use source-behavior memory only for processing-relevant facts such as parser hints, statement shape, column semantics, filename/source identity patterns, raw-statement account owner and account name patterns, account identity hints, and reusable import handling checks
    - treat selected source memory as advisory guidance only; fail closed if memory is missing, malformed, too broad, stale, or conflicts with current evidence
 3. Parse with the local Docling CLI:
    - call `./.venv/bin/docling` directly on the assigned source
@@ -51,7 +51,8 @@ Workflow:
    - if a scanned or textless PDF cannot be extracted, do not guess; leave the statement `ready` and record the issue for `$auto-bean-import`
 4. Persist normalized evidence:
    - write one deterministic JSON artifact for this source or parse run under `statements/parsed/`
-   - include only necessary parse metadata such as `parse_run_id`, `source_file`, `source_fingerprint`, `source_format`, parser identifier, `parsed_at`, process artifact path, and extracted records
+   - include only necessary parse metadata and extracted evidence such as `parse_run_id`, `source_file`, `source_fingerprint`, `source_format`, parser identifier, `parsed_at`, process artifact path, `account_owner`, `account_names`, and extracted records
+   - populate `account_owner` and `account_names` only from raw-statement evidence; use `null` or `[]` when the statement does not expose them clearly, and record extraction ambiguity in the process artifact
    - keep all contract keys in `snake_case`
    - on re-parse, write a new versioned output and refresh only this statement's status entry
 5. Update only this input's status:

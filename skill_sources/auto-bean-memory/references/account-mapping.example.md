@@ -2,7 +2,7 @@
 
 Destination: `.auto-bean/memory/account_mappings.json`
 
-Use this memory type when an approved workflow learns that a statement-side account, counterparty account, card, or externally named account maps to a Beancount account.
+Use this memory type when an approved workflow learns that a statement-side account, counterparty account, card, raw-statement account owner/name, or externally named account maps to a Beancount account.
 
 Example record:
 
@@ -17,10 +17,14 @@ Example record:
   },
   "decision": {
     "external_account_label": "Example Bank Everyday Checking ending 1234",
+    "statement_account_owner": "Sam Example",
+    "statement_account_names": ["Everyday Checking", "Example Bank Everyday Checking"],
     "beancount_account": "Assets:Bank:Example:Checking"
   },
   "scope": {
     "institution": "Example Bank",
+    "account_owner": "Sam Example",
+    "account_names": ["Everyday Checking", "Example Bank Everyday Checking"],
     "account_last4": "1234",
     "currency": "USD"
   },

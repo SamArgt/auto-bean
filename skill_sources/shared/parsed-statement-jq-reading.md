@@ -21,6 +21,8 @@ jq '{
   parser,
   parsed_at,
   process_artifact,
+  account_owner,
+  account_names,
   extracted_record_count: (.extracted_records // [] | length)
 }' "$parsed"
 ```

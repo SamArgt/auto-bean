@@ -20,7 +20,7 @@ Workflow:
    - create or refresh one import-owned Markdown artifact per raw statement under `.auto-bean/artifacts/import/` according to the shared import artifact contract
    - use the same deterministic raw-statement filename prefix for that statement's process, categorize, and import artifacts
    - fingerprint supported raw files: `.pdf`, `.csv`, `.xlsx`, `.xls`
-   - inspect `.auto-bean/memory/import_sources/index.json` and select only narrow matching `import_source_behavior` records by source identity, institution, account hints, statement shape, filename pattern, or fingerprint
+   - inspect `.auto-bean/memory/import_sources/index.json` and select only narrow matching `import_source_behavior` records by source identity, institution, raw-statement account owner, raw-statement account names, account hints, statement shape, filename pattern, or fingerprint
    - keep matched import-source memory advisory and statement-scoped; record reuse attribution in the import-owned artifact when it influences processing handoff, first-seen account inspection, or memory handoff
    - send raw files to `$auto-bean-process` only when they have no current parsed output, missing status, changed fingerprint, eligible `ready` status, or an explicit user reprocess request
    - treat `ready` as eligible for automatic processing only when `manual_resolution_required` is not true and `process_attempts` is below 2 for the current fingerprint
@@ -46,12 +46,12 @@ Workflow:
 4. Derive first-seen accounts:
    - for each statement with resolved process questions and status `account_inspection`, inspect `beancount/accounts.beancount` first, then `ledger.beancount` and included `beancount/**` files for existing `open` directives and account names
    - before proposing account-structure changes, read any matching `import_source_behavior` memory selected during discovery or reported by `$auto-bean-process`
-   - use import-source behavior memory to recognize stable institution identity, account fragments, account type hints, operating currency, recurring statement descriptors, and duplicate-risk checks that are useful for account inspection
+   - use import-source behavior memory to recognize stable institution identity, raw-statement account owner, raw-statement account names, account fragments, account type hints, operating currency, recurring statement descriptors, and duplicate-risk checks that are useful for account inspection
    - verify every memory-derived hint against the current parsed statement evidence and current ledger state before using it in a first-seen account decision
    - classify inferred accounts as `existing_account`, `first_seen_candidate`, or `blocked_inference`
    - consider only banking, credit card, loans, cash, and investment account types for first-seen structure inference
    - during first-seen account inspection, infer only institution-owned balance-sheet accounts; leave expense, income, and other transaction categories to `$auto-bean-categorize`
-   - infer Beancount-safe account names and minimal supporting directives only when institution, account identity, type hints, and currency provide strong evidence
+   - infer Beancount-safe account names and minimal supporting directives only when institution, raw-statement account owner or account names, account identity, type hints, and currency provide strong evidence
    - current parsed statement evidence and current ledger state remain authoritative; memory may provide hints, not authority
    - ignore or flag memory that is missing, malformed, stale, too broad, inconsistent with parsed evidence, inconsistent with existing accounts, or outside the matched statement source
    - when top-level branch, account identity, currency, duplicate risk, mutation target, or syntax is unclear, ask the user a bounded question before mutating account structure

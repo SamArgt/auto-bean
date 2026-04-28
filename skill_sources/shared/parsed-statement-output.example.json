@@ -9,6 +9,8 @@
   },
   "parsed_at": "2026-04-11T09:00:00Z",
   "process_artifact": ".auto-bean/artifacts/process/checking-jan-2026--process.md",
+  "account_owner": "Sam Example",
+  "account_names": ["Everyday Checking", "Example Bank Everyday Checking"],
   "extracted_records": [
     {
       "record_id": "page-1-row-1",

@@ -56,7 +56,7 @@ jq '.records[] | select((. | tostring | ascii_downcase) | contains("merchant nam
 Inspect import-source index entries before opening source files:
 
 ```sh
-jq -r '.sources[] | [.source_slug, .path, (.institution // ""), (.account_hint // "")] | @tsv' .auto-bean/memory/import_sources/index.json
+jq -r '.sources[] | [.source_slug, .path, (.institution // ""), (.account_owner // ""), ((.account_names // []) | join(", ")), (.account_hint // "")] | @tsv' .auto-bean/memory/import_sources/index.json
 ```
 
 Read only the indexed import-source file that matches the current source:
