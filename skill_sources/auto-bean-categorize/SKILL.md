@@ -14,17 +14,17 @@ Inputs from `$auto-bean-import`:
 
 Always read before acting:
 
-- `.agents/skills/shared/memory-access-rules.md` before using governed memory hints
 - `.agents/skills/shared/parsed-statement-jq-reading.md` before inspecting large parsed statement JSON files
 - `.agents/skills/shared/import-status-reading.md` before reading or updating a large `statements/import-status.yml`
-- `.agents/skills/shared/question-handling-contract.md` before recording or returning pending user questions
 - `.agents/skills/auto-bean-categorize/references/reconciliation-findings.md` for transfer, duplicate, balance, currency, or future-transfer findings
-- `.agents/skills/auto-bean-categorize/references/clarification-guidance.md` when categorization, reconciliation, or deduplication remains ambiguous, unfamiliar, or blocked on user clarification
-- `.agents/skills/auto-bean-categorize/references/categorize-artifact.example.md` before creating or updating a user-facing categorize artifact
 
 Read when needed:
 
 - `.agents/skills/shared/parsed-statement-output.example.json` when the parsed statement shape, required fields, or field meanings are unclear
+- `.agents/skills/shared/memory-access-rules.md` before using governed memory hints
+- `.agents/skills/shared/question-handling-contract.md` before recording or returning pending user questions
+- `.agents/skills/auto-bean-categorize/references/clarification-guidance.md` when categorization, reconciliation, or deduplication remains ambiguous, unfamiliar, or blocked on user clarification
+- `.agents/skills/auto-bean-categorize/references/categorize-artifact.example.md` before creating or updating a user-facing categorize artifact
 
 Workflow:
 
@@ -41,13 +41,12 @@ Workflow:
    - follow the shared question-handling contract
    - categorize, reconcile, deduplicate, and record every item whose evidence supports safe analysis
    - collect unresolved decisions in a categorize artifact under `.auto-bean/artifacts/categorize/`
-   - record explicit warnings, blocking issues, questions, and answers in the categorize artifact only; keep the status entry limited to current operational status, compact user-input flags, and artifact pointers
    - return control to `$auto-bean-import` after all safe progress for this assigned artifact is persisted, so `$auto-bean-import` can ask the user or continue to posting through `$auto-bean-write`
    - collect eligible reusable learning throughout categorization, reconciliation, deduplication, and clarification; include memory type, source context, decision, scope, confidence or review state, supporting evidence, current-evidence checks, and why it should be reused later
 4. Categorize each transaction in this artifact:
    - use current parsed facts plus governed memory hints from `.auto-bean/memory/category_mappings.json`, `.auto-bean/memory/account_mappings.json`, `.auto-bean/memory/import_sources/index.json`, matching import-source memory, and other fixed memory files only when they directly apply
    - treat parsed `account_owner` and `account_names` as statement evidence for selecting account mappings, transfer context, and memory applicability; do not treat them as ledger account names unless a current ledger check or approved mapping supports that
-   - treat memory as advisory; confirm each reused category, account, transfer pattern, duplicate decision, naming convention, clarification outcome, or import-source behavior fits current evidence and current ledger context
+   - apply the shared memory access rules before reusing category, account, transfer, duplicate, naming, clarification, or import-source memory
    - if memory gives a confident match, record the matched memory path, record identity or stable summary, matched transaction facts, and resulting category/account suggestion
    - if no reliable memory matches, provide evidence-based suggestions: likely category/account, supporting statement facts, relevant ledger conventions, confidence, and plausible alternatives
    - when categorization materially affects future postings and evidence does not support one safe choice, record a pending question and continue with any remaining safe work before returning control to `$auto-bean-import`
@@ -75,7 +74,7 @@ Workflow:
 7. Handle clarification needs for this artifact:
    - read `.agents/skills/auto-bean-categorize/references/clarification-guidance.md` before returning any question
    - set `user_input_required: true` when account/category choice, transfer intent, duplicate suspicion, source-specific meaning, or categorization remains materially ambiguous
-   - follow the shared question-handling contract before returning control; normally return question ids and the categorize artifact path so `$auto-bean-import` can keep the main thread unless it explicitly delegated user interaction
+   - follow the shared question-handling contract; for import-invoked work, normally return question ids and the categorize artifact path so `$auto-bean-import` can keep the main thread
    - after `$auto-bean-import` supplies user answers, record the answers in the categorize artifact, resume this same artifact with the persisted artifact context and status pointer, then re-run categorization, reconciliation, and deduplication as needed
    - if the answer is still insufficient, follow the shared follow-up rule and return the remaining blocker to `$auto-bean-import`
 8. Update only this artifact's status:
@@ -107,5 +106,4 @@ Guardrails:
 - Do not bypass clarification with a best guess when ambiguity is material.
 - Do not write `.auto-bean/memory/**`; report possible reusable learning back to `$auto-bean-import` so it can decide whether to invoke `$auto-bean-memory`.
 - Do not imply working-tree mutations have been accepted into history.
-- Before any user clarification, persist safe progress and unresolved requirements in the categorize artifact, then return question ids and artifact paths through the shared question-handling contract.
 - Do not erase import-batch cross-statement review notes when resuming or updating a categorize artifact.

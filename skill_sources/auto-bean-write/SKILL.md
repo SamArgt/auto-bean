@@ -3,9 +3,12 @@ name: auto-bean-write
 description: Draft, review, and safely write Beancount transactions into the ledger from trusted evidence. Use when a Coding agent needs to add or update transaction entries in `ledger.beancount` or included `beancount/**` files, choose accounts and postings, respect Beancount balancing and account currency constraints, or ask and wait for clarification when transaction intent is ambiguous.
 ---
 
-Read these references before acting:
+Always read before acting:
 
 - `.agents/skills/shared/beancount-syntax-and-best-practices.md`
+
+Read when needed:
+
 - `.agents/skills/shared/memory-access-rules.md` when transaction evidence includes memory-derived suggestions or when an approved transaction-writing result reveals reusable memory, so any persistence is handed to `$auto-bean-memory`
 - `.agents/skills/shared/question-handling-contract.md` before asking, returning, or resuming transaction-specific clarification questions
 
@@ -22,8 +25,8 @@ Follow this workflow:
    - explicit user-provided transaction facts
    - another bounded workspace artifact with concrete transaction details
    - memory-derived suggestions handed off by `$auto-bean-import` from `$auto-bean-categorize`, with current evidence and attribution already attached
-   - this skill verifies ledger context and does not independently treat governed memory as authority
-4. If the evidence does not establish the core transaction facts, follow the shared question-handling contract. When invoked by `$auto-bean-import`, return the pending-question id, artifact path, and blocker flags to that calling stage instead of asking directly, so `$auto-bean-import` can keep the main import thread, batch user input, and record the full question and answer in that statement's import-owned artifact:
+   - follow the shared memory access rules before using memory-derived suggestions
+4. If the evidence does not establish the core transaction facts, follow the shared question-handling contract for the missing fields:
    - date
    - payee or narration shape when materially needed by the ledger style
    - posting accounts
@@ -56,7 +59,7 @@ Follow this workflow:
    - missing currency
    - missing counterposting
    - unclear payee, narration, or metadata needed to match ledger conventions
-   - when invoked by `$auto-bean-import`, return the pending-question id and import artifact path to the caller after reporting any safe draft/review work already completed; full question and answer payloads belong in the statement's import-owned artifact, not in status files or parsed statements
+   - when invoked by `$auto-bean-import`, follow the shared import-invoked broker rule and return the pending-question id, artifact path, blocker flags, and safe work completed
    - otherwise wait for the user answer, then resume the same transaction-writing task rather than returning a terminal blocked state
    - if the answer is still ambiguous, follow the shared follow-up rule before proceeding or reporting the remaining blocker to the calling skill
 10. Validate after drafting the mutation.

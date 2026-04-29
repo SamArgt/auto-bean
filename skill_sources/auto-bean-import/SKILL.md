@@ -10,12 +10,12 @@ Always read before acting:
 
 - `.agents/skills/shared/import-status-reading.md` before reading or updating a large `statements/import-status.yml`
 - `.agents/skills/auto-bean-import/references/import-artifact-contract.md`
-- `.agents/skills/shared/question-handling-contract.md` before surfacing or resuming process, categorize, first-seen-account, or write-stage questions
-- `.agents/skills/shared/memory-access-rules.md` before using governed memory hints, especially `import_source_behavior` memory under `.auto-bean/memory/import_sources/`
 
 Read when needed:
 
 - `.agents/skills/shared/import-status.example.yml` only when creating new status fields or auditing schema shape
+- `.agents/skills/shared/question-handling-contract.md` before surfacing or resuming process, categorize, first-seen-account, or write-stage questions
+- `.agents/skills/shared/memory-access-rules.md` before using governed memory hints, especially `import_source_behavior` memory under `.auto-bean/memory/import_sources/`
 
 Workflow:
 
@@ -25,7 +25,7 @@ Workflow:
    - use the same deterministic raw-statement filename prefix for that statement's process, categorize, and import artifacts
    - fingerprint supported raw files: `.pdf`, `.csv`, `.xlsx`, `.xls`
    - inspect `.auto-bean/memory/import_sources/index.json` and select only narrow matching `import_source_behavior` records by source identity, institution, raw-statement account owner, raw-statement account names, account hints, statement shape, filename pattern, or fingerprint
-   - keep matched import-source memory advisory and statement-scoped; record reuse attribution in the import-owned artifact when it influences processing handoff, first-seen account inspection, or memory handoff
+   - keep matched import-source memory use consistent with the shared memory access rules, and record reuse attribution in the import-owned artifact when it influences processing handoff, first-seen account inspection, or memory handoff
    - send raw files to `$auto-bean-process` only when they have no current parsed output, missing status, changed fingerprint, eligible `ready` status, or an explicit user reprocess request
    - treat `ready` as eligible for automatic processing only when `manual_resolution_required` is not true and `process_attempts` is below 2 for the current fingerprint
    - when a current-fingerprint `ready` entry has `process_attempts` of 2 or more, keep it out of automatic processing, preserve the last failure reason and process artifact, and surface the manual-resolution requirement to the user
@@ -52,13 +52,11 @@ Workflow:
    - for each statement with resolved process questions and status `account_inspection`, inspect `beancount/accounts.beancount` first, then `ledger.beancount` and included `beancount/**` files for existing `open` directives and account names
    - before proposing account-structure changes, read any matching `import_source_behavior` memory selected during discovery or reported by `$auto-bean-process`
    - use import-source behavior memory to recognize stable institution identity, raw-statement account owner, raw-statement account names, account fragments, account type hints, operating currency, recurring statement descriptors, and duplicate-risk checks that are useful for account inspection
-   - verify every memory-derived hint against the current parsed statement evidence and current ledger state before using it in a first-seen account decision
    - classify inferred accounts as `existing_account`, `first_seen_candidate`, or `blocked_inference`
    - consider only banking, credit card, loans, cash, and investment account types for first-seen structure inference
    - during first-seen account inspection, infer only institution-owned balance-sheet accounts; leave expense, income, and other transaction categories to `$auto-bean-categorize`
    - infer Beancount-safe account names and minimal supporting directives only when institution, raw-statement account owner or account names, account identity, type hints, and currency provide strong evidence
-   - current parsed statement evidence and current ledger state remain authoritative; memory may provide hints, not authority
-   - ignore or flag memory that is missing, malformed, stale, too broad, inconsistent with parsed evidence, inconsistent with existing accounts, or outside the matched statement source
+   - apply the shared memory access rules before using a memory-derived hint in a first-seen account decision
    - when top-level branch, account identity, currency, duplicate risk, mutation target, or syntax is unclear, ask the user a bounded question before mutating account structure
    - before writing any new `open` directive, present the exact proposed directive, target file, supporting parsed evidence, and reason the account appears first-seen; ask the user to approve or correct it, then wait for the response
    - record each proposed, approved, rejected, or written first-seen account decision in the statement's import-owned artifact with evidence references, memory attribution or rejection notes, target file, user approval context, and validation references
@@ -88,8 +86,7 @@ Workflow:
    - when any sub-agent or downstream skill reports missing information, risky ambiguity, unresolved reconciliation finding, or manual extraction need, follow the shared question-handling contract
    - include cross-statement transfer or duplicate candidates from the import-batch review when batching questions, so the user can approve one coherent transfer/deduplication decision across all affected statements
    - when a categorize artifact path is reported under `.auto-bean/artifacts/categorize/`, present that path to the user as the fillable review surface and ask them either to answer in conversation or complete the artifact
-   - ask the user the collected bounded question or question set and wait for the answer instead of treating the workflow as finished or blocked
-   - use the appropriate user-input tool or conversation channel; do not force clarification through a specific skill unless that skill owns the work being clarified
+   - ask the collected bounded question set in the main thread, using the artifact as the fillable review surface when provided
    - after the user answers or fills the artifact, read the completed artifact if applicable, record conversation answers in the relevant individual artifact, then make the appropriate artifact and status changes or resume the same first-seen derivation or categorize stage for the affected statement/artifact with the answer and existing persisted artifacts included in the assignment context
    - update the statement's import-owned artifact with categorize artifact paths, answered question ids, unresolved blocker summaries, cross-statement transfer or duplicate decisions, memory-suggestion provenance, and posting decisions; keep the full warning, question, and answer payloads in the categorize artifact, and do not copy status fields, full categorization analysis, or replace categorize-owned artifacts
    - when categorization output and required user input are resolved, mark the statement `ready_to_write`
@@ -97,7 +94,7 @@ Workflow:
    - for each parsed statement at `ready_to_write`, take back the main thread and invoke `$auto-bean-write` with parsed records, category/account suggestions, reconciliation and deduplication decisions, memory attribution, and any approved user answers
    - record each `$auto-bean-write` handoff decision in the statement's import-owned artifact before invoking it, then record references to the returned mutation package and validation result
    - keep `$auto-bean-write` focused on drafting Beancount transaction entries and transaction-specific validation; do not make `$auto-bean-categorize` draft ledger mutations
-   - if `$auto-bean-write` returns a bounded clarification question, use the shared question-handling contract to ask in the main import thread, record the question and answer in the import-owned artifact for that statement, then resume `$auto-bean-write` with the answer and the existing categorize artifact context plus status pointer
+   - if `$auto-bean-write` returns a bounded clarification question, broker it through the shared question-handling contract, then resume `$auto-bean-write` with the answer and existing artifact context
    - set `final_review` only after import-derived transactions for that statement are written and validated
 9. Verify, review and close:
    - Use `$auto-bean-query` to verify the posted transactions between the ledger and the parsed statement evidence; Explicitly check the accounts balances against the parsed statement.
