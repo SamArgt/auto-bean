@@ -1,5 +1,7 @@
 # Reading Parsed Statement JSON With jq
 
+Purpose: inspect normalized parsed statement evidence with `jq` without loading large JSON payloads.
+
 Parsed statement JSON files can be too large to read directly into the conversation. Use `jq` to inspect only the fields needed for the current decision, then load a small excerpt if it helps explain or verify the work.
 
 Assume the assigned parsed statement is:
@@ -91,4 +93,4 @@ jq '
 - Start with metadata and record counts.
 - Use filters for the specific record, date range, amount, or source reference being handled.
 - Preserve `record_id`, `source_reference`, and source file context in any excerpt used for posting, clarification, deduplication, or reconciliation.
-- Read warnings, blockers, questions, answers, memory suggestions, and review notes from the referenced individual process, categorize, or import artifacts. Parsed statement JSON should only point to those artifacts, not duplicate their warning, question, or answer payloads.
+- Use parsed statement JSON for extracted evidence; use the status and question-handling references for workflow artifacts and user-input payloads.

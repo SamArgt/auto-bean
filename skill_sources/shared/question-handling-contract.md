@@ -1,5 +1,7 @@
 # Question-Handling Contract
 
+Purpose: canonical rules for user questions, answer capture, and import-invoked question brokering.
+
 Use this contract whenever an import stage encounters missing information, risky ambiguity, manual extraction needs, or a user decision that blocks safe progress.
 
 ## Core Rules

@@ -1,11 +1,10 @@
 # Beancount Syntax And Best Practices
 
-Use this reference when authoring or reviewing Beancount ledger edits. Keep changes deterministic, minimal, explicit, and easy to review.
+Purpose: Beancount syntax, ledger structure, and mutation safety only. Workflow questions, import status, and memory handling live in their own shared references.
 
 ## Core rules
 
 - Reuse the workspace's existing root account names, include graph, quoting style, and file layout.
-- Fail closed when account identity, currency, balancing intent, or mutation target is ambiguous.
 - Prefer explicit postings and directives over shorthand.
 - Avoid duplicate directives, duplicate transactions, and silent rewrites of history.
 - Treat balancing failures and `open` directive currency restrictions as hard safety checks, not soft suggestions.
@@ -54,11 +53,9 @@ YYYY-MM-DD custom "import_marker" Assets:Checking "statement-2026-01"
 - Postings may include units, lot cost `{...}`, price `@ ...`, metadata, and an optional posting flag.
 - Prefer explicit balancing amounts even though Beancount can infer one missing amount.
 - Leave at most one posting amount omitted, and only when the intended balance is unambiguous.
-- If the missing piece is account identity, transfer intent, duplicate suspicion, or source-specific meaning, treat it as a clarification blocker instead of relying on interpolation or a guessed counterposting.
 - Only emit costs or prices when the source evidence clearly supports them.
-- When import-derived postings resemble transfers or duplicates, surface the evidence for review instead of silently netting or deleting entries.
 - Preserve the ledger's established metadata keys, quoting style, and posting order.
-- Compare against nearby ledger entries before finalizing so likely duplicates or transfers are surfaced instead of silently absorbed.
+- Compare against nearby ledger entries before finalizing likely duplicate or transfer-shaped postings.
 
 ## Account naming
 
@@ -91,4 +88,4 @@ plugin "beancount.plugins.currency_accounts" "Equity:CurrencyAccounts"
 - Inspect existing `open` directives before posting into an account.
 - If a posting would violate declared account currencies, ask and wait when intent is unclear, or add the minimum justified supporting directive when evidence is strong.
 - Reuse the existing file placement pattern for similar transactions instead of moving entries between files without a strong reason.
-- Keep edits narrow, validate after every mutation, and present diffs instead of guessing through uncertainty.
+- Keep edits narrow and validate after every mutation.
