@@ -34,7 +34,7 @@ When correcting, pruning, or reorganizing memory, preserve unrelated records and
 
 ## Governed persistence
 
-Persist only reusable decisions from an approved or finalized workflow result, or from a direct user request to remember a reusable rule. When `$auto-bean-import` invokes this skill, use the relevant statement-scoped import-owned artifact paths under `.auto-bean/artifacts/import/` as source/audit context when available; they are provenance, not durable memory.
+Persist reusable decisions from workflow evidence when they are likely to help future runs, even without an explicit user request to remember them. Prefer initiative with conservative scope: persist only decisions that are specific, evidence-backed, and safe to reuse; skip tentative or ambiguous outcomes unless the user asks to retain them. When `$auto-bean-import` invokes this skill, use the relevant statement-scoped import-owned artifact paths under `.auto-bean/artifacts/import/` as well as other relevant artifacts as source/audit context when available; they are provenance, not durable memory.
 
 1. Classify the memory into one category and read only that example reference:
    - `account_mapping`: `.agents/skills/auto-bean-memory/references/account-mapping.example.md`
@@ -64,9 +64,10 @@ Persist only reusable decisions from an approved or finalized workflow result, o
    - `import_source_behavior` -> `.auto-bean/memory/import_sources/<source_slug>.json`
 4. For non-import-source categories, keep the top-level shape as `schema_version`, `memory_type`, and `records`; append or update only the relevant record.
 5. For `import_source_behavior`, read `.auto-bean/memory/import_sources/index.json` first. Use an existing indexed source file when source identity, institution, raw-statement account owner, raw-statement account names, account hints, statement shape, or fingerprint matches; create a deterministic `<source_slug>.json` and update the index only when there is no matching source.
-6. Store deterministic JSON with two-space indentation and a trailing newline.
+6. For every imported statement filename pattern observed in source artifacts, ensure an `import_source_behavior` memory exists. If no matching source already exists for that pattern, create one immediately with at least statement metadata (for example filename pattern, institution/source hints, account-owner hints, statement-shape hints, and time window) plus the related accounts currently inferred or confirmed.
+7. Store deterministic JSON with two-space indentation and a trailing newline.
 
-After any durable change, give a concise review summary: what reusable decision changed, why it is eligible, source and audit context, exact memory path written, and limits on future reuse. Avoid printing raw financial statements, full ledger excerpts, unrelated records, or unrelated financial data.
+After any durable change, always surface an end-of-workflow memory summary: what reusable decision changed, why it was persisted autonomously (or via direct request), source and audit context, exact memory path written, and limits on future reuse. Avoid printing raw financial statements, full ledger excerpts, unrelated records, or unrelated financial data.
 
 Guardrails:
 
