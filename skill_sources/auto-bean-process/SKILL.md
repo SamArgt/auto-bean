@@ -13,15 +13,18 @@ Inputs from `$auto-bean-import`:
 - the shared raw-statement artifact prefix to use for this source's process, categorize, and import artifacts
 - any relevant source-memory hint already selected for this input
 
-Read before acting:
+Always read before acting:
 
 - `.agents/skills/shared/memory-access-rules.md` before using governed memory hints
 - `.agents/skills/shared/parsed-statement-output.example.json`
 - `.agents/skills/shared/parsed-statement-jq-reading.md` before inspecting large parsed statement JSON files
-- `.agents/skills/shared/import-status.example.yml`
 - `.agents/skills/shared/import-status-reading.md` before reading or updating a large `statements/import-status.yml`
 - `.agents/skills/shared/question-handling-contract.md` before recording process questions
 - `.auto-bean/memory/import_sources/index.json`, then the matching indexed `import_source_behavior` memory file when source identity, institution, raw-statement account owner, raw-statement account names, account hints, statement shape, filename pattern, or fingerprint suggests a narrow match
+
+Read when needed:
+
+- `.agents/skills/shared/import-status.example.yml` only when creating new status fields or auditing schema shape
 
 Workflow:
 

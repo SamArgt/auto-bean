@@ -12,16 +12,19 @@ Inputs from `$auto-bean-import`:
 - the shared raw-statement artifact prefix to use for this source's process, categorize, and import artifacts
 - any relevant memory hints, reconciliation context, or user answers already approved for this artifact
 
-Read before acting:
+Always read before acting:
 
 - `.agents/skills/shared/memory-access-rules.md` before using governed memory hints
-- `.agents/skills/shared/parsed-statement-output.example.json`
 - `.agents/skills/shared/parsed-statement-jq-reading.md` before inspecting large parsed statement JSON files
 - `.agents/skills/shared/import-status-reading.md` before reading or updating a large `statements/import-status.yml`
 - `.agents/skills/shared/question-handling-contract.md` before recording or returning pending user questions
 - `.agents/skills/auto-bean-categorize/references/reconciliation-findings.md` for transfer, duplicate, balance, currency, or future-transfer findings
 - `.agents/skills/auto-bean-categorize/references/clarification-guidance.md` when categorization, reconciliation, or deduplication remains ambiguous, unfamiliar, or blocked on user clarification
 - `.agents/skills/auto-bean-categorize/references/categorize-artifact.example.md` before creating or updating a user-facing categorize artifact
+
+Read when needed:
+
+- `.agents/skills/shared/parsed-statement-output.example.json` when the parsed statement shape, required fields, or field meanings are unclear
 
 Workflow:
 
