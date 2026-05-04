@@ -20,17 +20,17 @@ Read when needed:
 Workflow:
 
 1. Discover unprocessed work:
-   - inspect `statements/raw/`, `statements/parsed/`, and `statements/import-status.yml`
+   - Use `git diff` command to detect new or changed raw statements, and determine the current processing status for each statement according to `statements/import-status.yml`
    - create or refresh one import-owned Markdown artifact per raw statement under `.auto-bean/artifacts/import/` according to the shared import artifact contract
    - use the same deterministic raw-statement filename prefix for that statement's process, categorize, and import artifacts
    - fingerprint supported raw files: `.pdf`, `.csv`, `.xlsx`, `.xls`
    - inspect `.auto-bean/memory/import_sources/index.json` and select only narrow matching `import_source_behavior` records by source identity, institution, raw-statement account owner, raw-statement account names, account hints, statement shape, filename pattern, or fingerprint
-   - keep matched import-source memory use consistent with the shared memory access rules, and record reuse attribution in the import-owned artifact when it influences processing handoff, first-seen account inspection, or memory handoff
+   - keep matched import-source memory use consistent with the shared memory access rules, and record reuse attribution in the import-owned artifact.
    - send raw files to `$auto-bean-process` only when they have no current parsed output, missing status, changed fingerprint, eligible `ready` status, or an explicit user reprocess request
    - treat `ready` as eligible for automatic processing only when `manual_resolution_required` is not true and `process_attempts` is below 2 for the current fingerprint
    - when a current-fingerprint `ready` entry has `process_attempts` of 2 or more, keep it out of automatic processing, preserve the last failure reason and process artifact, and surface the manual-resolution requirement to the user
    - allow an explicit user reprocess request to retry a manually held `ready` entry; record the new attempt and reason instead of clearing prior retry history silently
-   - continue orchestration for existing entries at `parsed`, `parsed_with_warning`, `account_inspection`, `ready_for_categorization`, `ready_for_review`, `ready_to_write`, or `final_review`
+   - continue orchestration for existing entries at `parsed`, `parsed_with_warning`, `account_inspection`, `balance_check`, `ready_for_categorization`, `ready_for_review`, `ready_to_write`, or `final_review`
    - skip entries already current at `done` unless the user explicitly requests rework
 2. Use sub-agents in parallel for statement processing:
    - Spawn in parallel one sub-agent per statement
@@ -42,36 +42,42 @@ Workflow:
    - for `parsed_with_warning`, read the artifact produced by `$auto-bean-process` and ask the user any bounded questions needed to make the parsed intermediate statement trustworthy before downstream work
    - use the shared question-handling contract for question shape, batching, answer capture, and stage resume
    - after the user answers, update the relevant intermediate parsed statement and status entry only for resulting operational changes, and record the answer in the process artifact when it resolves or changes parsed evidence
-   - update the statement's import-owned artifact with unresolved and answered process question ids, process artifact paths, affected paths, and resume decisions; keep the full warning, question, and answer payloads in the process artifact, and do not copy current status, status transitions, full parsed payloads, or replace process-owned artifacts
+   - update the statement's import-owned artifact with unresolved and answered process question ids, process artifact paths, affected paths, and resume decisions; Do not copy the full warning, question, and answer payloads from the process artifact.
    - resume `$auto-bean-process` only when the answer requires parser-specific regeneration or normalization that should stay inside the raw-to-parsed worker boundary
    - when a `parsed` statement needs no process-stage user input, mark it `account_inspection`
    - when all `parsed_with_warning` warnings or process questions are resolved enough for downstream work, make the appropriate artifact and status changes and mark it `account_inspection`
    - keep statements that still have unresolved process questions out of first-seen derivation, categorization, and posting work
-   - once all process questions are resolved, close all the sub-agents that ran `$auto-bean-process` for this batch of statements; do not keep them alive for the rest of the workflow
-4. Derive first-seen accounts:
-   - for each statement with resolved process questions and status `account_inspection`, inspect `beancount/accounts.beancount` first, then `ledger.beancount` and included `beancount/**` files for existing `open` directives and account names
+   - once all process questions are resolved, close all the sub-agents that ran `$auto-bean-process` for this batch of statements.
+4. Accounts inspection and first-seen account derivation:
+   - for each statement with resolved process questions and status `account_inspection`, inspect the workspace ledger for existing accounts using `$auto-bean-query` before proposing any first-seen account edits
    - before proposing account-structure changes, read any matching `import_source_behavior` memory selected during discovery or reported by `$auto-bean-process`
-   - use import-source behavior memory to recognize stable institution identity, raw-statement account owner, raw-statement account names, account fragments, account type hints, operating currency, recurring statement descriptors, and duplicate-risk checks that are useful for account inspection
    - classify inferred accounts as `existing_account`, `first_seen_candidate`, or `blocked_inference`
+   - If it is an `existing_account`, link to the existing beancount account in the import-owned artifact
    - consider only banking, credit card, loans, cash, and investment account types for first-seen structure inference
    - during first-seen account inspection, infer only institution-owned balance-sheet accounts; leave expense, income, and other transaction categories to `$auto-bean-categorize`
    - infer Beancount-safe account names and minimal supporting directives only when institution, raw-statement account owner or account names, account identity, type hints, and currency provide strong evidence
    - apply the shared memory access rules before using a memory-derived hint in a first-seen account decision
    - when top-level branch, account identity, currency, duplicate risk, mutation target, or syntax is unclear, ask the user a bounded question before mutating account structure
-   - before writing any new `open` directive, present the exact proposed directive, target file, supporting parsed evidence, and reason the account appears first-seen; ask the user to approve or correct it, then wait for the response
+   - before writing any new directive, present the exact proposed directives, target file, supporting parsed evidence, and reason the account appears first-seen; ask the user to approve or correct it, then wait for the response
    - record each proposed, approved, rejected, or written first-seen account decision in the statement's import-owned artifact with evidence references, memory attribution or rejection notes, target file, user approval context, and validation references
-   - after the user approves or corrects the proposal, write only the approved account-opening structure and minimal supporting directives such as missing operating currencies; prefer `beancount/accounts.beancount` and explain any fallback target
-   - avoid duplicate directives and keep mutations deterministic for the same parsed input and ledger state
+   - after the user approves or corrects the proposal, write only the approved account-opening structure and minimal supporting directives such as opening balance postings; prefer `beancount/accounts.beancount` and `beancount/opening-balances.beancount` respectively.
    - run `./scripts/validate-ledger.sh` or `./.venv/bin/bean-check ledger.beancount` after account-structure edits
-   - after first-seen account inspection, any needed account-structure edits, and validation are complete, mark the statement `ready_for_categorization`
-   - keep statements with unresolved first-seen account questions out of posting work until resolved
-5. Handoff parsed statements to `$auto-bean-categorize` sub-agents:
-   - for each statement at `ready_for_categorization` with resolved process and first-seen account questions, start one sub-agent assigned to that single parsed statement with the instruction to use `$auto-bean-categorize` for categorization, reconciliation, and deduplication work
+   - for first-seen accounts, mark them to `ready_for_categorization` directly, skipping balance check; for existing accounts, move to `balance_check`.
+5. Opening Balance Checking:
+   - for each statement at `balance_check`, inspect the parsed statement for opening balances and compare them against the current ledger balances for existing accounts using `$auto-bean-query`
+   - Verify that the opening balance reported in the statement matches the balance calculated from the ledger up to the statement's start date
+   - if a balance mismatch is detected, surface a bounded question to the user explaining the discrepancy, providing the ledger balance, statement opening balance, account details, and suggested remediation paths such as adding an opening balance transaction, checking for missing transactions, or adjusting the statement's effective date
+   - follow the shared question-handling contract for question shape, batching, answer capture, and stage resume
+   - Record any decision in the statement's import-owned artifact.
+   - after user input or when balances are verified to match, update the statement status to `ready_for_categorization` if all inspections are resolved
+   - keep statements with unresolved balance discrepancies out of categorization work until the user provides guidance or approves a remediation action
+6. Handoff parsed statements to `$auto-bean-categorize` sub-agents:
+   - for each statement at `ready_for_categorization`, start one sub-agent assigned to that single parsed statement with the instruction to use `$auto-bean-categorize` for categorization, reconciliation, and deduplication work
    - run categorize sub-agents in parallel, then wait for all to finish before starting any categorize-to-post work
    - require each `$auto-bean-categorize` sub-agent to follow the shared question-handling contract and to report categorization results, posting inputs, status changes or compact pending-question metadata, reconciliation findings, blocker presence flags, categorize artifact paths using the shared prefix, persisted pending user question ids; full warning, question, and answer details stay in the categorize artifact
    - keep statements that need clarification, repair, or manual source handling out of posting and final approval until resolved
    - once all categorize-assigned sub-agents finish, close them; do not keep them alive for the rest of the workflow
-6. Review cross-statement transfer and duplicate candidates:
+7. Review cross-statement transfer and duplicate candidates:
    - before surfacing categorize findings to the user, read every produced categorize artifact and returned posting input for statements in the same import batch that reached `ready_for_review`
    - compare candidate postings across statements for likely transfers between imported accounts, mirror-image amounts, nearby dates, matching currencies, complementary descriptions, shared references, fees, FX legs, or account-pair patterns
    - compare batch candidates against existing ledger activity when needed through `$auto-bean-query`; do not approximate ledger reads by grepping when `$auto-bean-query` can answer them
@@ -80,8 +86,7 @@ Workflow:
    - when a likely transfer or possible duplicate spans multiple categorize artifacts, update each affected categorize artifact with a clearly labeled `Import Batch Cross-Statement Review` section containing the paired artifact paths, transaction ids or stable row references, matched facts, confidence, suggested deduplication or transfer-handling action, and any bounded user question id
    - update each affected import-owned artifact with the cross-statement finding summary, affected categorize artifact paths, question ids, and posting-decision impact; do not copy full categorization analysis into import-owned artifacts
    - if a cross-statement match changes a prior posting suggestion or deduplication decision materially, either update the affected categorize artifact directly with the import-batch review note or resume the same `$auto-bean-categorize` artifact with the cross-statement context when statement-local categorization must be recomputed
-   - keep statements with unresolved cross-statement transfer or duplicate questions out of `ready_to_write`
-7. Surface categorize user input:
+8. Surface categorize user input:
    - for each statement at `ready_for_review`, read the artifact produced by `$auto-bean-categorize`
    - when any sub-agent or downstream skill reports missing information, risky ambiguity, unresolved reconciliation finding, or manual extraction need, follow the shared question-handling contract
    - include cross-statement transfer or duplicate candidates from the import-batch review when batching questions, so the user can approve one coherent transfer/deduplication decision across all affected statements
@@ -90,21 +95,21 @@ Workflow:
    - after the user answers or fills the artifact, read the completed artifact if applicable, record conversation answers in the relevant individual artifact, then make the appropriate artifact and status changes or resume the same first-seen derivation or categorize stage for the affected statement/artifact with the answer and existing persisted artifacts included in the assignment context
    - update the statement's import-owned artifact with categorize artifact paths, answered question ids, unresolved blocker summaries, cross-statement transfer or duplicate decisions, memory-suggestion provenance, and posting decisions; keep the full warning, question, and answer payloads in the categorize artifact, and do not copy status fields, full categorization analysis, or replace categorize-owned artifacts
    - when categorization output and required user input are resolved, mark the statement `ready_to_write`
-8. Post categorized transactions:
+9. Post categorized transactions:
    - for each parsed statement at `ready_to_write`, take back the main thread and invoke `$auto-bean-write` with parsed records, category/account suggestions, reconciliation and deduplication decisions, memory attribution, and any approved user answers
    - record each `$auto-bean-write` handoff decision in the statement's import-owned artifact before invoking it, then record references to the returned mutation package and validation result
    - keep `$auto-bean-write` focused on drafting Beancount transaction entries and transaction-specific validation; do not make `$auto-bean-categorize` draft ledger mutations
    - if `$auto-bean-write` returns a bounded clarification question, broker it through the shared question-handling contract, then resume `$auto-bean-write` with the answer and existing artifact context
    - set `final_review` only after import-derived transactions for that statement are written and validated
-9. Verify, review and close:
-   - Use `$auto-bean-query` to verify the posted transactions between the ledger and the parsed statement evidence; Explicitly check the accounts balances against the parsed statement.
+10. Verify, review and close:
+   - Use `$auto-bean-query` to verify the posted transactions between the ledger and the parsed statement evidence; Explicitly check the accounts balances against the parsed statement closing balances.
    - consolidate sub-agent results, process question outcomes, first-seen account derivation, downstream categorize results, write results, validation outcome
    - reconcile `statements/import-status.yml` against per-statement artifact references before presenting final review; fail closed on source, prefix, or artifact-path conflicts
    - keep parsed facts, first-seen account edits, ledger postings, warnings, blockers, questions, answers, and required user decisions separate, with warning/question/answer details kept in the relevant individual artifacts
    - for statements at `final_review`, ask the user to validate the final import result
    - mark entries `done` only after the user approves the final import result
    - keep commit and push finalization orchestrator-owned: after import approval and any `done` transitions, `$auto-bean-import` is the only workflow stage that may ask for or act on commit or push approval for import-derived mutations
-10. Hand off governed memory persistence to `$auto-bean-memory` via sub-agent:
+11. Hand off governed memory persistence to `$auto-bean-memory` via sub-agent:
    - collect all workflow artifacts produced during this import: process artifacts under `.auto-bean/artifacts/process/`, categorize artifacts under `.auto-bean/artifacts/categorize/`, and statement-scoped import-owned artifacts under `.auto-bean/artifacts/import/`
    - Spawn a sub-agent that invokes the `$auto-bean-memory` skill with those artifact paths, asking it to persist any reusable learning as governed memory for future import work; do not call `$auto-bean-memory` separately for each artifact.
    - report the `$auto-bean-memory` result separately from import parsing, posting, validation, and final approval status

@@ -18,7 +18,7 @@ Scope: All authored skills under `skill_sources/*/SKILL.md` and their interface 
 
 **Strengths**
 - Clear top-level orchestration and lifecycle from discovery to `done`.
-- Explicit stage transitions (`parsed*` -> `account_inspection` -> `ready_for_categorization` -> `ready_for_review` -> `ready_to_write` -> `final_review` -> `done`).
+- Explicit stage transitions (`parsed*` -> `account_inspection` -> `balance_check` -> `ready_for_categorization` -> `ready_for_review` -> `ready_to_write` -> `final_review` -> `done`).
 - Explicit downstream ownership boundaries for process/categorize/write/memory.
 
 **Findings**

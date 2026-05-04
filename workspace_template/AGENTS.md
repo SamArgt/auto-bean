@@ -55,6 +55,7 @@ Workflow statuses in `statements/import-status.yml`:
 | `parsed` | `$auto-bean-import` moves to `account_inspection` | none unless process artifact says otherwise |
 | `parsed_with_warning` | `$auto-bean-import` reviews process artifact and resolves warnings | unresolved process warning or question |
 | `account_inspection` | `$auto-bean-import` derives first-seen account structure | unclear account identity, currency, or mutation target |
+| `balance_check` | `$auto-bean-import` verifies opening balances against ledger | balance discrepancies |
 | `ready_for_categorization` | `$auto-bean-import` assigns `$auto-bean-categorize` | none |
 | `ready_for_review` | `$auto-bean-import` reviews categorize artifact and collects needed user input | unresolved categorize, reconciliation, duplicate, or transfer decision |
 | `ready_to_write` | `$auto-bean-import` invokes `$auto-bean-write` | none |
