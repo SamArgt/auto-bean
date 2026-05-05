@@ -122,7 +122,9 @@ Workflows may suggest memory. Only this skill should write `.auto-bean/memory/**
 
 ### `auto-bean init <PROJECT-NAME>`
 
-Creates a new ledger workspace. It copies the workspace template, installs managed skills, initializes Git, creates a workspace-local `.venv`, validates `ledger.beancount`, verifies Fava and Docling, and creates an initial commit.
+Creates a new ledger workspace. It copies the workspace template, installs managed skills, prompts for an optional Context7 API key, initializes Git, creates a workspace-local `.venv`, validates `ledger.beancount`, verifies Fava and Docling, and creates an initial commit.
+
+Context7 MCP is configured in the generated gitignored `.codex/config.toml`. If you enter an API key during init, auto-bean stores it directly in that local config file so Codex can use it without an extra wrapper script.
 
 Useful options:
 
@@ -230,6 +232,8 @@ my-ledger/
 |       |-- auto-bean-process/
 |       |-- auto-bean-categorize/
 |       `-- auto-bean-memory/
+|-- .codex/
+|   `-- config.toml
 |-- scripts/
 |   |-- validate-ledger.sh
 |   `-- open-fava.sh
@@ -246,6 +250,7 @@ Important boundaries:
 - `.auto-bean/artifacts/` stores diagnostics and audit artifacts.
 - `.auto-bean/memory/` stores approved reusable workflow memory.
 - `.agents/skills/` contains installed runtime skills.
+- `.codex/config.toml` configures Context7 MCP for Codex and optionally stores the gitignored Context7 API key entered during init.
 
 ## For Developers
 
@@ -293,6 +298,7 @@ Runtime and development tools:
 - Beancount for ledger validation and query mechanics
 - Fava for ledger inspection
 - Docling for statement extraction support
+- Context7 MCP for current external-library documentation in Codex workflows
 - Ruff for linting and formatting
 - mypy for strict type checks
 - pytest for tests

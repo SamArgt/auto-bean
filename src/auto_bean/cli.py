@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from collections.abc import Callable, Sequence
 
 import click
@@ -49,15 +50,21 @@ def init(project_name: str, as_json: bool, verbose: bool) -> int:
     service = build_init_service()
 
     if as_json:
-        result = _run_init(project_name=project_name, service=service)
+        result = _run_init(
+            project_name=project_name,
+            context7_api_key=os.environ.get("CONTEXT7_API_KEY"),
+            service=service,
+        )
         render_result(result, as_json=True, verbose=verbose)
         return 0 if result.status == "ok" else 1
 
     coding_agent = service.prompt_for_coding_agent()
+    context7_api_key = service.prompt_for_context7_api_key()
     renderer = RichWorkflowRenderer(verbose=verbose)
     result = _run_init(
         project_name=project_name,
         coding_agent=coding_agent,
+        context7_api_key=context7_api_key,
         progress_reporter=renderer.report_check,
         current_task_reporter=renderer.start_check,
         service=service,
@@ -123,6 +130,7 @@ def _run_init(
     *,
     project_name: str,
     coding_agent: str | None = None,
+    context7_api_key: str | None = None,
     progress_reporter: Callable[[DiagnosticCheck], None] | None = None,
     current_task_reporter: Callable[[str], None] | None = None,
     service: InitService | None = None,
@@ -131,7 +139,11 @@ def _run_init(
     try:
         init_service.progress_reporter = progress_reporter
         init_service.current_task_reporter = current_task_reporter
-        return init_service.init(project_name, coding_agent=coding_agent)
+        return init_service.init(
+            project_name,
+            coding_agent=coding_agent,
+            context7_api_key=context7_api_key,
+        )
     except Exception as exc:
         return init_service.execution_error(
             "init",

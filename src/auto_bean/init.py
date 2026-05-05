@@ -4,6 +4,8 @@ import platform
 import re
 import shutil
 import subprocess
+from getpass import getpass
+from json import dumps
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field, replace
 from difflib import unified_diff
@@ -247,11 +249,16 @@ class InitService:
     tools: ToolLocator
     commands: CommandExecutor
     prompt: PromptResponder = input
+    secret_prompt: PromptResponder = getpass
     progress_reporter: ProgressReporter | None = None
     current_task_reporter: CurrentTaskReporter | None = None
 
     def init(
-        self, project_name: str, *, coding_agent: str | None = None
+        self,
+        project_name: str,
+        *,
+        coding_agent: str | None = None,
+        context7_api_key: str | None = None,
     ) -> CommandOutcome:
         started = perf_counter()
         target_directory, target_input_type = self._resolve_target_directory(
@@ -315,6 +322,7 @@ class InitService:
                 required_paths=(
                     "ledger.beancount",
                     "AGENTS.md",
+                    ".codex/config.toml",
                     "beancount/accounts.beancount",
                     "beancount/opening-balances.beancount",
                     ".auto-bean/memory/account_mappings.json",
@@ -378,6 +386,7 @@ class InitService:
         if failure is not None:
             return failure
         selected_agent = "Codex"
+        normalized_context7_api_key = self._normalize_context7_api_key(context7_api_key)
 
         # Stage 3: materialize the workspace scaffold so the remaining steps can
         # operate on a concrete repository.
@@ -386,12 +395,19 @@ class InitService:
             self.current_task_reporter("Copying workspace scaffold")
         scaffold_started = perf_counter()
         created_paths = self._scaffold_workspace(
-            context=context, target_directory=target_directory
+            context=context,
+            target_directory=target_directory,
+            context7_api_key=normalized_context7_api_key,
         )
         blocked_details: dict[str, object] = {
             "coding_agent": selected_agent,
+            "context7_mcp": "configured",
+            "context7_api_key_status": (
+                "stored" if normalized_context7_api_key else "not_provided"
+            ),
             "created_paths": created_paths,
             "key_files": [
+                ".codex/config.toml",
                 "ledger.beancount",
                 "AGENTS.md",
                 ".agents/skills/auto-bean-categorize/SKILL.md",
@@ -544,6 +560,10 @@ class InitService:
                 "workspace_fava": str(target_directory / ".venv" / "bin" / "fava"),
                 "workspace_docling": str(
                     target_directory / ".venv" / "bin" / "docling"
+                ),
+                "context7_mcp": "configured",
+                "context7_api_key_status": (
+                    "stored" if normalized_context7_api_key else "not_provided"
                 ),
                 "validation_status": "passed",
                 "fava_status": "passed",
@@ -727,6 +747,12 @@ class InitService:
         ).strip()
         return response or "Codex"
 
+    def prompt_for_context7_api_key(self) -> str | None:
+        response = self.secret_prompt(
+            "Context7 API key [leave blank to skip]: "
+        ).strip()
+        return response or None
+
     def _record(self, checks: list[DiagnosticCheck], check: DiagnosticCheck) -> None:
         checks.append(check)
         if self.progress_reporter is not None:
@@ -766,7 +792,11 @@ class InitService:
         return None
 
     def _scaffold_workspace(
-        self, *, context: InitContext, target_directory: Path
+        self,
+        *,
+        context: InitContext,
+        target_directory: Path,
+        context7_api_key: str | None,
     ) -> list[str]:
         target_directory.mkdir(parents=True, exist_ok=True)
         created_paths = self._copy_tree(
@@ -781,6 +811,7 @@ class InitService:
             )
         )
         created_paths.extend(self._write_workspace_scripts(target_directory))
+        self._write_context7_config(target_directory, context7_api_key)
         return created_paths
 
     def _failure(
@@ -1041,6 +1072,12 @@ class InitService:
             details={details_key: str(root)},
         )
 
+    def _normalize_context7_api_key(self, api_key: str | None) -> str | None:
+        if api_key is None:
+            return None
+        normalized = api_key.strip()
+        return normalized or None
+
     def _check_tool(
         self,
         command: str,
@@ -1156,7 +1193,11 @@ class InitService:
         scripts_directory.mkdir(exist_ok=True)
         created_paths: list[str] = []
         for relative_path, content, executable in (
-            (".gitignore", ".venv/\n__pycache__/\n*.pyc\n.DS_Store\n", False),
+            (
+                ".gitignore",
+                ".venv/\n.codex/config.toml\n__pycache__/\n*.pyc\n.DS_Store\n",
+                False,
+            ),
             (
                 "scripts/validate-ledger.sh",
                 "#!/bin/sh\nset -eu\n./.venv/bin/bean-check ledger.beancount\n",
@@ -1174,6 +1215,27 @@ class InitService:
                 ensure_executable(path)
             created_paths.append(relative_path)
         return created_paths
+
+    def _write_context7_config(
+        self, target_directory: Path, api_key: str | None
+    ) -> None:
+        context7_config_path = target_directory / ".codex" / "config.toml"
+        context7_config_path.parent.mkdir(parents=True, exist_ok=True)
+        if api_key is None:
+            header_config = (
+                'env_http_headers = { "CONTEXT7_API_KEY" = "CONTEXT7_API_KEY" }'
+            )
+        else:
+            header_config = (
+                f'http_headers = {{ "CONTEXT7_API_KEY" = {dumps(api_key)} }}'
+            )
+        context7_config_path.write_text(
+            "[mcp_servers.context7]\n"
+            'url = "https://mcp.context7.com/mcp"\n'
+            f"{header_config}\n",
+            encoding="utf-8",
+        )
+        context7_config_path.chmod(0o600)
 
     def _bootstrap_workspace_runtime(self, target_directory: Path) -> DiagnosticCheck:
         uv_path = self.tools.find("uv")
@@ -1417,6 +1479,7 @@ class InitService:
             ".git",
             ".gitignore",
             ".venv",
+            ".codex",
             ".auto-bean",
             ".agents",
             "beancount",
