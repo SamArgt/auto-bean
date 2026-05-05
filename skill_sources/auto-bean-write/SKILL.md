@@ -12,6 +12,16 @@ Read when needed:
 - `.agents/skills/shared/memory-access-rules.md` when transaction evidence includes memory-derived suggestions or when an approved transaction-writing result reveals reusable memory, so any persistence is handed to `$auto-bean-memory`
 - `.agents/skills/shared/question-handling-contract.md` before asking, returning, or resuming transaction-specific clarification questions
 
+
+If the transaction-writing task is part of an import workflow, make sure to:
+
+- read `.agents/skills/shared/parsed-statement-jq-reading.md` before inspecting large parsed statement JSON files
+- have the path to the relevant parsed statement in `statements/parsed/` with its process artifact under `.auto-bean/artifacts/process/`
+- have the path to the relevant categorize artifact under `.auto-bean/artifacts/categorize/`
+- have the path to the relevant import-owned artifact under `.auto-bean/artifacts/import/`
+
+If the transaction-writing task is part of an import workflow but you don't have the relevant parsed statement, process artifact, categorize artifact, or import-owned artifact, stop and report the missing context instead of proceeding with assumptions.
+
 Follow this workflow:
 
 1. Restate the requested ledger-writing task in plain language.

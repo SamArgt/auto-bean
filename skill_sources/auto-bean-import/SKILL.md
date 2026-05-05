@@ -86,7 +86,7 @@ Workflow:
    - when a likely transfer or possible duplicate spans multiple categorize artifacts, update each affected categorize artifact with a clearly labeled `Import Batch Cross-Statement Review` section containing the paired artifact paths, transaction ids or stable row references, matched facts, confidence, suggested deduplication or transfer-handling action, and any bounded user question id
    - update each affected import-owned artifact with the cross-statement finding summary, affected categorize artifact paths, question ids, and posting-decision impact; do not copy full categorization analysis into import-owned artifacts
    - if a cross-statement match changes a prior posting suggestion or deduplication decision materially then update the affected categorize artifact directly with the import-batch review note
-8. Surface categorize user input:
+8. Surface categorization suggestions and questions to the user for review:
    - for each statement at `ready_for_review`, read the artifact produced by `$auto-bean-categorize`
    - when any sub-agent or downstream skill reports missing information, risky ambiguity, unresolved reconciliation finding, or manual extraction need, follow the shared question-handling contract
    - include cross-statement transfer or duplicate candidates from the import owned artifact when batching questions, so the user can approve one coherent transfer/deduplication decision across all affected statements
@@ -102,8 +102,8 @@ Workflow:
    - set `final_review` only after import-derived transactions for that statement are written and validated
    - Close each `$auto-bean-write` sub-agent after it finishes; do not keep them alive for the rest of the workflow
 10. Verify, review and close:
-   - Use `$auto-bean-query` to verify the posted transactions between the ledger and the parsed statement evidence; Explicitly check the accounts balances against the parsed statement closing balances.
-   - Consolidate all artifacts, questions, answers, decisions, and validation results and present a summary to the user in a final review surface, organized by statement and with clear provenance and impact references; do not copy full artifact content into the summary, but link to it when needed for context
+   - for each relevant account, use `auto-bean-query` to verify the beancount balances with the closing balances from the parsed statements.
+   - consolidate all artifacts, questions, answers, decisions, and validation results and present a summary to the user in a final review surface, organized by statement and with clear provenance and impact references; do not copy full artifact content into the summary, but link to it when needed for context
    - reconcile `statements/import-status.yml` against per-statement artifact references before presenting final review; fail closed on source, prefix, or artifact-path conflicts
    - for statements at `final_review`, ask the user to validate the final import result
    - mark entries `done` only after the user approves the final import result
