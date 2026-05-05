@@ -13,14 +13,17 @@ Inputs from `$auto-bean-import`:
 - the shared raw-statement artifact prefix to use for this source's process, categorize, and import artifacts
 - any relevant source-memory hint already selected for this input
 
-Read before acting:
+Always read before acting:
 
-- `.agents/skills/shared/memory-access-rules.md` before using governed memory hints
 - `.agents/skills/shared/parsed-statement-output.example.json`
-- `.agents/skills/shared/parsed-statement-jq-reading.md` before inspecting large parsed statement JSON files
-- `.agents/skills/shared/import-status.example.yml`
 - `.agents/skills/shared/import-status-reading.md` before reading or updating a large `statements/import-status.yml`
 - `.agents/skills/shared/question-handling-contract.md` before recording process questions
+
+Read when needed:
+
+- `.agents/skills/shared/import-status.example.yml` only when creating new status fields or auditing schema shape
+- `.agents/skills/shared/parsed-statement-jq-reading.md` before inspecting large parsed statement JSON files
+- `.agents/skills/shared/memory-access-rules.md` before using governed memory hints
 - `.auto-bean/memory/import_sources/index.json`, then the matching indexed `import_source_behavior` memory file when source identity, institution, raw-statement account owner, raw-statement account names, account hints, statement shape, filename pattern, or fingerprint suggests a narrow match
 
 Workflow:
@@ -36,7 +39,7 @@ Workflow:
    - compare the fingerprint to the supplied status entry, if any
    - look for applicable `import_source_behavior` memory through `.auto-bean/memory/import_sources/index.json`, opening only matching indexed source files
    - use source-behavior memory only for processing-relevant facts such as parser hints, statement shape, column semantics, filename/source identity patterns, raw-statement account owner and account name patterns, account identity hints, and reusable import handling checks
-   - treat selected source memory as advisory guidance only; fail closed if memory is missing, malformed, too broad, stale, or conflicts with current evidence
+   - apply the shared memory access rules before using any selected source memory
 3. Parse with the local Docling CLI:
    - call `./.venv/bin/docling` directly on the assigned source
    - request JSON output into a unique temp path under `.auto-bean/tmp/`
@@ -71,7 +74,6 @@ Workflow:
    - write one deterministic process artifact under `.auto-bean/artifacts/process/`, using the shared raw-statement artifact prefix from `$auto-bean-import`, such as `.auto-bean/artifacts/process/<artifact_prefix>--process.md`
    - use that process artifact for process-stage questions, manual extraction notes, source-memory reuse attribution, and processing-related `memory_suggestions`
    - reflect only the process artifact path in the parsed output and status entry; do not embed warning, question, or answer payloads outside the process artifact
-   - make warnings, blockers, questions, answers received from `$auto-bean-import`, manual extraction notes, and memory suggestions visible in the process artifact; keep parsed statements limited to parsing metadata and records
    - return the process artifact to `$auto-bean-import` so the orchestrator can ask and update or resume the intermediate statement
    - collect eligible reusable learning into a `Memory Suggestions` section of the process artifact, even when there are no user questions
 7. Return control to `$auto-bean-import` with:
@@ -90,4 +92,4 @@ Guardrails:
 - Do not overwrite prior parse outputs silently unless `$auto-bean-import` explicitly assigned overwrite behavior.
 - Do not claim success when evidence is ambiguous, structure is risky, or validation fails.
 - Do not process unassigned statements.
-- Persist process-stage questions in the process artifact and return question ids to `$auto-bean-import`; `$auto-bean-import` asks the user in the main import thread.
+- Follow the shared import-invoked question broker rule for process-stage questions.

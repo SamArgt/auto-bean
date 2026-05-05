@@ -1,8 +1,10 @@
 # Memory Access Rules
 
+Purpose: canonical rules for reading and writing governed `.auto-bean/memory/**` records.
+
 Durable auto-bean memory lives under `.auto-bean/memory/` in the user workspace. It is local, versionable, inspectable, and separate from `ledger.beancount`, `beancount/**`, `statements/raw/`, and `statements/parsed/`.
 
-Memory is advisory. It may guide proposals only after it is checked against current parsed statement facts, current ledger state, account constraints, and reconciliation evidence relevant to the decision. It never replaces ledger validation, user clarification, finding review, or commit/push approval.
+Memory is advisory: check it against current evidence before reuse, and never let it replace validation, clarification, review, or approval.
 
 ## Fixed files
 
@@ -65,7 +67,7 @@ Read only the indexed import-source file that matches the current source:
 jq '.records[] | {memory_type, source, decision, scope, confidence, review_state, updated_at}' .auto-bean/memory/import_sources/<source_slug>.json
 ```
 
-When memory is missing, empty, malformed, schema-incompatible, stale, too broad, inconsistent with current evidence, path-unsafe, or missing required fields, skip or flag it and continue where possible.
+When memory is missing, malformed, stale, too broad, inconsistent with current evidence, path-unsafe, or schema-incompatible, skip or flag it and continue where possible.
 
 When memory influences a proposal, include review attribution: memory path, `memory_type`, record identity or stable summary, matched current evidence, decision influenced, and limits on reuse such as confidence, scope, conflicts checked, or why the memory stayed advisory.
 

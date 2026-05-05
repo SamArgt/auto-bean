@@ -5,9 +5,12 @@ description: Query and explain Beancount ledgers safely with `bean-query` and th
 
 # Auto Bean Query
 
-Read these references before acting:
+Always read before acting:
 
 - `.agents/skills/auto-bean-query/references/bean-query-patterns.md`
+
+Read when needed:
+
 - `.agents/skills/shared/beancount-syntax-and-best-practices.md` when account hierarchy, directive names, currency restrictions, or other ledger semantics matter for interpreting results
 - `.agents/skills/shared/memory-access-rules.md` when query results might inform reusable memory or may help verify advisory memory reuse against ledger facts, so any persistence is handed to `$auto-bean-memory`
 
@@ -43,7 +46,7 @@ Follow this workflow:
    - Offer a narrower follow-up query when the user wants to drill down.
 9. Preserve boundaries.
    - Do not mutate `ledger.beancount`, `beancount/**`, or other workspace files in this skill.
-   - Do not write `.auto-bean/memory/**`; if an approved query outcome should become reusable learning, hand it to `$auto-bean-memory`.
+   - Follow the shared memory access rules for any reusable learning discovered through query results.
    - Saved Beancount `query` directives are ledger edits; route those requests to the appropriate mutation workflow.
    - If the user wants to change the ledger rather than inspect it, hand off to the structural mutation workflow instead of expanding this skill's scope.
 

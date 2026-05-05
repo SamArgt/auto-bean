@@ -4,50 +4,38 @@ This is a user-owned ledger workspace. Keep product-code work in the `auto-bean`
 
 Codex is the orchestrator. Installed skills under `.agents/skills/` are the execution surface.
 
-## Core Skills
+## Quick Start
 
-- `auto-bean-query`: read-only ledger analysis through Beancount and `bean-query`
-- `auto-bean-write`: transaction drafting, correction, and transaction-specific validation
-- `auto-bean-memory`: governed persistence of approved reusable decisions
+- Use `$auto-bean-import` for statement imports from `statements/raw/`.
+- Use `$auto-bean-query` for read-only ledger analysis through Beancount and `bean-query`.
+- Use `$auto-bean-write` for transaction drafting, correction, and transaction-specific validation.
+- Use `$auto-bean-memory` for governed persistence of approved reusable decisions.
 
-Use `auto-bean-query` for balances, account activity, date windows, register rows, transaction existence, duplicates, and other ledger reads.
-Use `auto-bean-write` when a workflow needs to add or correct Beancount transaction entries.
+High-frequency paths:
+
+- `ledger.beancount`: stable ledger entrypoint
+- `beancount/`: included ledger fragments
+- `statements/raw/`: raw statement intake
+- `statements/parsed/`: normalized statement evidence
+- `statements/import-status.yml`: import state
 
 ## Import Workflow
 
 Users should start imports with `$auto-bean-import`.
 
-`auto-bean-import` discovers unprocessed raw statements, skips already-current statements, uses sub-agents for bounded statement work, delegates raw-to-parsed work to `$auto-bean-process`, resolves any process artifacts and updates intermediate statements, derives first-seen account structure, delegates categorization/reconciliation/deduplication work to `$auto-bean-categorize`, asks the user for needed input, posts transactions with `$auto-bean-write`, and handles governed memory suggestions through `$auto-bean-memory` at the end.
+`$auto-bean-import` discovers unprocessed raw statements, skips already-current statements, delegates raw-to-parsed work to `$auto-bean-process`, resolves process artifacts, derives first-seen account structure, delegates categorization/reconciliation/deduplication to `$auto-bean-categorize`, brokers user input, posts transactions with `$auto-bean-write`, and hands governed memory suggestions to `$auto-bean-memory`.
 
-Workflow statuses in `statements/import-status.yml`:
-
-- `ready`: raw statement is ready for `$auto-bean-process`
-- `parsed`: parsed evidence exists without process warnings; `$auto-bean-import` should move it to `account_inspection`
-- `parsed_with_warning`: parsed evidence exists but `$auto-bean-import` must review the process artifact and resolve warnings before account inspection
-- `account_inspection`: process-stage review is complete and `$auto-bean-import` should derive any first-seen account structure
-- `ready_for_categorization`: first-seen account inspection is complete and `$auto-bean-categorize` can run
-- `ready_for_review`: `$auto-bean-categorize` has persisted its artifact and `$auto-bean-import` should collect any needed user input
-- `ready_to_write`: categorization review is resolved and `$auto-bean-import` can invoke `$auto-bean-write`
-- `final_review`: import-derived transactions have been written and validated but not user-approved
-- `done`: the full import workflow is complete
-
-Only mark a statement `done` after user approval of the final import result.
+For import workflows, `$auto-bean-import` is the sole broker for final user approval and commit/push readiness.
 
 ## User Input
 
-When any skill needs user input, first keep working through every safe deterministic step. Write or update the relevant parsed artifacts, status entries, ledger draft comments, warnings, or blocking issues so the workspace clearly shows what is complete and what still requires the user.
+When any skill needs user input, persist safe deterministic progress first and follow `.agents/skills/shared/question-handling-contract.md`.
 
-Ask bounded questions with the appropriate user-input tool or conversation channel only after that progress is persisted. Include where the pending question is recorded, why guessing is unsafe, and the smallest useful set of choices or requested facts.
+After the user answers, resume the same statement, artifact, transaction, or memory operation from existing files with that answer in context.
 
-After the user answers, resume the same statement, artifact, transaction, or memory operation from the existing files with that answer in context. Do not restart from the beginning or treat clarification as a terminal blocked state unless the answer remains insufficient after a bounded follow-up.
+## Deep Policy
 
-## Memory
-
-Read `.agents/skills/shared/memory-access-rules.md` before relying on or requesting durable memory persistence.
-
-Skills may suggest useful governed memory. Only `auto-bean-memory` writes `.auto-bean/memory/**`, and only for approved reusable outcomes. Treat reused memory as advisory guidance, never silent authority.
-
-## Review Boundary
+### Review Boundary
 
 Before commit or push for ledger mutations:
 
@@ -57,21 +45,53 @@ Before commit or push for ledger mutations:
 - summarize changed files and show `git diff`
 - make clear that working-tree changes are not accepted into history until the user approves finalization
 
-## Paths
+### Import Status Reference
 
-- `ledger.beancount`: stable ledger entrypoint
-- `beancount/`: included ledger fragments
-- `statements/raw/`: raw statement intake
-- `statements/parsed/`: normalized statement evidence
-- `statements/import-status.yml`: import state
+Workflow statuses in `statements/import-status.yml`:
+
+| status | owner next action | blocked by |
+| --- | --- | --- |
+| `ready` | `$auto-bean-import` may assign `$auto-bean-process` | missing parser-ready evidence or manual retry hold |
+| `parsed` | `$auto-bean-import` moves to `account_inspection` | none unless process artifact says otherwise |
+| `parsed_with_warning` | `$auto-bean-import` reviews process artifact and resolves warnings | unresolved process warning or question |
+| `account_inspection` | `$auto-bean-import` derives first-seen account structure | unclear account identity, currency, or mutation target |
+| `balance_check` | `$auto-bean-import` verifies opening balances against ledger | balance discrepancies |
+| `ready_for_categorization` | `$auto-bean-import` assigns `$auto-bean-categorize` | none |
+| `ready_for_review` | `$auto-bean-import` reviews categorize artifact and collects needed user input | unresolved categorize, reconciliation, duplicate, or transfer decision |
+| `ready_to_write` | `$auto-bean-import` invokes `$auto-bean-write` | none |
+| `final_review` | `$auto-bean-import` asks the user to approve final import result | user approval |
+| `done` | no action unless the user requests rework | complete |
+
+Only mark a statement `done` after user approval of the final import result.
+
+### Memory
+
+Read `.agents/skills/shared/memory-access-rules.md` before relying on or requesting durable memory persistence.
+
+Skills may suggest useful governed memory. Only `$auto-bean-memory` writes `.auto-bean/memory/**`, and reused memory is advisory, never silent authority.
+
+### Reference Paths
+
 - `.auto-bean/artifacts/`: diagnostics and audit artifacts
 - `.auto-bean/artifacts/categorize/`: optional categorization, reconciliation, deduplication, and user-input artifacts
+- `.auto-bean/artifacts/import/`: statement-scoped import provenance and import-brokered answers
+- `.auto-bean/artifacts/process/`: raw-to-parsed processing notes, warnings, and process questions
 - `.auto-bean/memory/`: governed memory
 - `.agents/skills/`: installed runtime skills
 
-## Guardrails
+### Guardrails
 
-- Do not treat the product repo as the live ledger workspace.
-- Do not bypass `auto-bean-query` for ledger analysis or `auto-bean-write` for transaction writing.
-- Do not call ledger mutations accepted before validation succeeds and the user approves finalization.
-- Prefer git-backed revert for committed recovery.
+Always:
+
+- route ledger reads through `$auto-bean-query` when Beancount can answer them
+- route transaction writing through `$auto-bean-write`
+- validate ledger mutations before final review
+- keep working-tree changes separate from accepted history until the user approves finalization
+
+Never:
+
+- treat the product repo as the live ledger workspace
+- treat unapproved working-tree changes as finalized
+- bypass `$auto-bean-import` for import final approval, commit readiness, or push readiness
+
+Prefer git-backed revert for committed recovery.

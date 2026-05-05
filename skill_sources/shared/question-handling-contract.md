@@ -1,5 +1,7 @@
 # Question-Handling Contract
 
+Purpose: canonical rules for user questions, answer capture, and import-invoked question brokering.
+
 Use this contract whenever an import stage encounters missing information, risky ambiguity, manual extraction needs, or a user decision that blocks safe progress.
 
 ## Core Rules
@@ -10,6 +12,7 @@ Use this contract whenever an import stage encounters missing information, risky
 - Provide evidence-backed suggestions as often as possible, including a recommended default when the current facts support one.
 - Keep observed facts, agent suggestions, risks of guessing, and user-editable answer fields visibly separate.
 - Prefer one consolidated question set per stage/artifact over scattered one-off prompts.
+- Treat missing account identity, transfer intent, duplicate suspicion, or source-specific meaning as clarification blockers rather than Beancount interpolation problems.
 - Keep warning, question, and answer payloads in the individual statement-scoped artifacts only: process questions and answers in the process artifact, categorize questions and answers in the categorize artifact, and import-brokered questions and answers in the import-owned artifact. Status files may contain only compact operational flags and artifact paths.
 - Resume the same stage or artifact after the answer, carrying the persisted artifact context and the exact answer supplied.
 
