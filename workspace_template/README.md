@@ -48,4 +48,4 @@ Then ask Codex from inside this workspace:
 $auto-bean-import
 ```
 
-The import workflow parses supported raw files into `statements/parsed/`, proposes ledger updates, validates the ledger, surfaces review details, records approved reusable memory, and stops for user approval before finalized ledger history is committed.
+The import workflow parses supported raw files into `statements/parsed/`, proposes ledger updates, validates the ledger, surfaces review details, records eligible reusable memory, and stops for user approval before finalized ledger history is committed.

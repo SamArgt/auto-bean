@@ -156,6 +156,7 @@ class WorkspaceChecks:
                 skill_sources_directory / "auto-bean-import" / "SKILL.md",
                 skill_sources_directory / "auto-bean-process" / "SKILL.md",
                 skill_sources_directory / "auto-bean-memory" / "SKILL.md",
+                skill_sources_directory / "shared" / "workflow-rules.md",
             )
             if not path.exists()
         ]

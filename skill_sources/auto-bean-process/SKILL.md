@@ -15,6 +15,7 @@ Inputs from `$auto-bean-import`:
 
 Always read before acting:
 
+- `.agents/skills/shared/workflow-rules.md`
 - `.agents/skills/shared/parsed-statement-output.example.json`
 - `.agents/skills/shared/import-status-reading.md` before reading or updating a large `statements/import-status.yml`
 - `.agents/skills/shared/question-handling-contract.md` before recording process questions
@@ -41,7 +42,7 @@ Workflow:
    - use source-behavior memory only for processing-relevant facts such as parser hints, statement shape, column semantics, filename/source identity patterns, raw-statement account owner and account name patterns, account identity hints, and reusable import handling checks
    - apply the shared memory access rules before using any selected source memory
 3. Parse with the local Docling CLI:
-   - call `./.venv/bin/docling` directly on the assigned source
+   - prefer `./.venv/bin/docling` directly on the assigned source; if it is unavailable but `uv run docling` works in this workspace, use `uv run docling` with the same arguments
    - request JSON output into a unique temp path under `.auto-bean/tmp/`
    - default command patterns:
      - PDF: `./.venv/bin/docling statements/raw/bank/jan-2026.pdf --to json --output .auto-bean/tmp/docling-20260411T090000Z-jan-2026-1ef7e13f`
@@ -50,7 +51,7 @@ Workflow:
    - translate Docling output into the normalized parsed-output contract
    - delete temp artifacts after the normalized output is safely written unless active debugging needs them
    - if unsure about Docling CLI flags, supported formats, or dependency behavior, use Context7 before adapting the command
-   - if Docling or a required local dependency is missing, report the concrete failure and stop for this file
+   - if Docling or a required local dependency is unavailable through both supported command paths, report the concrete failure and stop for this file
    - if a scanned or textless PDF cannot be extracted, do not guess; leave the statement `ready` and record the issue for `$auto-bean-import`
 4. Persist normalized evidence:
    - write one deterministic JSON artifact for this source or parse run under `statements/parsed/`
@@ -61,7 +62,7 @@ Workflow:
    - keep all contract keys in `snake_case`
    - on re-parse, write a new versioned output and refresh only this statement's status entry
 5. Update only this input's status:
-   - set `ready` when no trustworthy parsed evidence exists yet or manual follow-up is required before parsing is trustworthy
+   - set `ready` as a queue state when no trustworthy parsed evidence exists yet or manual follow-up is required before parsing is trustworthy; it is not a guarantee that `$auto-bean-import` may dispatch it automatically
    - set `parsed` when normalized output is written and no warnings require `$auto-bean-import` review
    - set `parsed_with_warning` when normalized output is written but warnings need `$auto-bean-import` review before account inspection
    - allowed status updates from this stage are `ready`, `parsed`, and `parsed_with_warning`; all later workflow statuses are advanced by `$auto-bean-import`
@@ -76,7 +77,7 @@ Workflow:
    - reflect only the process artifact path in the parsed output and status entry; do not embed warning, question, or answer payloads outside the process artifact
    - return the process artifact to `$auto-bean-import` so the orchestrator can ask and update or resume the intermediate statement
    - collect eligible reusable learning into a `Memory Suggestions` section of the process artifact, even when there are no user questions
-7. Return control to `$auto-bean-import` with:
+7. Return control to `$auto-bean-import` using the shared compact return schema, including:
    - assigned source path and source fingerprint
    - parsed output path and parse run id
    - status change for this input

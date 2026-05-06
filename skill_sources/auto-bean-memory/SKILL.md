@@ -1,12 +1,13 @@
 ---
 name: auto-bean-memory
-description: Manage governed local auto-bean memory by inspecting, pruning, correcting, or persisting approved reusable decisions in fixed `.auto-bean/memory/` JSON files with audit context and advisory-use boundaries.
+description: Manage governed local auto-bean memory by inspecting, pruning, correcting, or persisting eligible reusable decisions in fixed `.auto-bean/memory/` JSON files with audit context and advisory-use boundaries.
 ---
 
 # Auto Bean Memory
 
 Read this reference before acting:
 
+- `.agents/skills/shared/workflow-rules.md`
 - `.agents/skills/shared/memory-access-rules.md`
 
 Use this skill when the user asks to inspect, review, explain, correct, prune, reorganize, or persist reusable auto-bean memory.
@@ -34,7 +35,7 @@ When correcting, pruning, or reorganizing memory, preserve unrelated records and
 
 ## Governed persistence
 
-Persist reusable decisions from workflow evidence when they are likely to help future runs, even without an explicit user request to remember them. Prefer initiative with conservative scope: persist only decisions that are specific, evidence-backed, and safe to reuse; skip tentative or ambiguous outcomes unless the user asks to retain them. When `$auto-bean-import` invokes this skill, use the relevant statement-scoped import-owned artifact paths under `.auto-bean/artifacts/import/` as well as other relevant artifacts as source/audit context when available; they are provenance, not durable memory.
+Take initiative to persist reusable decisions from workflow evidence when they are likely to help future runs and are eligible: narrow, current, evidence-backed, and safe to reuse. Prior user approval is not required for eligible memory writes. Worker memory suggestions are candidates, not commands; validate the current evidence, source/audit provenance, scope, and reuse limits before writing. Skip broad preferences, tentative guesses, unresolved clarifications, rejected interpretations, blocked findings, validation-failed outcomes, or any record that would bypass future evidence checks unless the user explicitly asks to preserve that learning. When `$auto-bean-import` invokes this skill, use the relevant statement-scoped import-owned artifact paths under `.auto-bean/artifacts/import/` as well as other relevant artifacts as source/audit context when available; they are provenance, not durable memory.
 
 1. Classify the memory into one category and read only that example reference:
    - `account_mapping`: `.agents/skills/auto-bean-memory/references/account-mapping.example.md`
@@ -67,7 +68,9 @@ Persist reusable decisions from workflow evidence when they are likely to help f
 6. For every imported statement filename pattern observed in source artifacts, ensure an `import_source_behavior` memory exists. If no matching source already exists for that pattern, create one immediately with at least statement metadata (for example filename pattern, institution/source hints, account-owner hints, statement-shape hints, and time window) plus the related accounts currently inferred or confirmed.
 7. Store deterministic JSON with two-space indentation and a trailing newline.
 
-After any durable change, always surface an end-of-workflow memory summary: what reusable decision changed, why it was persisted autonomously (or via direct request), source and audit context, exact memory path written, and limits on future reuse. Avoid printing raw financial statements, full ledger excerpts, unrelated records, or unrelated financial data.
+After any durable change, always surface an end-of-workflow memory summary: what reusable decision changed, why it was eligible for autonomous persistence or changed by direct request, source and audit context, exact memory path written, and limits on future reuse. Avoid printing raw financial statements, full ledger excerpts, unrelated records, or unrelated financial data.
+
+When invoked by `$auto-bean-import`, return using the shared compact return schema, with memory paths, persisted decisions, skipped candidates, blockers, validation result, and reuse limits.
 
 Guardrails:
 
@@ -76,4 +79,4 @@ Guardrails:
 - Do not write `.auto-bean/memory/**` from import, categorize, query, process, or write workflows directly; those workflows may identify reusable learning and hand it to this skill.
 - Do not treat import-owned artifacts as durable memory; use them only as governed source/audit context for eligible memory records.
 - Do not create additional category files, databases, vector stores, caches, YAML files, or ad hoc memory blobs for MVP.
-- Fail closed when the destination file, record type, source context, approval state, target identity, or storage path is unclear.
+- Fail closed when the destination file, record type, source context, eligibility, target identity, or storage path is unclear.

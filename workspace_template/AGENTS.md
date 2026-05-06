@@ -11,7 +11,7 @@ Context7 MCP is configured for Codex in the gitignored `.codex/config.toml` so s
 - Use `$auto-bean-import` for statement imports from `statements/raw/`.
 - Use `$auto-bean-query` for read-only ledger analysis through Beancount and `bean-query`.
 - Use `$auto-bean-write` for transaction drafting, correction, and transaction-specific validation.
-- Use `$auto-bean-memory` for governed persistence of approved reusable decisions.
+- Use `$auto-bean-memory` for governed persistence of eligible reusable decisions.
 
 High-frequency paths:
 
@@ -31,7 +31,7 @@ For import workflows, `$auto-bean-import` is the sole broker for final user appr
 
 ## User Input
 
-When any skill needs user input, persist safe deterministic progress first and follow `.agents/skills/shared/question-handling-contract.md`.
+When workflow work needs user input, persist safe deterministic progress first and follow `.agents/skills/shared/question-handling-contract.md`.
 
 After the user answers, resume the same statement, artifact, transaction, or memory operation from existing files with that answer in context.
 
@@ -49,26 +49,15 @@ Before commit or push for ledger mutations:
 
 ### Import Status Reference
 
-Workflow statuses in `statements/import-status.yml`:
-
-| status | owner next action | blocked by |
-| --- | --- | --- |
-| `ready` | `$auto-bean-import` may assign `$auto-bean-process` | missing parser-ready evidence or manual retry hold |
-| `parsed` | `$auto-bean-import` moves to `account_inspection` | none unless process artifact says otherwise |
-| `parsed_with_warning` | `$auto-bean-import` reviews process artifact and resolves warnings | unresolved process warning or question |
-| `account_inspection` | `$auto-bean-import` derives first-seen account structure | unclear account identity, currency, or mutation target |
-| `balance_check` | `$auto-bean-import` verifies opening balances against ledger | balance discrepancies |
-| `ready_for_categorization` | `$auto-bean-import` assigns `$auto-bean-categorize` | none |
-| `ready_for_review` | `$auto-bean-import` reviews categorize artifact and collects needed user input | unresolved categorize, reconciliation, duplicate, or transfer decision |
-| `ready_to_write` | `$auto-bean-import` invokes `$auto-bean-write` | none |
-| `final_review` | `$auto-bean-import` asks the user to approve final import result | user approval |
-| `done` | no action unless the user requests rework | complete |
+Read `.agents/skills/shared/import-status-reading.md` for the canonical status table and recovery rules. `ready` is a queue state, not a guarantee that the statement is processable; `$auto-bean-import` must check retry metadata before dispatch.
 
 Only mark a statement `done` after user approval of the final import result.
 
 ### Memory
 
 Read `.agents/skills/shared/memory-access-rules.md` before relying on or requesting durable memory persistence.
+
+Read `.agents/skills/shared/workflow-rules.md` for shared evidence, artifact privacy, required-reference, and worker-return expectations.
 
 Skills may suggest useful governed memory. Only `$auto-bean-memory` writes `.auto-bean/memory/**`, and reused memory is advisory, never silent authority.
 

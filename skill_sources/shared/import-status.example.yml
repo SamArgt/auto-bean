@@ -11,7 +11,7 @@ statements:
       process: .auto-bean/artifacts/process/checking-jan-2026--process.md
       categorize: .auto-bean/artifacts/categorize/checking-jan-2026--categorize.md
       import: .auto-bean/artifacts/import/checking-jan-2026--import.md
-    # Retry metadata prevents permanently blocked `ready` files from being reprocessed forever.
+    # `ready` is a queue state. Retry metadata prevents manually held files from being reprocessed forever.
     # Count attempts for the current source_fingerprint; reset the count when the fingerprint changes.
     process_attempts: 1
     last_process_failure_reason: null

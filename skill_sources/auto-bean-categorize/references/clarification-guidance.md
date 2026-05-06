@@ -15,7 +15,8 @@ Keep clarification bounded, concrete, and easy for the user to answer.
 - Let `$auto-bean-import` ask the user unless it explicitly delegated that interaction to this skill.
 - Before returning questions, persist every safe partial result and record unresolved questions in the individual categorize artifact under `.auto-bean/artifacts/categorize/` so a restarted process can resume from the checkpoint. Do not store question or answer text in the parsed statement or status entry.
 - Continue unrelated safe work for the affected artifact before returning questions; do not stop at the first ambiguous row when later rows can still be categorized, reconciled, or deduplicated safely.
-- Wait for the user answer before continuing unresolved decisions for the affected artifact.
+- If direct-use, wait for the user answer before continuing unresolved decisions for the affected artifact.
+- If import-invoked, return the question id, artifact path, and blocker flag to `$auto-bean-import`; continue only after `$auto-bean-import` resumes this artifact with the answer.
 - Lead with observed facts, then separate them from inferences.
 - Name the plausible interpretations that remain on the table.
 - Explain the risk of guessing wrong in concrete ledger terms.
@@ -32,7 +33,7 @@ Keep clarification bounded, concrete, and easy for the user to answer.
 
 ## Reuse boundary
 
-- Clarified outcomes may inform later governed memory work, but this story does not authorize broad autonomous preference learning.
+- Clarified outcomes may inform later governed memory work, but they do not authorize broad preference learning.
 - Keep every reusable outcome attributable to current evidence and the specific user answer that changed the result.
-- When a clarified answer reveals a narrow source-specific rule that would help future imports, suggest a bounded `$auto-bean-memory` persistence request.
-- Do not persist memory automatically. Keep the suggestion reviewable and bounded to the current source behavior.
+- When a clarified answer reveals a narrow source-specific rule that would help future imports, suggest a bounded `$auto-bean-memory` persistence request with the source evidence, audit context, and reuse limits.
+- Do not write memory from this skill. `$auto-bean-memory` decides whether a suggestion is eligible for durable persistence and surfaces any memory change afterward.

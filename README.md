@@ -114,7 +114,7 @@ Users normally should not call this directly. `auto-bean-import` delegates to it
 
 ### `auto-bean-memory`
 
-Governed memory persistence for approved reusable decisions such as account mappings, categorization patterns, transfer detection behavior, naming conventions, import-source behavior, deduplication decisions, and clarification outcomes.
+Governed memory persistence for eligible reusable decisions such as account mappings, categorization patterns, transfer detection behavior, naming conventions, import-source behavior, deduplication decisions, and clarification outcomes.
 
 Workflows may suggest memory. Only this skill should write `.auto-bean/memory/**`.
 
@@ -268,7 +268,7 @@ Important boundaries:
 - `statements/parsed/` contains normalized statement evidence, not accepted ledger history.
 - `statements/import-status.yml` tracks parse and import state.
 - `.auto-bean/artifacts/` stores diagnostics and audit artifacts.
-- `.auto-bean/memory/` stores approved reusable workflow memory.
+- `.auto-bean/memory/` stores eligible reusable workflow memory.
 - `.agents/skills/` contains installed runtime skills.
 - `.codex/config.toml` configures Context7 MCP for Codex and optionally stores the gitignored Context7 API key entered during init.
 
@@ -280,6 +280,7 @@ Important boundaries:
 
 - This repo authors the CLI, workspace scaffold, and skill behavior.
 - `auto-bean init` materializes those assets into a user-owned workspace.
+- Authored skill sources use installed workspace reference paths under `.agents/skills/...` because those paths are valid after materialization.
 - The generated workspace is a Git repo with a first valid Beancount ledger and an initial commit.
 - Codex skills are the primary user interface after initialization.
 
@@ -296,7 +297,7 @@ Memory is governed:
 
 - Workflows can propose reusable decisions.
 - Memory suggestions are advisory and must stay separate from raw statements, parsed dumps, diagnostics, and ledger entries.
-- `auto-bean-memory` validates and persists approved reusable decisions.
+- `auto-bean-memory` validates and persists eligible reusable decisions.
 - Other skills should read memory according to the shared memory access rules, but should not write `.auto-bean/memory/**` directly.
 
 Review boundaries are deliberate:

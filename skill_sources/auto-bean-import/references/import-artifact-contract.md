@@ -36,7 +36,7 @@ Record these sections before the workflow can be considered ready for final revi
 - `## Memory Attribution`: governed memory records considered or used by `$auto-bean-import`, including `import_source_behavior` hints used for processing handoff or first-seen account inspection, current-evidence checks, and rejection reasons for skipped memory
 - `## Cross-Statement Review`: import-batch transfer or duplicate candidates spanning multiple categorize artifacts, with paired artifact paths, stable transaction references, matched facts, user question ids, decision state, and posting-decision impact
 - `## Posting Decisions`: transaction-writing inputs or decisions handed to `$auto-bean-write`, write result references, validation references, and user approval context
-- `## Memory Candidates`: reusable-learning candidates summarized from worker returns or user-approved import decisions, with provenance, originating artifact path, source statement, user approval state, eligibility, and deduplication status
+- `## Memory Candidates`: reusable-learning candidates summarized from worker returns or import decisions, with provenance, originating artifact path, source statement, review or eligibility state, and deduplication status
 - `## Ignored Or Rejected Inputs`: path-unsafe artifacts, stale files, invalid suggestions, unresolved blockers, or memory candidates rejected from governed handoff
 
 Do not include workflow counts, current status, highest status reached, retry counters, status transition logs, queue position, batch progress, or other operational import state. That information belongs in `statements/import-status.yml`.
@@ -60,4 +60,4 @@ Do not include workflow counts, current status, highest status reached, retry co
 
 ## Memory Handoff
 
-Before invoking `$auto-bean-memory`, `$auto-bean-import` must pass the relevant statement-scoped import artifact paths as source/audit context along with eligible memory suggestions and completed stage artifacts. `$auto-bean-memory` may use import artifacts to validate provenance and approval state, but durable memory records still store only reusable operational learning through the governed memory workflow.
+Before invoking `$auto-bean-memory`, `$auto-bean-import` must pass the relevant statement-scoped import artifact paths as source/audit context along with eligible memory suggestions and completed stage artifacts. `$auto-bean-memory` may use import artifacts to validate provenance, review state, and eligibility, but durable memory records still store only reusable operational learning through the governed memory workflow.

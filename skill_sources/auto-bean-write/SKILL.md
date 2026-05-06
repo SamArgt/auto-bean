@@ -5,6 +5,7 @@ description: Draft, review, and safely write Beancount transactions into the led
 
 Always read before acting:
 
+- `.agents/skills/shared/workflow-rules.md`
 - `.agents/skills/shared/beancount-syntax-and-best-practices.md`
 
 Read when needed:
@@ -75,7 +76,8 @@ Follow this workflow:
 10. Validate after drafting the mutation.
     - prefer `./scripts/validate-ledger.sh`
     - otherwise use `./.venv/bin/bean-check ledger.beancount`
-    - if validation fails, stop before any success claim and explain the concrete failure
+    - if validation fails, do not claim success or finalize
+    - leave the working-tree edit in place unless the user explicitly asks to revert it, and report the changed files, validation command, concrete failure, and smallest proposed fix
 11. Present a concise review package before any commit or push step:
     - what transaction was written or changed
     - which file changed and why it is the right target
@@ -84,7 +86,7 @@ Follow this workflow:
     - duplicate, transfer, balancing, or currency risks found
     - the validation outcome
     - a clear statement that the working tree is changed but not finalized until approval is granted
-12. Ask for explicit approval before commit or push finalization when used directly. When invoked by `$auto-bean-import`, never own commit or push finalization; return only the mutation, validation, focused diff summary, assumptions, blockers, pending-question ids, and import artifact path to `$auto-bean-import` for orchestrator-owned approval and finalization. If approval is denied or deferred, leave the working-tree mutation unfinalized and explain its current state.
+12. Ask for explicit approval before commit or push finalization when used directly. When invoked by `$auto-bean-import`, never own commit or push finalization; return the mutation, validation, focused diff summary, assumptions, blockers, pending-question ids, and import artifact path using the shared compact return schema for orchestrator-owned approval and finalization. If approval is denied or deferred, leave the working-tree mutation unfinalized and explain its current state.
 
 Guardrails:
 
