@@ -19,7 +19,7 @@ Always read before acting:
 
 ## Workflow
 
-Follow this ordered reference map. the stage mechanics live there.
+Follow this ordered reference map, the stage mechanics live there.
 
 1. Read and follow `.agents/skills/auto-bean-import/references/import-1-discovery.md`
 2. Read and follow `.agents/skills/auto-bean-import/references/import-2-account-inspection.md`
