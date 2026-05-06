@@ -3,7 +3,7 @@
 Use for discovery, process sub-agent assignment, and process-question resolution.
 
 1. Discover unprocessed work:
-   - Use `git diff` to detect new or changed raw statements.
+   - Use `git status --short` to detect new or changed raw statements.
    - Read `statements/import-status.yml` through the shared status reference.
    - Create or update a status entry at `raw_ready` for each new, changed, missing-status, or explicitly reprocessable raw statement.
    - Create or refresh one import-owned artifact per raw statement under `.auto-bean/artifacts/import/`.
