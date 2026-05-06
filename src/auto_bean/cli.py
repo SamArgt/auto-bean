@@ -44,7 +44,7 @@ def cli(ctx: click.Context) -> int:
     is_flag=True,
     help="Print stage results as they complete.",
 )
-def init(project_name: str, as_json: bool, verbose: bool) -> int:
+def init(project_name: str, verbose: bool) -> int:
     service = build_init_service()
     coding_agent = service.prompt_for_coding_agent()
     context7_api_key = service.prompt_for_context7_api_key()
@@ -69,24 +69,13 @@ def init(project_name: str, as_json: bool, verbose: bool) -> int:
     is_flag=True,
     help="Report managed file diffs without overwriting the workspace.",
 )
-@click.option("--json", "as_json", is_flag=True, help="Render the result as JSON.")
 @click.option(
     "--verbose",
     is_flag=True,
     help="Print stage results as they complete.",
 )
-def update(workspace: str, check_only: bool, as_json: bool, verbose: bool) -> int:
+def update(workspace: str, check_only: bool, verbose: bool) -> int:
     service = build_init_service()
-
-    if as_json:
-        result = _run_update(
-            workspace=workspace,
-            check_only=check_only,
-            service=service,
-        )
-        render_result(result, as_json=True, verbose=verbose)
-        return 1 if result.status not in {"ok"} else 0
-
     renderer = RichWorkflowRenderer(verbose=verbose, description="Updating workspace")
     result = _run_update(
         workspace=workspace,
