@@ -19,13 +19,13 @@ Always read before acting:
 
 ## Workflow
 
-Follow this ordered reference map. Read the matching file when a run reaches that stage; the stage mechanics live there.
+Follow this ordered reference map. the stage mechanics live there.
 
-1. `.agents/skills/auto-bean-import/references/import-1-discovery.md`
-2. `.agents/skills/auto-bean-import/references/import-2-account-inspection.md`
-3. `.agents/skills/auto-bean-import/references/import-3-categorization-review.md`
-4. `.agents/skills/auto-bean-import/references/import-4-write-final-review.md`
-5. `.agents/skills/auto-bean-import/references/import-5-memory-handoff.md`
+1. Read and follow `.agents/skills/auto-bean-import/references/import-1-discovery.md`
+2. Read and follow `.agents/skills/auto-bean-import/references/import-2-account-inspection.md`
+3. Read and follow `.agents/skills/auto-bean-import/references/import-3-categorization-review.md`
+4. Read and follow `.agents/skills/auto-bean-import/references/import-4-write-final-review.md`
+5. Read and follow `.agents/skills/auto-bean-import/references/import-5-memory-handoff.md`
 
 Use supporting references only at their trigger point:
 
