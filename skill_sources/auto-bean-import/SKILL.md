@@ -19,7 +19,7 @@ Always read before acting:
 
 ## Workflow
 
-Follow this ordered reference map, the stage mechanics live there.
+Follow this ordered reference map; the stage mechanics live there. For each step, read its reference fully before acting, and wait to open the next reference until the current step is complete.
 
 1. Read and follow `.agents/skills/auto-bean-import/references/import-1-discovery.md`
 2. Read and follow `.agents/skills/auto-bean-import/references/import-2-account-inspection.md`
@@ -29,10 +29,10 @@ Follow this ordered reference map, the stage mechanics live there.
 
 Use supporting references only at their trigger point:
 
-- `.agents/skills/shared/sub-agent-return-examples.md` when handing off or receiving a sub-agent stage.
-- `.agents/skills/shared/question-handling-contract.md` before surfacing or resuming stage questions.
-- `.agents/skills/shared/memory-access-rules.md` before using governed memory hints.
-- `.agents/skills/shared/import-status.example.yml` only when creating new status fields or auditing schema shape.
+- Read `.agents/skills/shared/sub-agent-return-examples.md` when handing off or receiving a sub-agent stage.
+- Read `.agents/skills/shared/question-handling-contract.md` before surfacing or resuming stage questions.
+- Read `.agents/skills/shared/memory-access-rules.md` before using governed memory hints.
+- Read `.agents/skills/shared/import-status.example.yml` only when creating new status fields or auditing schema shape.
 
 ## End With
 
@@ -42,3 +42,4 @@ Give a concise import-run summary with statement outcomes, artifact links, ledge
 
 - Follow the shared ownership map for process, categorize, write, query, and memory boundaries.
 - Follow the import artifact contract for import-owned artifact paths, contents, and update rules.
+- Avoid reading all references files at once, read them in order and only when their trigger points are reached.
