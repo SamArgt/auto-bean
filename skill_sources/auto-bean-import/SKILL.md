@@ -62,7 +62,7 @@ Workflow:
    - record each proposed, approved, rejected, or written first-seen account decision in the statement's import-owned artifact with evidence references, memory attribution or rejection notes, target file, user approval context, and validation references
    - after the user approves or corrects the proposal, write only the approved account-opening structure and minimal supporting directives such as opening balance postings; prefer `beancount/accounts.beancount` and `beancount/opening-balances.beancount` respectively.
    - run `./scripts/validate-ledger.sh` or `./.venv/bin/bean-check ledger.beancount` after account-structure edits
-   - mark all statements with resolved process questions and status `account_inspection` as `balance_check`.
+   - Once done, mark all statements with resolved process questions and status `account_inspection` as `balance_check`.
 5. Opening Balance Checking:
    - for each statement at `balance_check`, inspect the parsed statement for opening balances and compare them against the current ledger balances for existing accounts using `$auto-bean-query`
    - Verify that the opening balance reported in the statement matches the balance calculated from the ledger up to the statement's start date
