@@ -139,7 +139,9 @@ Updates managed workspace files from the current packaged product assets.
 
 It updates:
 
+- `README.md`
 - `AGENTS.md`
+- `scripts/install-dependencies.sh`
 - managed files under `.agents/skills/`
 
 It does not overwrite:
@@ -172,6 +174,16 @@ auto-bean update . --check --json
 
 Generated workspaces include helper scripts under `scripts/`.
 
+### Dependency Installation
+
+Use this after cloning a generated workspace from a remote GitHub repository, where the gitignored `.venv` is not present:
+
+```bash
+./scripts/install-dependencies.sh
+```
+
+This creates the workspace-local `.venv` and installs Beancount, Fava, and Docling.
+
 ### Beancount Validation
 
 ```bash
@@ -202,6 +214,7 @@ A generated workspace looks like this:
 
 ```text
 my-ledger/
+|-- README.md
 |-- AGENTS.md
 |-- ledger.beancount
 |-- beancount/
@@ -235,8 +248,9 @@ my-ledger/
 |-- .codex/
 |   `-- config.toml
 |-- scripts/
-|   |-- validate-ledger.sh
-|   `-- open-fava.sh
+|   |-- install-dependencies.sh
+|   |-- open-fava.sh
+|   `-- validate-ledger.sh
 `-- .venv/
 ```
 

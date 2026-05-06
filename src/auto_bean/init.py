@@ -304,9 +304,11 @@ class InitService:
                 failure_message="Workspace template assets are missing.",
                 root=Path(context.template_directory),
                 required_paths=(
+                    "README.md",
                     "ledger.beancount",
                     "AGENTS.md",
                     ".codex/config.toml",
+                    "scripts/install-dependencies.sh",
                     "beancount/accounts.beancount",
                     "beancount/opening-balances.beancount",
                     ".auto-bean/memory/import_sources/.gitkeep",
@@ -664,6 +666,8 @@ class InitService:
                 target_path = target_directory / str(change["path"])
                 target_path.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(source_path, target_path)
+                if "scripts" in target_path.relative_to(target_directory).parts:
+                    ensure_executable(target_path)
             self._record(
                 checks,
                 DiagnosticCheck(
@@ -945,7 +949,12 @@ class InitService:
             )
         missing_markers = [
             path
-            for path in ("AGENTS.md", ".agents/skills", "ledger.beancount", ".auto-bean/memory")
+            for path in (
+                "AGENTS.md",
+                ".agents/skills",
+                "ledger.beancount",
+                ".auto-bean/memory",
+            )
             if not (target_directory / path).exists()
         ]
         if missing_markers:
@@ -972,7 +981,9 @@ class InitService:
         missing = [
             str(path)
             for path in (
+                template_directory / "README.md",
                 template_directory / "AGENTS.md",
+                template_directory / "scripts" / "install-dependencies.sh",
                 skill_sources_directory / "auto-bean-categorize" / "SKILL.md",
                 skill_sources_directory / "auto-bean-query" / "SKILL.md",
                 skill_sources_directory / "auto-bean-write" / "SKILL.md",
@@ -1115,7 +1126,11 @@ class InitService:
         skill_sources_directory: Path,
     ) -> list[dict[str, object]]:
         changes: list[dict[str, object]] = []
-        managed_files = [(template_directory / "AGENTS.md", Path("AGENTS.md"))]
+        managed_files = [
+            (template_directory / "README.md", Path("README.md")),
+            (template_directory / "AGENTS.md", Path("AGENTS.md")),
+        ]
+        # extend with all skill sources, mapping them to their target paths under .agents/skills
         managed_files.extend(
             (
                 source_path,
@@ -1124,6 +1139,15 @@ class InitService:
                 / source_path.relative_to(skill_sources_directory),
             )
             for source_path in sorted(skill_sources_directory.rglob("*"))
+            if source_path.is_file()
+        )
+        # extend with all scripts files, mapping them to their target paths under scripts/
+        managed_files.extend(
+            (
+                source_path,
+                Path("scripts") / source_path.relative_to(template_directory / "scripts"),
+            )
+            for source_path in sorted((template_directory / "scripts").rglob("*"))
             if source_path.is_file()
         )
         for source_path, relative_target in managed_files:
@@ -1229,37 +1253,14 @@ class InitService:
                     ),
                 },
             )
-        venv_command = [uv_path, "venv", ".venv"]
-        venv_result = CommandRunner().run(venv_command, cwd=target_directory)
-        if venv_result.returncode != 0:
-            return DiagnosticCheck(
-                name="workspace_runtime_bootstrapped",
-                status=CheckStatus.FAIL,
-                error_code="workspace_runtime_bootstrap_failed",
-                message="Failed to create the workspace virtual environment.",
-                details={
-                    "bootstrap_command": " ".join(venv_command),
-                    "stdout": venv_result.stdout,
-                    "stderr": venv_result.stderr,
-                },
-            )
-        install_command = [
-            uv_path,
-            "pip",
-            "install",
-            "--python",
-            str(target_directory / ".venv" / "bin" / "python"),
-            "beancount",
-            "fava",
-            "docling",
-        ]
+        install_command = ["./scripts/install-dependencies.sh"]
         install_result = CommandRunner().run(install_command, cwd=target_directory)
         if install_result.returncode != 0:
             return DiagnosticCheck(
                 name="workspace_runtime_bootstrapped",
                 status=CheckStatus.FAIL,
                 error_code="workspace_runtime_bootstrap_failed",
-                message="Failed to install Beancount, Fava, and Docling into the workspace runtime.",
+                message="Failed to install the workspace runtime dependencies.",
                 details={
                     "bootstrap_command": " ".join(install_command),
                     "stdout": install_result.stdout,
@@ -1276,10 +1277,8 @@ class InitService:
             status=CheckStatus.PASS,
             message="Workspace runtime bootstrapped with Beancount, Fava, and Docling.",
             details={
-                "bootstrap_commands": [
-                    " ".join(venv_command),
-                    " ".join(install_command),
-                ]
+                "bootstrap_commands": [" ".join(install_command)],
+                "uv_path": uv_path,
             },
         )
 
@@ -1463,6 +1462,7 @@ class InitService:
             "docs",
             "scripts",
             "statements",
+            "README.md",
             "AGENTS.md",
             "ledger.beancount",
         ):
