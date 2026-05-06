@@ -4,6 +4,8 @@ import platform
 import re
 import shutil
 import subprocess
+from getpass import getpass
+from json import dumps
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field, replace
 from difflib import unified_diff
@@ -11,7 +13,6 @@ from enum import Enum
 from pathlib import Path
 from stat import S_IEXEC
 from time import perf_counter
-from typing import Protocol
 
 
 class CheckStatus(str, Enum):
@@ -86,18 +87,6 @@ class EnvironmentInfo:
     release: str
     machine: str
     python_version: str
-
-
-class PlatformInspector(Protocol):
-    def inspect(self) -> EnvironmentInfo: ...
-
-
-class ToolLocator(Protocol):
-    def find(self, command: str) -> str | None: ...
-
-
-class CommandExecutor(Protocol):
-    def run(self, args: Sequence[str], cwd: Path | None = None) -> CommandResult: ...
 
 
 type PromptResponder = Callable[[str], str]
@@ -243,15 +232,17 @@ class UpdateContext:
 @dataclass
 class InitService:
     paths: ProjectPaths
-    platform: PlatformInspector
-    tools: ToolLocator
-    commands: CommandExecutor
     prompt: PromptResponder = input
+    secret_prompt: PromptResponder = getpass
     progress_reporter: ProgressReporter | None = None
     current_task_reporter: CurrentTaskReporter | None = None
 
     def init(
-        self, project_name: str, *, coding_agent: str | None = None
+        self,
+        project_name: str,
+        *,
+        coding_agent: str | None = None,
+        context7_api_key: str | None = None,
     ) -> CommandOutcome:
         started = perf_counter()
         target_directory, target_input_type = self._resolve_target_directory(
@@ -315,16 +306,10 @@ class InitService:
                 required_paths=(
                     "ledger.beancount",
                     "AGENTS.md",
+                    ".codex/config.toml",
                     "beancount/accounts.beancount",
                     "beancount/opening-balances.beancount",
-                    ".auto-bean/memory/account_mappings.json",
-                    ".auto-bean/memory/category_mappings.json",
-                    ".auto-bean/memory/clarification_outcomes.json",
-                    ".auto-bean/memory/deduplication_decisions.json",
                     ".auto-bean/memory/import_sources/.gitkeep",
-                    ".auto-bean/memory/import_sources/index.json",
-                    ".auto-bean/memory/naming_conventions.json",
-                    ".auto-bean/memory/transfer_detection.json",
                     ".auto-bean/artifacts/categorize/.gitkeep",
                     ".auto-bean/artifacts/import/.gitkeep",
                     "statements/parsed/.gitkeep",
@@ -378,6 +363,7 @@ class InitService:
         if failure is not None:
             return failure
         selected_agent = "Codex"
+        normalized_context7_api_key = self._normalize_context7_api_key(context7_api_key)
 
         # Stage 3: materialize the workspace scaffold so the remaining steps can
         # operate on a concrete repository.
@@ -386,12 +372,19 @@ class InitService:
             self.current_task_reporter("Copying workspace scaffold")
         scaffold_started = perf_counter()
         created_paths = self._scaffold_workspace(
-            context=context, target_directory=target_directory
+            context=context,
+            target_directory=target_directory,
+            context7_api_key=normalized_context7_api_key,
         )
         blocked_details: dict[str, object] = {
             "coding_agent": selected_agent,
+            "context7_mcp": "configured",
+            "context7_api_key_status": (
+                "stored" if normalized_context7_api_key else "not_provided"
+            ),
             "created_paths": created_paths,
             "key_files": [
+                ".codex/config.toml",
                 "ledger.beancount",
                 "AGENTS.md",
                 ".agents/skills/auto-bean-categorize/SKILL.md",
@@ -441,7 +434,7 @@ class InitService:
         if failure is not None:
             return failure
 
-        git_path = self.tools.find("git")
+        git_path = ToolProbe().find("git")
         assert git_path is not None
         failure = self._run_check(
             checks=checks,
@@ -544,6 +537,10 @@ class InitService:
                 "workspace_fava": str(target_directory / ".venv" / "bin" / "fava"),
                 "workspace_docling": str(
                     target_directory / ".venv" / "bin" / "docling"
+                ),
+                "context7_mcp": "configured",
+                "context7_api_key_status": (
+                    "stored" if normalized_context7_api_key else "not_provided"
                 ),
                 "validation_status": "passed",
                 "fava_status": "passed",
@@ -727,6 +724,12 @@ class InitService:
         ).strip()
         return response or "Codex"
 
+    def prompt_for_context7_api_key(self) -> str | None:
+        response = self.secret_prompt(
+            "Context7 API key [leave blank to skip]: "
+        ).strip()
+        return response or None
+
     def _record(self, checks: list[DiagnosticCheck], check: DiagnosticCheck) -> None:
         checks.append(check)
         if self.progress_reporter is not None:
@@ -766,7 +769,11 @@ class InitService:
         return None
 
     def _scaffold_workspace(
-        self, *, context: InitContext, target_directory: Path
+        self,
+        *,
+        context: InitContext,
+        target_directory: Path,
+        context7_api_key: str | None,
     ) -> list[str]:
         target_directory.mkdir(parents=True, exist_ok=True)
         created_paths = self._copy_tree(
@@ -781,6 +788,7 @@ class InitService:
             )
         )
         created_paths.extend(self._write_workspace_scripts(target_directory))
+        self._write_context7_config(target_directory, context7_api_key)
         return created_paths
 
     def _failure(
@@ -834,7 +842,7 @@ class InitService:
         return (self.paths.working_directory / path).resolve()
 
     def _check_environment(self) -> DiagnosticCheck:
-        environment = self.platform.inspect()
+        environment = PlatformProbe().inspect()
         if environment.system != "Darwin":
             return DiagnosticCheck(
                 name="supported_environment",
@@ -937,7 +945,7 @@ class InitService:
             )
         missing_markers = [
             path
-            for path in ("AGENTS.md", ".agents/skills")
+            for path in ("AGENTS.md", ".agents/skills", "ledger.beancount", ".auto-bean/memory")
             if not (target_directory / path).exists()
         ]
         if missing_markers:
@@ -1041,6 +1049,12 @@ class InitService:
             details={details_key: str(root)},
         )
 
+    def _normalize_context7_api_key(self, api_key: str | None) -> str | None:
+        if api_key is None:
+            return None
+        normalized = api_key.strip()
+        return normalized or None
+
     def _check_tool(
         self,
         command: str,
@@ -1051,7 +1065,7 @@ class InitService:
         failure_message: str,
         remediation: str,
     ) -> DiagnosticCheck:
-        path = self.tools.find(command)
+        path = ToolProbe().find(command)
         if path is None:
             return DiagnosticCheck(
                 name=name,
@@ -1156,7 +1170,11 @@ class InitService:
         scripts_directory.mkdir(exist_ok=True)
         created_paths: list[str] = []
         for relative_path, content, executable in (
-            (".gitignore", ".venv/\n__pycache__/\n*.pyc\n.DS_Store\n", False),
+            (
+                ".gitignore",
+                ".venv/\n.codex/config.toml\n__pycache__/\n*.pyc\n.DS_Store\n",
+                False,
+            ),
             (
                 "scripts/validate-ledger.sh",
                 "#!/bin/sh\nset -eu\n./.venv/bin/bean-check ledger.beancount\n",
@@ -1175,8 +1193,29 @@ class InitService:
             created_paths.append(relative_path)
         return created_paths
 
+    def _write_context7_config(
+        self, target_directory: Path, api_key: str | None
+    ) -> None:
+        context7_config_path = target_directory / ".codex" / "config.toml"
+        context7_config_path.parent.mkdir(parents=True, exist_ok=True)
+        if api_key is None:
+            header_config = (
+                'env_http_headers = { "CONTEXT7_API_KEY" = "CONTEXT7_API_KEY" }'
+            )
+        else:
+            header_config = (
+                f'http_headers = {{ "CONTEXT7_API_KEY" = {dumps(api_key)} }}'
+            )
+        context7_config_path.write_text(
+            "[mcp_servers.context7]\n"
+            'url = "https://mcp.context7.com/mcp"\n'
+            f"{header_config}\n",
+            encoding="utf-8",
+        )
+        context7_config_path.chmod(0o600)
+
     def _bootstrap_workspace_runtime(self, target_directory: Path) -> DiagnosticCheck:
-        uv_path = self.tools.find("uv")
+        uv_path = ToolProbe().find("uv")
         if uv_path is None:
             return DiagnosticCheck(
                 name="workspace_runtime_bootstrapped",
@@ -1191,7 +1230,7 @@ class InitService:
                 },
             )
         venv_command = [uv_path, "venv", ".venv"]
-        venv_result = self.commands.run(venv_command, cwd=target_directory)
+        venv_result = CommandRunner().run(venv_command, cwd=target_directory)
         if venv_result.returncode != 0:
             return DiagnosticCheck(
                 name="workspace_runtime_bootstrapped",
@@ -1214,7 +1253,7 @@ class InitService:
             "fava",
             "docling",
         ]
-        install_result = self.commands.run(install_command, cwd=target_directory)
+        install_result = CommandRunner().run(install_command, cwd=target_directory)
         if install_result.returncode != 0:
             return DiagnosticCheck(
                 name="workspace_runtime_bootstrapped",
@@ -1263,7 +1302,7 @@ class InitService:
         success_details: dict[str, object] | None = None,
         failure_details: dict[str, object] | None = None,
     ) -> DiagnosticCheck:
-        result = self.commands.run(command, cwd=cwd)
+        result = CommandRunner().run(command, cwd=cwd)
         command_text = " ".join(command)
         if result.returncode != 0:
             return DiagnosticCheck(
@@ -1339,7 +1378,7 @@ class InitService:
         self, target_directory: Path, git_path: str
     ) -> DiagnosticCheck:
         add_command = [git_path, "add", "-A"]
-        add_result = self.commands.run(add_command, cwd=target_directory)
+        add_result = CommandRunner().run(add_command, cwd=target_directory)
         if add_result.returncode != 0:
             return DiagnosticCheck(
                 name="workspace_git_initial_commit",
@@ -1353,7 +1392,7 @@ class InitService:
                 },
             )
         commit_command = [git_path, "commit", "-m", "Initial workspace scaffold"]
-        commit_result = self.commands.run(commit_command, cwd=target_directory)
+        commit_result = CommandRunner().run(commit_command, cwd=target_directory)
         if commit_result.returncode != 0:
             return DiagnosticCheck(
                 name="workspace_git_initial_commit",
@@ -1388,7 +1427,7 @@ class InitService:
         failure_message: str,
         detail_key: str,
     ) -> DiagnosticCheck:
-        result = self.commands.run(resolved_command, cwd=cwd)
+        result = CommandRunner().run(resolved_command, cwd=cwd)
         if result.returncode != 0:
             return DiagnosticCheck(
                 name=name,
@@ -1417,6 +1456,7 @@ class InitService:
             ".git",
             ".gitignore",
             ".venv",
+            ".codex",
             ".auto-bean",
             ".agents",
             "beancount",
@@ -1490,7 +1530,4 @@ def looks_like_path(target: str) -> bool:
 def build_init_service(start: Path | None = None) -> InitService:
     return InitService(
         paths=ProjectPaths(start=start),
-        platform=PlatformProbe(),
-        tools=ToolProbe(),
-        commands=CommandRunner(),
     )

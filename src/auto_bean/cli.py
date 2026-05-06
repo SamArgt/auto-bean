@@ -39,25 +39,20 @@ def cli(ctx: click.Context) -> int:
 
 @cli.command(help="Create a new base Beancount ledger workspace.")
 @click.argument("project_name")
-@click.option("--json", "as_json", is_flag=True, help="Render the result as JSON.")
 @click.option(
     "--verbose",
     is_flag=True,
     help="Print stage results as they complete.",
 )
-def init(project_name: str, as_json: bool, verbose: bool) -> int:
+def init(project_name: str, verbose: bool) -> int:
     service = build_init_service()
-
-    if as_json:
-        result = _run_init(project_name=project_name, service=service)
-        render_result(result, as_json=True, verbose=verbose)
-        return 0 if result.status == "ok" else 1
-
     coding_agent = service.prompt_for_coding_agent()
+    context7_api_key = service.prompt_for_context7_api_key()
     renderer = RichWorkflowRenderer(verbose=verbose)
     result = _run_init(
         project_name=project_name,
         coding_agent=coding_agent,
+        context7_api_key=context7_api_key,
         progress_reporter=renderer.report_check,
         current_task_reporter=renderer.start_check,
         service=service,
@@ -74,24 +69,13 @@ def init(project_name: str, as_json: bool, verbose: bool) -> int:
     is_flag=True,
     help="Report managed file diffs without overwriting the workspace.",
 )
-@click.option("--json", "as_json", is_flag=True, help="Render the result as JSON.")
 @click.option(
     "--verbose",
     is_flag=True,
     help="Print stage results as they complete.",
 )
-def update(workspace: str, check_only: bool, as_json: bool, verbose: bool) -> int:
+def update(workspace: str, check_only: bool, verbose: bool) -> int:
     service = build_init_service()
-
-    if as_json:
-        result = _run_update(
-            workspace=workspace,
-            check_only=check_only,
-            service=service,
-        )
-        render_result(result, as_json=True, verbose=verbose)
-        return 1 if result.status not in {"ok"} else 0
-
     renderer = RichWorkflowRenderer(verbose=verbose, description="Updating workspace")
     result = _run_update(
         workspace=workspace,
@@ -123,6 +107,7 @@ def _run_init(
     *,
     project_name: str,
     coding_agent: str | None = None,
+    context7_api_key: str | None = None,
     progress_reporter: Callable[[DiagnosticCheck], None] | None = None,
     current_task_reporter: Callable[[str], None] | None = None,
     service: InitService | None = None,
@@ -131,7 +116,11 @@ def _run_init(
     try:
         init_service.progress_reporter = progress_reporter
         init_service.current_task_reporter = current_task_reporter
-        return init_service.init(project_name, coding_agent=coding_agent)
+        return init_service.init(
+            project_name,
+            coding_agent=coding_agent,
+            context7_api_key=context7_api_key,
+        )
     except Exception as exc:
         return init_service.execution_error(
             "init",

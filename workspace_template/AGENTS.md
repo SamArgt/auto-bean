@@ -4,6 +4,8 @@ This is a user-owned ledger workspace. Keep product-code work in the `auto-bean`
 
 Codex is the orchestrator. Installed skills under `.agents/skills/` are the execution surface.
 
+Context7 MCP is configured for Codex in the gitignored `.codex/config.toml` so skills can look up current external-library documentation. If a Context7 API key was provided during initialization, it is stored in that local config file and must not be committed.
+
 ## Quick Start
 
 - Use `$auto-bean-import` for statement imports from `statements/raw/`.
@@ -78,6 +80,7 @@ Skills may suggest useful governed memory. Only `$auto-bean-memory` writes `.aut
 - `.auto-bean/artifacts/process/`: raw-to-parsed processing notes, warnings, and process questions
 - `.auto-bean/memory/`: governed memory
 - `.agents/skills/`: installed runtime skills
+- `.codex/config.toml`: gitignored project-scoped Codex MCP configuration for Context7
 
 ### Guardrails
 
