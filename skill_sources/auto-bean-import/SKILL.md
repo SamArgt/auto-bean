@@ -54,7 +54,7 @@ Workflow:
    - classify inferred accounts as `existing_account`, `first_seen_candidate`, or `blocked_inference`
    - If it is an `existing_account`, link to the existing beancount account in the import-owned artifact
    - consider only banking, credit card, loans, cash, and investment account types for first-seen structure inference
-   - during first-seen account inspection, infer only institution-owned balance-sheet accounts; leave expense, income, and other transaction categories to `$auto-bean-categorize`
+   - during first-seen account inspection, infer only institution-owned balance-sheet accounts and opening balances; leave expense, income, and other transaction categories to `$auto-bean-categorize`
    - infer Beancount-safe account names and minimal supporting directives only when institution, raw-statement account owner or account names, account identity, type hints, and currency provide strong evidence
    - apply the shared memory access rules before using a memory-derived hint in a first-seen account decision
    - when top-level branch, account identity, currency, duplicate risk, mutation target, or syntax is unclear, ask the user a bounded question before mutating account structure
@@ -62,7 +62,7 @@ Workflow:
    - record each proposed, approved, rejected, or written first-seen account decision in the statement's import-owned artifact with evidence references, memory attribution or rejection notes, target file, user approval context, and validation references
    - after the user approves or corrects the proposal, write only the approved account-opening structure and minimal supporting directives such as opening balance postings; prefer `beancount/accounts.beancount` and `beancount/opening-balances.beancount` respectively.
    - run `./scripts/validate-ledger.sh` or `./.venv/bin/bean-check ledger.beancount` after account-structure edits
-   - for first-seen accounts, mark them to `ready_for_categorization` directly, skipping balance check; for existing accounts, move to `balance_check`.
+   - mark all statements with resolved process questions and status `account_inspection` as `balance_check`.
 5. Opening Balance Checking:
    - for each statement at `balance_check`, inspect the parsed statement for opening balances and compare them against the current ledger balances for existing accounts using `$auto-bean-query`
    - Verify that the opening balance reported in the statement matches the balance calculated from the ledger up to the statement's start date
