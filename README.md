@@ -135,19 +135,25 @@ auto-bean init my-ledger --json
 
 ### `auto-bean update [WORKSPACE]`
 
-Updates managed workspace files from the current packaged product assets.
+Updates managed workspace files from the current packaged product assets and removes
+stale files from managed workspace areas when those files no longer exist in the
+packaged product.
 
 It updates:
 
 - `README.md`
 - `AGENTS.md`
 - `scripts/install-dependencies.sh`
+- `scripts/open-fava.sh`
+- `scripts/validate-ledger.sh`
 - managed files under `.agents/skills/`
 
 It does not overwrite:
 
 - `ledger.beancount`
 - `beancount/`
+- `statement/`
+- `statements/`
 - `.auto-bean/`
 
 Check what would change:

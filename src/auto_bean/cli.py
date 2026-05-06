@@ -84,7 +84,7 @@ def update(workspace: str, check_only: bool, verbose: bool) -> int:
         current_task_reporter=renderer.start_check,
         service=service,
     )
-    renderer.finish(result)
+    renderer.finish_update(result, check_only=check_only)
     return 1 if result.status not in {"ok"} else 0
 
 
@@ -208,9 +208,44 @@ class RichWorkflowRenderer:
         if result.status not in {"ok", "updates_available"}:
             label = "Failed"
         self.console.print(f"[bold {style}]{label}:[/bold {style}] {result.message}")
-        paths = result.details.get("changed_paths") or result.details.get(
-            "updated_paths"
-        )
-        if isinstance(paths, list) and paths:
-            for path in paths:
-                self.console.print(f"  [dim]{path}[/dim]")
+
+
+    def finish_update(self, result: CommandOutcome, *, check_only: bool) -> None:
+        self.progress.update(self._task_id, completed=len(result.checks))
+        self.progress.stop()
+        if result.status == "ok":
+            style = "green"
+            label = "Success"
+        elif result.status == "updates_available":
+            style = "yellow"
+            label = "Needs update"
+        else:
+            style = "red"
+            label = "Failed"
+        self.console.print(f"[bold {style}]{label}:[/bold {style}] {result.message}")
+        if result.status not in {"ok", "updates_available"}:
+            return
+        plan = result.update_plan
+        if plan is None or not plan:
+            return
+        update_label = "Would update" if check_only else "Updated"
+        delete_label = "Would delete" if check_only else "Deleted"
+        if plan.updates:
+            update_lines = sum(change.concerned_line_count for change in plan.updates)
+            self.console.print(
+                f"[bold green]{update_label} {len(plan.updates)} file(s), "
+                f"{update_lines} line(s):[/bold green]"
+            )
+            for change in plan.updates:
+                self.console.print(
+                    f"  [dim]{change.path}[/dim] "
+                    f"({change.concerned_line_count} lines, "
+                    f"[green]+{change.added_line_count}[/green]/"
+                    f"[red]-{change.removed_line_count}[/red])"
+                )
+        if plan.removals:
+            self.console.print(
+                f"[bold red]{delete_label} {len(plan.removals)} file(s):[/bold red]"
+            )
+            for change in plan.removals:
+                self.console.print(f"  [dim]{change.path}[/dim]")

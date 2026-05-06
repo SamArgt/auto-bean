@@ -28,6 +28,88 @@ class ErrorCategory(str, Enum):
     EXECUTION_ERROR = "execution_error"
 
 
+class WorkspaceFileOperation(str, Enum):
+    UPDATE = "update"
+    REMOVE = "remove"
+
+
+@dataclass(frozen=True)
+class WorkspaceFileChange:
+    operation: WorkspaceFileOperation
+    path: str
+    diff: str
+    added_line_count: int
+    removed_line_count: int
+    source_path: Path | None = None
+
+    @property
+    def concerned_line_count(self) -> int:
+        return self.added_line_count + self.removed_line_count
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "operation": self.operation.value,
+            "path": self.path,
+            "source_path": str(self.source_path) if self.source_path else None,
+            "added_line_count": self.added_line_count,
+            "removed_line_count": self.removed_line_count,
+            "concerned_line_count": self.concerned_line_count,
+            "diff": self.diff,
+        }
+
+
+@dataclass(frozen=True)
+class WorkspaceUpdatePlan:
+    changes: tuple[WorkspaceFileChange, ...] = ()
+
+    def __bool__(self) -> bool:
+        return bool(self.changes)
+
+    @property
+    def updates(self) -> tuple[WorkspaceFileChange, ...]:
+        return tuple(
+            change
+            for change in self.changes
+            if change.operation is WorkspaceFileOperation.UPDATE
+        )
+
+    @property
+    def removals(self) -> tuple[WorkspaceFileChange, ...]:
+        return tuple(
+            change
+            for change in self.changes
+            if change.operation is WorkspaceFileOperation.REMOVE
+        )
+
+    @property
+    def changed_paths(self) -> list[str]:
+        return [change.path for change in self.changes]
+
+    @property
+    def update_paths(self) -> list[str]:
+        return [change.path for change in self.updates]
+
+    @property
+    def removal_paths(self) -> list[str]:
+        return [change.path for change in self.removals]
+
+    @property
+    def diffs(self) -> dict[str, str]:
+        return {change.path: change.diff for change in self.changes}
+
+    def as_details(self) -> dict[str, object]:
+        return {
+            "changed_file_count": len(self.changes),
+            "changed_paths": self.changed_paths,
+            "removal_file_count": len(self.removals),
+            "removal_paths": self.removal_paths,
+            "update_file_count": len(self.updates),
+            "update_paths": self.update_paths,
+            "changes": [change.as_dict() for change in self.changes],
+            "diffs": self.diffs,
+        }
+
+
 @dataclass(frozen=True)
 class DiagnosticCheck:
     name: str
@@ -58,6 +140,7 @@ class CommandOutcome:
     details: dict[str, object] = field(default_factory=dict)
     checks: tuple[DiagnosticCheck, ...] = ()
     duration_seconds: float = 0.0
+    update_plan: WorkspaceUpdatePlan | None = None
 
     def as_dict(self) -> dict[str, object]:
         return {
@@ -71,6 +154,9 @@ class CommandOutcome:
             "details": self.details,
             "checks": [check.as_dict() for check in self.checks],
             "duration_seconds": round(self.duration_seconds, 3),
+            "update_plan": self.update_plan.as_details()
+            if self.update_plan is not None
+            else None,
         }
 
 
@@ -309,6 +395,8 @@ class InitService:
                     "AGENTS.md",
                     ".codex/config.toml",
                     "scripts/install-dependencies.sh",
+                    "scripts/open-fava.sh",
+                    "scripts/validate-ledger.sh",
                     "beancount/accounts.beancount",
                     "beancount/opening-balances.beancount",
                     ".auto-bean/memory/import_sources/.gitkeep",
@@ -606,13 +694,12 @@ class InitService:
         if self.current_task_reporter is not None:
             self.current_task_reporter("Comparing managed workspace files")
         compare_started = perf_counter()
-        changes = self._planned_workspace_updates(
+        plan = self._planned_workspace_updates(
             target_directory=target_directory,
             template_directory=Path(context.template_directory),
             skill_sources_directory=Path(context.skill_sources_directory),
         )
-        changed_paths = [str(change["path"]) for change in changes]
-        status = CheckStatus.WARN if changes else CheckStatus.PASS
+        status = CheckStatus.WARN if plan else CheckStatus.PASS
         self._record(
             checks,
             DiagnosticCheck(
@@ -620,16 +707,10 @@ class InitService:
                 status=status,
                 message=(
                     "Managed workspace files differ from packaged assets."
-                    if changes
+                    if plan
                     else "Managed workspace files already match packaged assets."
                 ),
-                details={
-                    "changed_file_count": len(changes),
-                    "changed_paths": changed_paths,
-                    "diffs": {
-                        str(change["path"]): change["diff"] for change in changes
-                    },
-                },
+                details=plan.as_details(),
                 duration_seconds=perf_counter() - compare_started,
             ),
         )
@@ -637,35 +718,34 @@ class InitService:
         if check_only:
             return CommandOutcome(
                 workflow="update",
-                status="updates_available" if changes else "ok",
+                status="updates_available" if plan else "ok",
                 error_code=None,
                 error_category=None,
                 message=(
-                    f"{len(changes)} managed workspace file(s) would be updated."
-                    if changes
+                    f"{len(plan.changes)} managed workspace file(s) would be changed."
+                    if plan
                     else "Managed workspace files are already up to date."
                 ),
-                details=context.as_details()
-                | {
-                    "changed_file_count": len(changes),
-                    "changed_paths": changed_paths,
-                    "diffs": {
-                        str(change["path"]): change["diff"] for change in changes
-                    },
-                },
+                details=context.as_details() | plan.as_details(),
                 checks=tuple(checks),
                 duration_seconds=perf_counter() - started,
+                update_plan=plan,
             )
 
-        if changes:
+        if plan:
             if self.current_task_reporter is not None:
                 self.current_task_reporter("Updating managed workspace files")
             update_started = perf_counter()
-            for change in changes:
-                source_path = Path(str(change["source_path"]))
-                target_path = target_directory / str(change["path"])
+            for change in plan.changes:
+                target_path = target_directory / change.path
+                if change.operation is WorkspaceFileOperation.REMOVE:
+                    target_path.unlink()
+                    continue
+                if change.source_path is None:
+                    msg = "Managed workspace update is missing its source path."
+                    raise TypeError(msg)
                 target_path.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(source_path, target_path)
+                shutil.copy2(change.source_path, target_path)
                 if "scripts" in target_path.relative_to(target_directory).parts:
                     ensure_executable(target_path)
             self._record(
@@ -674,13 +754,16 @@ class InitService:
                     name="managed_files_updated",
                     status=CheckStatus.PASS,
                     message="Managed workspace files updated.",
-                    details={
-                        "updated_file_count": len(changes),
-                        "updated_paths": changed_paths,
+                    details=plan.as_details()
+                    | {
+                        "updated_file_count": len(plan.updates),
+                        "updated_paths": plan.update_paths,
                     },
                     duration_seconds=perf_counter() - update_started,
                 ),
             )
+        if not check_only:
+            self._write_workspace_gitignore(target_directory)
 
         return CommandOutcome(
             workflow="update",
@@ -688,22 +771,26 @@ class InitService:
             error_code=None,
             error_category=None,
             message=(
-                f"Updated {len(changes)} managed workspace file(s)."
-                if changes
+                f"Changed {len(plan.changes)} managed workspace file(s)."
+                if plan
                 else "Managed workspace files were already up to date."
             ),
             details=context.as_details()
+            | plan.as_details()
             | {
-                "updated_file_count": len(changes),
-                "updated_paths": changed_paths,
+                "updated_file_count": len(plan.updates),
+                "updated_paths": plan.update_paths,
                 "untouched_paths": [
                     "ledger.beancount",
                     "beancount/",
+                    "statement/",
+                    "statements/",
                     ".auto-bean/",
                 ],
             },
             checks=tuple(checks),
             duration_seconds=perf_counter() - started,
+            update_plan=plan,
         )
 
     def execution_error(
@@ -791,7 +878,7 @@ class InitService:
                 prefix=".agents/skills",
             )
         )
-        created_paths.extend(self._write_workspace_scripts(target_directory))
+        created_paths.extend(self._write_generated_workspace_files(target_directory))
         self._write_context7_config(target_directory, context7_api_key)
         return created_paths
 
@@ -984,6 +1071,8 @@ class InitService:
                 template_directory / "README.md",
                 template_directory / "AGENTS.md",
                 template_directory / "scripts" / "install-dependencies.sh",
+                template_directory / "scripts" / "open-fava.sh",
+                template_directory / "scripts" / "validate-ledger.sh",
                 skill_sources_directory / "auto-bean-categorize" / "SKILL.md",
                 skill_sources_directory / "auto-bean-query" / "SKILL.md",
                 skill_sources_directory / "auto-bean-write" / "SKILL.md",
@@ -1124,8 +1213,8 @@ class InitService:
         target_directory: Path,
         template_directory: Path,
         skill_sources_directory: Path,
-    ) -> list[dict[str, object]]:
-        changes: list[dict[str, object]] = []
+    ) -> WorkspaceUpdatePlan:
+        changes: list[WorkspaceFileChange] = []
         managed_files = [
             (template_directory / "README.md", Path("README.md")),
             (template_directory / "AGENTS.md", Path("AGENTS.md")),
@@ -1145,35 +1234,106 @@ class InitService:
         managed_files.extend(
             (
                 source_path,
-                Path("scripts") / source_path.relative_to(template_directory / "scripts"),
+                Path("scripts")
+                / source_path.relative_to(template_directory / "scripts"),
             )
             for source_path in sorted((template_directory / "scripts").rglob("*"))
             if source_path.is_file()
         )
+        desired_paths = {
+            relative_target.as_posix() for _, relative_target in managed_files
+        }
         for source_path, relative_target in managed_files:
             target_path = target_directory / relative_target
-            if (
-                target_path.exists()
-                and source_path.read_bytes() == target_path.read_bytes()
-            ):
+            source_bytes = source_path.read_bytes()
+            target_bytes = target_path.read_bytes() if target_path.exists() else b""
+            if target_path.exists() and source_bytes == target_bytes:
                 continue
+            added_lines, removed_lines = self._line_change_counts(
+                source_bytes=source_bytes,
+                target_bytes=target_bytes,
+            )
             changes.append(
-                {
-                    "path": relative_target.as_posix(),
-                    "source_path": str(source_path),
-                    "diff": self._file_diff(
+                WorkspaceFileChange(
+                    operation=WorkspaceFileOperation.UPDATE,
+                    path=relative_target.as_posix(),
+                    source_path=source_path,
+                    added_line_count=added_lines,
+                    removed_line_count=removed_lines,
+                    diff=self._file_diff(
                         source_path=source_path,
                         target_path=target_path,
                         relative_path=relative_target.as_posix(),
                     ),
-                }
+                )
             )
-        return changes
+        for relative_target in self._planned_workspace_removals(
+            target_directory=target_directory,
+            desired_paths=desired_paths,
+        ):
+            target_path = target_directory / relative_target
+            target_bytes = target_path.read_bytes()
+            added_lines, removed_lines = self._line_change_counts(
+                source_bytes=b"",
+                target_bytes=target_bytes,
+            )
+            changes.append(
+                WorkspaceFileChange(
+                    operation=WorkspaceFileOperation.REMOVE,
+                    path=relative_target.as_posix(),
+                    source_path=None,
+                    added_line_count=added_lines,
+                    removed_line_count=removed_lines,
+                    diff=self._file_diff_from_bytes(
+                        source_bytes=b"",
+                        target_path=target_path,
+                        relative_path=relative_target.as_posix(),
+                    ),
+                )
+            )
+        return WorkspaceUpdatePlan(tuple(changes))
+
+    def _planned_workspace_removals(
+        self, *, target_directory: Path, desired_paths: set[str]
+    ) -> list[Path]:
+        stale_paths: list[Path] = []
+        for managed_root in (Path(".agents") / "skills", Path("scripts")):
+            root = target_directory / managed_root
+            if not root.exists():
+                continue
+            for target_path in sorted(root.rglob("*")):
+                if not target_path.is_file():
+                    continue
+                relative_target = target_path.relative_to(target_directory)
+                if relative_target.as_posix() in desired_paths:
+                    continue
+                if self._is_update_removal_excluded(relative_target):
+                    continue
+                stale_paths.append(relative_target)
+        return stale_paths
+
+    def _is_update_removal_excluded(self, relative_path: Path) -> bool:
+        parts = relative_path.parts
+        return (
+            relative_path.suffix == ".beancount"
+            or parts[:1] == ("beancount",)
+            or parts[:1] == ("statement",)
+            or parts[:1] == ("statements",)
+        )
 
     def _file_diff(
         self, *, source_path: Path, target_path: Path, relative_path: str
     ) -> str:
-        source_text = source_path.read_text(encoding="utf-8").splitlines(keepends=True)
+        return self._file_diff_from_bytes(
+            source_bytes=source_path.read_bytes(),
+            target_path=target_path,
+            relative_path=relative_path,
+        )
+
+    def _file_diff_from_bytes(
+        self, *, source_bytes: bytes, target_path: Path, relative_path: str
+    ) -> str:
+        source_text = source_bytes.decode("utf-8").splitlines(keepends=True)
         if target_path.exists():
             target_text = target_path.read_text(encoding="utf-8").splitlines(
                 keepends=True
@@ -1189,33 +1349,33 @@ class InitService:
             )
         )
 
-    def _write_workspace_scripts(self, target_directory: Path) -> list[str]:
-        scripts_directory = target_directory / "scripts"
-        scripts_directory.mkdir(exist_ok=True)
-        created_paths: list[str] = []
-        for relative_path, content, executable in (
-            (
-                ".gitignore",
-                ".venv/\n.codex/config.toml\n__pycache__/\n*.pyc\n.DS_Store\n",
-                False,
-            ),
-            (
-                "scripts/validate-ledger.sh",
-                "#!/bin/sh\nset -eu\n./.venv/bin/bean-check ledger.beancount\n",
-                True,
-            ),
-            (
-                "scripts/open-fava.sh",
-                "#!/bin/sh\nset -eu\n./.venv/bin/fava ledger.beancount\n",
-                True,
-            ),
-        ):
-            path = target_directory / relative_path
-            path.write_text(content, encoding="utf-8")
-            if executable:
-                ensure_executable(path)
-            created_paths.append(relative_path)
-        return created_paths
+    def _line_change_counts(
+        self, *, source_bytes: bytes, target_bytes: bytes
+    ) -> tuple[int, int]:
+        source_lines = source_bytes.decode("utf-8").splitlines()
+        target_lines = target_bytes.decode("utf-8").splitlines()
+        diff_lines = unified_diff(target_lines, source_lines, lineterm="")
+        added_lines = 0
+        removed_lines = 0
+        for line in diff_lines:
+            if line.startswith(("+++", "---")):
+                continue
+            if line.startswith("+"):
+                added_lines += 1
+            elif line.startswith("-"):
+                removed_lines += 1
+        return added_lines, removed_lines
+
+    def _write_generated_workspace_files(self, target_directory: Path) -> list[str]:
+        self._write_workspace_gitignore(target_directory)
+        return [".gitignore"]
+
+    def _write_workspace_gitignore(self, target_directory: Path) -> None:
+        gitignore_path = target_directory / ".gitignore"
+        gitignore_path.write_text(
+            ".venv/\n.codex/config.toml\n__pycache__/\n*.pyc\n.DS_Store\n",
+            encoding="utf-8",
+        )
 
     def _write_context7_config(
         self, target_directory: Path, api_key: str | None
