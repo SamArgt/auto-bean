@@ -3,20 +3,22 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
-from auto_bean.init import InitService, build_init_service
+from auto_bean.init import WorkspaceUpdateService, build_workspace_update_service
 
 
-def _scaffold_current_workspace(service: InitService, workspace: Path) -> None:
+def _scaffold_current_workspace(
+    service: WorkspaceUpdateService, workspace: Path
+) -> None:
     shutil.copytree(service.paths.workspace_template_directory, workspace)
     shutil.copytree(
         service.paths.skill_sources_directory,
         workspace / ".agents" / "skills",
     )
-    service._write_generated_workspace_files(workspace)
+    service.workspace_files.write_generated_workspace_files(workspace)
 
 
 def test_update_check_discovers_stale_managed_files(tmp_path: Path) -> None:
-    service = build_init_service()
+    service = build_workspace_update_service()
     workspace = tmp_path / "workspace"
     _scaffold_current_workspace(service, workspace)
     stale_skill = workspace / ".agents" / "skills" / "retired-skill" / "SKILL.md"
@@ -46,7 +48,7 @@ def test_update_check_discovers_stale_managed_files(tmp_path: Path) -> None:
 
 
 def test_update_removes_stale_managed_files(tmp_path: Path) -> None:
-    service = build_init_service()
+    service = build_workspace_update_service()
     workspace = tmp_path / "workspace"
     _scaffold_current_workspace(service, workspace)
     stale_skill = workspace / ".agents" / "skills" / "retired-skill" / "SKILL.md"

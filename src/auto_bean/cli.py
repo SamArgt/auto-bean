@@ -17,8 +17,10 @@ from auto_bean.init import (
     CheckStatus,
     CommandOutcome,
     DiagnosticCheck,
-    InitService,
-    build_init_service,
+    WorkspaceInitService,
+    WorkspaceUpdateService,
+    build_workspace_init_service,
+    build_workspace_update_service,
 )
 
 _STATUS_STYLES = {
@@ -45,7 +47,7 @@ def cli(ctx: click.Context) -> int:
     help="Print stage results as they complete.",
 )
 def init(project_name: str, verbose: bool) -> int:
-    service = build_init_service()
+    service = build_workspace_init_service()
     coding_agent = service.prompt_for_coding_agent()
     context7_api_key = service.prompt_for_context7_api_key()
     renderer = RichWorkflowRenderer(verbose=verbose)
@@ -75,7 +77,7 @@ def init(project_name: str, verbose: bool) -> int:
     help="Print stage results as they complete.",
 )
 def update(workspace: str, check_only: bool, verbose: bool) -> int:
-    service = build_init_service()
+    service = build_workspace_update_service()
     renderer = RichWorkflowRenderer(verbose=verbose, description="Updating workspace")
     result = _run_update(
         workspace=workspace,
@@ -110,9 +112,9 @@ def _run_init(
     context7_api_key: str | None = None,
     progress_reporter: Callable[[DiagnosticCheck], None] | None = None,
     current_task_reporter: Callable[[str], None] | None = None,
-    service: InitService | None = None,
+    service: WorkspaceInitService | None = None,
 ) -> CommandOutcome:
-    init_service = service if service is not None else build_init_service()
+    init_service = service if service is not None else build_workspace_init_service()
     try:
         init_service.progress_reporter = progress_reporter
         init_service.current_task_reporter = current_task_reporter
@@ -137,15 +139,17 @@ def _run_update(
     check_only: bool = False,
     progress_reporter: Callable[[DiagnosticCheck], None] | None = None,
     current_task_reporter: Callable[[str], None] | None = None,
-    service: InitService | None = None,
+    service: WorkspaceUpdateService | None = None,
 ) -> CommandOutcome:
-    init_service = service if service is not None else build_init_service()
+    update_service = (
+        service if service is not None else build_workspace_update_service()
+    )
     try:
-        init_service.progress_reporter = progress_reporter
-        init_service.current_task_reporter = current_task_reporter
-        return init_service.update(workspace, check_only=check_only)
+        update_service.progress_reporter = progress_reporter
+        update_service.current_task_reporter = current_task_reporter
+        return update_service.update(workspace, check_only=check_only)
     except Exception as exc:
-        return init_service.execution_error(
+        return update_service.execution_error(
             "update",
             details={
                 "exception_type": type(exc).__name__,
@@ -208,7 +212,6 @@ class RichWorkflowRenderer:
         if result.status not in {"ok", "updates_available"}:
             label = "Failed"
         self.console.print(f"[bold {style}]{label}:[/bold {style}] {result.message}")
-
 
     def finish_update(self, result: CommandOutcome, *, check_only: bool) -> None:
         self.progress.update(self._task_id, completed=len(result.checks))
