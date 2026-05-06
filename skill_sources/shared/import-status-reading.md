@@ -2,24 +2,35 @@
 
 Purpose: read and update `statements/import-status.yml` efficiently without turning it into a narrative artifact.
 
-`statements/import-status.yml` is the operational index for import work. Each entry is keyed by raw statement path and should stay small: current status, source fingerprint, parsed statement path, stage artifact paths, timestamps, retry hold metadata, and compact booleans such as whether user input is required.
+`statements/import-status.yml` is the per-statement operational index for import work. Each entry is keyed by raw statement path and should stay small: current status, source fingerprint, parsed statement path, stage artifact paths, timestamps, retry hold metadata, and compact booleans such as whether user input is required.
 
-`ready` is a queue state, not a guarantee that the statement is processable. Before dispatch, check `manual_resolution_required`, `process_attempts`, and whether retry metadata applies to the current source fingerprint. A current-fingerprint `ready` entry with `manual_resolution_required: true` or retry attempts at the workflow threshold stays held until the user explicitly requests reprocess or supplies missing evidence.
+Statuses describe one statement's next owner action. A batch import may contain statements in many statuses at the same time; `$auto-bean-import` should advance each eligible statement independently while preserving cross-statement review before writing.
 
-## Status Table
+## Single-Statement Status Machine
 
-| status | owner next action | blocked by |
-| --- | --- | --- |
-| `ready` | queue state; `$auto-bean-import` may assign `$auto-bean-process` only after retry metadata checks | missing parser-ready evidence, `manual_resolution_required`, or manual retry hold |
-| `parsed` | `$auto-bean-import` moves to `account_inspection` | none unless process artifact says otherwise |
-| `parsed_with_warning` | `$auto-bean-import` reviews process artifact and resolves warnings | unresolved process warning or question |
-| `account_inspection` | `$auto-bean-import` derives first-seen account structure | unclear account identity, currency, or mutation target |
-| `balance_check` | `$auto-bean-import` verifies opening balances against ledger | balance discrepancies |
-| `ready_for_categorization` | `$auto-bean-import` assigns `$auto-bean-categorize` | none |
-| `ready_for_review` | `$auto-bean-import` reviews categorize artifact and collects needed user input | unresolved categorize, reconciliation, duplicate, or transfer decision |
-| `ready_to_write` | `$auto-bean-import` invokes `$auto-bean-write` | none |
-| `final_review` | `$auto-bean-import` asks the user to approve final import result | user approval |
-| `done` | no action unless the user requests rework | complete |
+| status | owner next action | normal next status | hold or retry condition |
+| --- | --- | --- | --- |
+| `raw_ready` | `$auto-bean-import` may assign `$auto-bean-process` | `process_blocked`, `process_review`, or `account_review` | Hold only when processing cannot be assigned safely. |
+| `process_blocked` | `$auto-bean-import` surfaces parser/manual-resolution blocker | `raw_ready` for explicit reprocess, or `process_review`/`account_review` if the blocker is resolved without reprocess | Stay blocked until the user supplies missing evidence, approves reprocess, or accepts a manual resolution. |
+| `process_review` | `$auto-bean-import` reviews process artifact | `account_review` | Stay in review while process warnings or process questions are unresolved. |
+| `account_review` | `$auto-bean-import` inspects accounts | `balance_review` | Move to `account_blocked` if account identity, currency, duplicate risk, mutation target, or account-opening approval is unresolved. |
+| `account_blocked` | `$auto-bean-import` asks account-structure question | `balance_review` | Stay blocked until account questions are answered and any approved account directives are written and validated. |
+| `balance_review` | `$auto-bean-import` checks opening balances | `categorize_ready` | Move to `balance_blocked` if statement opening balance and ledger balance disagree or the check cannot be trusted. |
+| `balance_blocked` | `$auto-bean-import` asks balance-remediation question | `categorize_ready` | Stay blocked until the user chooses a remediation path and any approved ledger edit is written and validated. |
+| `categorize_ready` | `$auto-bean-import` may assign `$auto-bean-categorize` | `categorize_blocked` or `categorize_review` | Hold only when categorization cannot be assigned safely. |
+| `categorize_blocked` | `$auto-bean-import` brokers categorize clarification | `categorize_review` after the resumed categorize stage persists resolved work | Stay blocked while categorization, reconciliation, duplicate, transfer, or manual source interpretation is unresolved. |
+| `categorize_review` | `$auto-bean-import` reviews categorize artifact and batch findings | `write_ready` | Move to `categorize_blocked` if review finds unresolved categorization or reconciliation input. |
+| `write_ready` | `$auto-bean-import` may invoke `$auto-bean-write` | `write_blocked` or `final_review` | Hold only when writing cannot be assigned safely. |
+| `write_blocked` | `$auto-bean-import` brokers write-stage clarification or fix | `final_review` after the resumed write stage validates | Stay blocked while transaction facts, duplicate/transfer risk, validation, or write evidence is unresolved. |
+| `final_review` | `$auto-bean-import` asks the user to approve final import result | `done` | Stay in final review until the user approves that statement's final import result. |
+| `done` | no action unless the user requests rework | `raw_ready` only for explicit rework/reprocess | No automatic transition. |
+
+Allowed sub-agent status updates:
+
+- `$auto-bean-process`: `process_blocked`, `process_review`, or `account_review`.
+- `$auto-bean-categorize`: `categorize_blocked` or `categorize_review`.
+- `$auto-bean-write`: `write_blocked`, or `final_review` only after the import-invoked write validates.
+- `$auto-bean-import`: all orchestration transitions, including blocked-state resolution and `done`.
 
 When the file is large:
 

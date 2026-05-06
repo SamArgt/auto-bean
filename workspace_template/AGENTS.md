@@ -49,7 +49,7 @@ Before commit or push for ledger mutations:
 
 ### Import Status Reference
 
-Read `.agents/skills/shared/import-status-reading.md` for the canonical status table and recovery rules. `ready` is a queue state, not a guarantee that the statement is processable; `$auto-bean-import` must check retry metadata before dispatch.
+Read `.agents/skills/shared/import-status-reading.md` for the canonical per-statement status table and recovery rules. A batch import can contain statements in several statuses at once.
 
 Only mark a statement `done` after user approval of the final import result.
 
@@ -57,7 +57,7 @@ Only mark a statement `done` after user approval of the final import result.
 
 Read `.agents/skills/shared/memory-access-rules.md` before relying on or requesting durable memory persistence.
 
-Read `.agents/skills/shared/workflow-rules.md` for shared evidence, artifact privacy, required-reference, and worker-return expectations.
+Read `.agents/skills/shared/workflow-rules.md`, `.agents/skills/shared/ownership-map.md`, and `.agents/skills/shared/sub-agent-return-examples.md` for shared evidence, artifact privacy, ownership, and sub-agent return expectations.
 
 Skills may suggest useful governed memory. Only `$auto-bean-memory` writes `.auto-bean/memory/**`, and reused memory is advisory, never silent authority.
 

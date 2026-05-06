@@ -6,6 +6,8 @@ description: Draft, review, and safely write Beancount transactions into the led
 Always read before acting:
 
 - `.agents/skills/shared/workflow-rules.md`
+- `.agents/skills/shared/ownership-map.md`
+- `.agents/skills/shared/sub-agent-return-examples.md`
 - `.agents/skills/shared/beancount-syntax-and-best-practices.md`
 
 Read when needed:

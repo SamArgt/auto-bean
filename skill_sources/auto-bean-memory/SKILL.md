@@ -8,6 +8,8 @@ description: Manage governed local auto-bean memory by inspecting, pruning, corr
 Read this reference before acting:
 
 - `.agents/skills/shared/workflow-rules.md`
+- `.agents/skills/shared/ownership-map.md`
+- `.agents/skills/shared/sub-agent-return-examples.md`
 - `.agents/skills/shared/memory-access-rules.md`
 
 Use this skill when the user asks to inspect, review, explain, correct, prune, reorganize, or persist reusable auto-bean memory.

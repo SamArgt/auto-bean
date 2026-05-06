@@ -35,7 +35,7 @@ When creating an artifact for question answering, make it easy for a human user 
 
 ## Import-Invoked Broker Rule
 
-When a worker stage is invoked by `$auto-bean-import`, the worker normally does not ask the user directly. It records safe progress, persists the question in its stage-owned artifact, and returns only question ids, artifact path, and operational blocker flags to `$auto-bean-import`.
+When a sub-agent stage is invoked by `$auto-bean-import`, the sub-agent normally does not ask the user directly. It records safe progress, persists the question in its stage-owned artifact, and returns only question ids, artifact path, and operational blocker flags to `$auto-bean-import`.
 
 `$auto-bean-import` is the user-facing broker for import workflows. It asks the user in the main thread, batches compatible questions when useful, reads completed fillable artifacts, records answers in the relevant individual artifacts, updates or resumes the owning stage with the answer, and keeps blocked statements out of downstream posting or final approval until the required answer is resolved.
 

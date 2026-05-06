@@ -1,6 +1,6 @@
 ---
 name: auto-bean-process
-description: Process exactly one assigned raw statement file into normalized parsed evidence through the local Docling CLI. Use as the `$auto-bean-import` raw-to-parsed worker stage. It owns parsing, process artifacts, per-input parse status updates, and processing memory suggestions; `$auto-bean-import` owns work discovery, first-seen accounts, posting workflows, and finalization.
+description: Process exactly one assigned raw statement file into normalized parsed evidence through the local Docling CLI. Use as the `$auto-bean-import` raw-to-parsed sub-agent stage. It owns parsing, process artifacts, per-input parse status updates, and processing memory suggestions; `$auto-bean-import` owns work discovery, first-seen accounts, posting workflows, and finalization.
 ---
 
 Use this only for the raw-to-parsed stage assigned by `$auto-bean-import`.
@@ -16,6 +16,8 @@ Inputs from `$auto-bean-import`:
 Always read before acting:
 
 - `.agents/skills/shared/workflow-rules.md`
+- `.agents/skills/shared/ownership-map.md`
+- `.agents/skills/shared/sub-agent-return-examples.md`
 - `.agents/skills/shared/parsed-statement-output.example.json`
 - `.agents/skills/shared/import-status-reading.md` before reading or updating a large `statements/import-status.yml`
 - `.agents/skills/shared/question-handling-contract.md` before recording process questions
@@ -52,7 +54,7 @@ Workflow:
    - delete temp artifacts after the normalized output is safely written unless active debugging needs them
    - if unsure about Docling CLI flags, supported formats, or dependency behavior, use Context7 before adapting the command
    - if Docling or a required local dependency is unavailable through both supported command paths, report the concrete failure and stop for this file
-   - if a scanned or textless PDF cannot be extracted, do not guess; leave the statement `ready` and record the issue for `$auto-bean-import`
+   - if a scanned or textless PDF cannot be extracted, do not guess; set `process_blocked` and record the issue for `$auto-bean-import`
 4. Persist normalized evidence:
    - write one deterministic JSON artifact for this source or parse run under `statements/parsed/`
    - include only necessary parse metadata and extracted evidence such as `parse_run_id`, `source_file`, `source_fingerprint`, `source_format`, parser identifier, `parsed_at`, process artifact path, `account_owner`, `account_names`, `statement_metadata`, and extracted records
@@ -62,12 +64,12 @@ Workflow:
    - keep all contract keys in `snake_case`
    - on re-parse, write a new versioned output and refresh only this statement's status entry
 5. Update only this input's status:
-   - set `ready` as a queue state when no trustworthy parsed evidence exists yet or manual follow-up is required before parsing is trustworthy; it is not a guarantee that `$auto-bean-import` may dispatch it automatically
-   - set `parsed` when normalized output is written and no warnings require `$auto-bean-import` review
-   - set `parsed_with_warning` when normalized output is written but warnings need `$auto-bean-import` review before account inspection
-   - allowed status updates from this stage are `ready`, `parsed`, and `parsed_with_warning`; all later workflow statuses are advanced by `$auto-bean-import`
+   - set `process_blocked` when no trustworthy parsed evidence exists yet or manual follow-up is required before parsing is trustworthy
+   - set `account_review` when normalized output is written and no warnings require `$auto-bean-import` review
+   - set `process_review` when normalized output is written but warnings need `$auto-bean-import` review before account inspection
+   - allowed status updates from this stage are `process_blocked`, `process_review`, and `account_review`; all later workflow statuses are advanced by `$auto-bean-import`
    - record only operational status data: current status, source fingerprint, updated timestamp, parsed statement path, stage artifact paths, retry metadata, and compact user-input flags; keep warning, question, and answer payloads in the process artifact only
-   - when setting `ready`, increment `process_attempts` for the current source fingerprint, set `last_process_failure_reason`, and set `manual_resolution_required: true` once the current-fingerprint attempt count reaches 2
+   - when setting `process_blocked`, increment `process_attempts` for the current source fingerprint, set `last_process_failure_reason`, and set `manual_resolution_required: true` once the current-fingerprint attempt count reaches 2
    - when the source fingerprint changes, start a new retry count for that fingerprint while preserving any prior failure context that remains useful in warnings or blocking issues
 6. Continue through safe raw-to-parsed work while collecting questions:
    - follow the shared question-handling contract

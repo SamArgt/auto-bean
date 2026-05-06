@@ -20,19 +20,4 @@ Artifacts should link to stage-owned detail rather than copying full warning, qu
 
 Do not include raw statement dumps, full ledger excerpts, secret tokens, tax identifiers, full account numbers, or full card numbers in Markdown artifacts unless the user explicitly requires that exact value for review. Prefer redacted forms such as last four digits, stable row ids, source paths, and artifact links.
 
-## Worker/Sub-agent Returns
-
-When a worker/sub-agent stage returns to `$auto-bean-import`, use this compact shape when applicable:
-
-```yaml
-assigned_path:
-status_update:
-artifacts:
-blockers:
-pending_questions:
-safe_work_completed:
-memory_suggestions:
-validation:
-```
-
-Use empty lists or `null` for fields that do not apply. Keep full warning, question, answer, and analysis payloads in the owning artifact.
+For ownership boundaries, read `.agents/skills/shared/ownership-map.md`. For sub-agent returns to `$auto-bean-import`, read `.agents/skills/shared/sub-agent-return-examples.md`.
