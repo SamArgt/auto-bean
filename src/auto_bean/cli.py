@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import os
 from collections.abc import Callable, Sequence
 
 import click
@@ -40,7 +39,6 @@ def cli(ctx: click.Context) -> int:
 
 @cli.command(help="Create a new base Beancount ledger workspace.")
 @click.argument("project_name")
-@click.option("--json", "as_json", is_flag=True, help="Render the result as JSON.")
 @click.option(
     "--verbose",
     is_flag=True,
@@ -48,16 +46,6 @@ def cli(ctx: click.Context) -> int:
 )
 def init(project_name: str, as_json: bool, verbose: bool) -> int:
     service = build_init_service()
-
-    if as_json:
-        result = _run_init(
-            project_name=project_name,
-            context7_api_key=os.environ.get("CONTEXT7_API_KEY"),
-            service=service,
-        )
-        render_result(result, as_json=True, verbose=verbose)
-        return 0 if result.status == "ok" else 1
-
     coding_agent = service.prompt_for_coding_agent()
     context7_api_key = service.prompt_for_context7_api_key()
     renderer = RichWorkflowRenderer(verbose=verbose)

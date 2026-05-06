@@ -13,7 +13,6 @@ from enum import Enum
 from pathlib import Path
 from stat import S_IEXEC
 from time import perf_counter
-from typing import Protocol
 
 
 class CheckStatus(str, Enum):
@@ -88,18 +87,6 @@ class EnvironmentInfo:
     release: str
     machine: str
     python_version: str
-
-
-class PlatformInspector(Protocol):
-    def inspect(self) -> EnvironmentInfo: ...
-
-
-class ToolLocator(Protocol):
-    def find(self, command: str) -> str | None: ...
-
-
-class CommandExecutor(Protocol):
-    def run(self, args: Sequence[str], cwd: Path | None = None) -> CommandResult: ...
 
 
 type PromptResponder = Callable[[str], str]
@@ -245,9 +232,6 @@ class UpdateContext:
 @dataclass
 class InitService:
     paths: ProjectPaths
-    platform: PlatformInspector
-    tools: ToolLocator
-    commands: CommandExecutor
     prompt: PromptResponder = input
     secret_prompt: PromptResponder = getpass
     progress_reporter: ProgressReporter | None = None
@@ -325,14 +309,7 @@ class InitService:
                     ".codex/config.toml",
                     "beancount/accounts.beancount",
                     "beancount/opening-balances.beancount",
-                    ".auto-bean/memory/account_mappings.json",
-                    ".auto-bean/memory/category_mappings.json",
-                    ".auto-bean/memory/clarification_outcomes.json",
-                    ".auto-bean/memory/deduplication_decisions.json",
                     ".auto-bean/memory/import_sources/.gitkeep",
-                    ".auto-bean/memory/import_sources/index.json",
-                    ".auto-bean/memory/naming_conventions.json",
-                    ".auto-bean/memory/transfer_detection.json",
                     ".auto-bean/artifacts/categorize/.gitkeep",
                     ".auto-bean/artifacts/import/.gitkeep",
                     "statements/parsed/.gitkeep",
@@ -457,7 +434,7 @@ class InitService:
         if failure is not None:
             return failure
 
-        git_path = self.tools.find("git")
+        git_path = ToolProbe().find("git")
         assert git_path is not None
         failure = self._run_check(
             checks=checks,
@@ -865,7 +842,7 @@ class InitService:
         return (self.paths.working_directory / path).resolve()
 
     def _check_environment(self) -> DiagnosticCheck:
-        environment = self.platform.inspect()
+        environment = PlatformProbe().inspect()
         if environment.system != "Darwin":
             return DiagnosticCheck(
                 name="supported_environment",
@@ -968,7 +945,7 @@ class InitService:
             )
         missing_markers = [
             path
-            for path in ("AGENTS.md", ".agents/skills")
+            for path in ("AGENTS.md", ".agents/skills", "ledger.beancount", ".auto-bean/memory")
             if not (target_directory / path).exists()
         ]
         if missing_markers:
@@ -1088,7 +1065,7 @@ class InitService:
         failure_message: str,
         remediation: str,
     ) -> DiagnosticCheck:
-        path = self.tools.find(command)
+        path = ToolProbe().find(command)
         if path is None:
             return DiagnosticCheck(
                 name=name,
@@ -1238,7 +1215,7 @@ class InitService:
         context7_config_path.chmod(0o600)
 
     def _bootstrap_workspace_runtime(self, target_directory: Path) -> DiagnosticCheck:
-        uv_path = self.tools.find("uv")
+        uv_path = ToolProbe().find("uv")
         if uv_path is None:
             return DiagnosticCheck(
                 name="workspace_runtime_bootstrapped",
@@ -1253,7 +1230,7 @@ class InitService:
                 },
             )
         venv_command = [uv_path, "venv", ".venv"]
-        venv_result = self.commands.run(venv_command, cwd=target_directory)
+        venv_result = CommandRunner().run(venv_command, cwd=target_directory)
         if venv_result.returncode != 0:
             return DiagnosticCheck(
                 name="workspace_runtime_bootstrapped",
@@ -1276,7 +1253,7 @@ class InitService:
             "fava",
             "docling",
         ]
-        install_result = self.commands.run(install_command, cwd=target_directory)
+        install_result = CommandRunner().run(install_command, cwd=target_directory)
         if install_result.returncode != 0:
             return DiagnosticCheck(
                 name="workspace_runtime_bootstrapped",
@@ -1325,7 +1302,7 @@ class InitService:
         success_details: dict[str, object] | None = None,
         failure_details: dict[str, object] | None = None,
     ) -> DiagnosticCheck:
-        result = self.commands.run(command, cwd=cwd)
+        result = CommandRunner().run(command, cwd=cwd)
         command_text = " ".join(command)
         if result.returncode != 0:
             return DiagnosticCheck(
@@ -1401,7 +1378,7 @@ class InitService:
         self, target_directory: Path, git_path: str
     ) -> DiagnosticCheck:
         add_command = [git_path, "add", "-A"]
-        add_result = self.commands.run(add_command, cwd=target_directory)
+        add_result = CommandRunner().run(add_command, cwd=target_directory)
         if add_result.returncode != 0:
             return DiagnosticCheck(
                 name="workspace_git_initial_commit",
@@ -1415,7 +1392,7 @@ class InitService:
                 },
             )
         commit_command = [git_path, "commit", "-m", "Initial workspace scaffold"]
-        commit_result = self.commands.run(commit_command, cwd=target_directory)
+        commit_result = CommandRunner().run(commit_command, cwd=target_directory)
         if commit_result.returncode != 0:
             return DiagnosticCheck(
                 name="workspace_git_initial_commit",
@@ -1450,7 +1427,7 @@ class InitService:
         failure_message: str,
         detail_key: str,
     ) -> DiagnosticCheck:
-        result = self.commands.run(resolved_command, cwd=cwd)
+        result = CommandRunner().run(resolved_command, cwd=cwd)
         if result.returncode != 0:
             return DiagnosticCheck(
                 name=name,
@@ -1553,7 +1530,4 @@ def looks_like_path(target: str) -> bool:
 def build_init_service(start: Path | None = None) -> InitService:
     return InitService(
         paths=ProjectPaths(start=start),
-        platform=PlatformProbe(),
-        tools=ToolProbe(),
-        commands=CommandRunner(),
     )
