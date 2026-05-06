@@ -12,11 +12,13 @@ from rich.progress import (
     TextColumn,
     TimeElapsedColumn,
 )
+from rich.syntax import Syntax
 
 from auto_bean.init import (
     CheckStatus,
     CommandOutcome,
     DiagnosticCheck,
+    WorkspaceFileChange,
     WorkspaceInitService,
     WorkspaceUpdateService,
     build_workspace_init_service,
@@ -28,6 +30,7 @@ _STATUS_STYLES = {
     CheckStatus.FAIL: "red",
     CheckStatus.WARN: "yellow",
 }
+_VERBOSE_CHECK_DETAIL_EXCLUSIONS = {"changes", "diffs"}
 
 
 @click.group(invoke_without_command=True)
@@ -171,10 +174,14 @@ def render_result(result: CommandOutcome, *, as_json: bool, verbose: bool) -> No
 
 class RichWorkflowRenderer:
     def __init__(
-        self, *, verbose: bool, description: str = "Initializing workspace"
+        self,
+        *,
+        verbose: bool,
+        description: str = "Initializing workspace",
+        console: Console | None = None,
     ) -> None:
         self.verbose = verbose
-        self.console = Console()
+        self.console = console if console is not None else Console()
         self.progress = Progress(
             SpinnerColumn(),
             TextColumn("[progress.description]{task.description}"),
@@ -201,7 +208,7 @@ class RichWorkflowRenderer:
             f"[{status_style}][{status_label}][/{status_style}] {check.name}: {check.message} [dim]({duration_text})[/dim]"
         )
         for key, value in check.details.items():
-            if value:
+            if value and key not in _VERBOSE_CHECK_DETAIL_EXCLUSIONS:
                 self.progress.console.print(f"  [dim]{key}:[/dim] {value}")
 
     def finish(self, result: CommandOutcome) -> None:
@@ -252,3 +259,22 @@ class RichWorkflowRenderer:
             )
             for change in plan.removals:
                 self.console.print(f"  [dim]{change.path}[/dim]")
+        if self.verbose:
+            self._render_update_diffs(plan.changes)
+
+    def _render_update_diffs(self, changes: Sequence[WorkspaceFileChange]) -> None:
+        for change in changes:
+            if not change.diff:
+                continue
+            self.console.print()
+            self.console.print(
+                f"[bold]diff --git a/{change.path} b/{change.path}[/bold]"
+            )
+            self.console.print(
+                Syntax(
+                    change.diff.rstrip(),
+                    "diff",
+                    background_color="default",
+                    word_wrap=False,
+                )
+            )

@@ -215,8 +215,8 @@ class WorkspaceFileManager:
             unified_diff(
                 target_text,
                 source_text,
-                fromfile=f"{relative_path} (workspace)",
-                tofile=f"{relative_path} (packaged)",
+                fromfile=f"a/{relative_path}",
+                tofile=f"b/{relative_path}",
             )
         )
 

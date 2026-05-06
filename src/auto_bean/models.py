@@ -73,10 +73,6 @@ class WorkspaceUpdatePlan:
         )
 
     @property
-    def changed_paths(self) -> list[str]:
-        return [change.path for change in self.changes]
-
-    @property
     def update_paths(self) -> list[str]:
         return [change.path for change in self.updates]
 
@@ -90,8 +86,6 @@ class WorkspaceUpdatePlan:
 
     def as_details(self) -> dict[str, object]:
         return {
-            "changed_file_count": len(self.changes),
-            "changed_paths": self.changed_paths,
             "removal_file_count": len(self.removals),
             "removal_paths": self.removal_paths,
             "update_file_count": len(self.updates),
