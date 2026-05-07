@@ -45,6 +45,7 @@ Follow this workflow:
    - transactions must balance
    - header data must contain the payee and narration and avoid generic payees such as "April shopping online" when the statement provides clearer details, but do not guess when the statement is ambiguous
    - metadata belongs on indented `key: value` lines under the entry or posting it describes
+   - include `source` and `record_id` in the metadata
    - prefer explicit posting amounts even though Beancount can infer one omitted amount
    - respect currency constraints declared on `open` directives
    - when syntax, balancing behavior, metadata placement, or `open` directive constraints are unclear, consult Beancount documentation through Context7 before encoding an authoritative assumption
