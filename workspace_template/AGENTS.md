@@ -21,6 +21,11 @@ High-frequency paths:
 - `statements/parsed/`: normalized statement evidence
 - `statements/import-status.yml`: import state
 
+## Read before acting:
+
+- `.agents/skills/shared/workflow-rules.md` for shared expectations on status management, question handling, sub-agent handoff, and memory use
+- `.agents/skills/shared/ownership-map.md` for which skill owns which artifact, evidence, question, memory, and ledger scopes
+
 ## Import Workflow
 
 Users should start imports with `$auto-bean-import`.

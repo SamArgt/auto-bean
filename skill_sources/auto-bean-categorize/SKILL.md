@@ -14,8 +14,6 @@ Inputs from `$auto-bean-import`:
 
 Always read before acting:
 
-- `.agents/skills/shared/workflow-rules.md`
-- `.agents/skills/shared/ownership-map.md`
 - `.agents/skills/shared/sub-agent-return-examples.md`
 - `.agents/skills/shared/parsed-statement-jq-reading.md` before inspecting large parsed statement JSON files
 - `.agents/skills/shared/import-status-reading.md` before reading or updating a large `statements/import-status.yml`
@@ -26,7 +24,6 @@ Read when needed:
 - `.agents/skills/shared/parsed-statement-output.example.json` when the parsed statement shape, required fields, or field meanings are unclear
 - `.agents/skills/shared/memory-access-rules.md` before using governed memory hints
 - `.agents/skills/shared/question-handling-contract.md` before recording or returning pending user questions
-- `.agents/skills/auto-bean-categorize/references/clarification-guidance.md` when categorization, reconciliation, or deduplication remains ambiguous, unfamiliar, or blocked on user clarification
 - `.agents/skills/auto-bean-categorize/references/categorize-artifact-rules.md` before creating or updating a user-facing categorize artifact
 
 Workflow:
@@ -93,14 +90,8 @@ Workflow:
 
 Guardrails:
 
-- Do not discover, batch, or orchestrate import work.
-- Do not invoke `$auto-bean-write`.
+- Follow the shared ownership map to respect your scope.
+- Follow the shared workflow rules for status management, question handling, sub-agent handoff, and memory use.
 - Do not write or edit Beancount ledger entries.
-- Do not mark statements `done`.
-- Do not set statements `write_ready` or `final_review`; those statuses belong to `$auto-bean-import` after categorize review and transaction writing.
-- Do not request commit or push approval.
-- Do not apply a reconciliation finding decision unless `$auto-bean-import` supplies the explicit user answer for this artifact.
 - Do not bypass clarification with a best guess when ambiguity is material.
-- Do not write `.auto-bean/memory/**`; report possible reusable learning back to `$auto-bean-import` so it can decide whether to invoke `$auto-bean-memory`.
-- Do not imply working-tree mutations have been accepted into history.
 - Do not erase import-batch cross-statement review notes when resuming or updating a categorize artifact.

@@ -11,8 +11,8 @@ Use for discovery, process sub-agent assignment, and process-question resolution
    - Fingerprint supported raw files: `.pdf`, `.csv`, `.xlsx`, `.xls`.
    - Inspect `.auto-bean/memory/import_sources/index.json` and select only narrow matching `import_source_behavior` records by source identity, institution, account owner, account names, account hints, statement shape, filename pattern, or fingerprint.
    - Keep matched memory use consistent with the shared memory rules and record reuse attribution in the import-owned artifact.
-   - Gate: spawn processing only for statements at `raw_ready`; leave all others at their current review, blocked, done, or downstream status.
-2. Spawn process sub-agents:
+   - Gate: continue to process sub-agent assignment only after all raw statements are at `raw_ready` and import-owned artifacts are created or updated.
+2. Spawn process sub-agents with `$auto-bean-process`:
    - Spawn a sub-agent for each process-eligible statement.
    - Give each sub-agent the source path, current status entry, retry metadata, expected parsed-output path or naming rule, shared artifact prefix, selected `import_source_behavior` memory path or summary, and the instruction to use `$auto-bean-process`.
    - Require the process return schema.
@@ -26,4 +26,4 @@ Use for discovery, process sub-agent assignment, and process-question resolution
    - Resume `$auto-bean-process` only when parser-specific regeneration or normalization is required.
    - Move resolved `process_review` statements to `account_review`.
    - Keep unresolved statements at `process_review` or `process_blocked`; do not advance them to account inspection.
-   - Gate: continue to account inspection only with statements at `account_review`.
+   - Gate: continue to account inspection only if ALL statements are at `account_review`. Wait for user answers for `process_blocked` or `process_review` statements before advancing to account inspection.

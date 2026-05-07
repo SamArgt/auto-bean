@@ -5,9 +5,6 @@ description: Draft, review, and safely write Beancount transactions into the led
 
 Always read before acting:
 
-- `.agents/skills/shared/workflow-rules.md`
-- `.agents/skills/shared/ownership-map.md`
-- `.agents/skills/shared/sub-agent-return-examples.md`
 - `.agents/skills/shared/beancount-syntax-and-best-practices.md`
 
 Read when needed:
@@ -18,6 +15,7 @@ Read when needed:
 
 If the transaction-writing task is part of an import workflow, make sure to:
 
+- read `.agents/skills/shared/sub-agent-return-examples.md` before returning to the main import workflow.
 - read `.agents/skills/shared/parsed-statement-jq-reading.md` before inspecting large parsed statement JSON files
 - have the path to the relevant parsed statement in `statements/parsed/` with its process artifact under `.auto-bean/artifacts/process/`
 - have the path to the relevant categorize artifact under `.auto-bean/artifacts/categorize/`

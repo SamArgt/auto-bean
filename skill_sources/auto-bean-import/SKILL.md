@@ -22,10 +22,20 @@ Always read before acting:
 Follow this ordered reference map; the stage mechanics live there. For each step, read its reference fully before acting, and wait to open the next reference until the current step is complete.
 
 1. Read and follow `.agents/skills/auto-bean-import/references/import-1-discovery.md`
+  - Use the discovery stage for raw statement discovery, process sub-agent assignment, and process-question resolution.
+  - Respect the gates and close sub-agents before proceeding to next step.
 2. Read and follow `.agents/skills/auto-bean-import/references/import-2-account-inspection.md`
+  - Use the account inspection stage for account review, opening balance checks, and balance review.
+  - Respect the gates before proceeding to next step.
 3. Read and follow `.agents/skills/auto-bean-import/references/import-3-categorization-review.md`
+  - Use the categorization review stage for categorization sub-agent handoff, cross-statement review, and user review before writing.
+  - Respect the gates and close sub-agents before proceeding to next step.
 4. Read and follow `.agents/skills/auto-bean-import/references/import-4-write-final-review.md`
+  - Use the write and final review stage for write handoff, write-stage user brokering, validation review, and final import approval.
+  - Respect the gates and close sub-agents before proceeding to next step.
 5. Read and follow `.agents/skills/auto-bean-import/references/import-5-memory-handoff.md`
+  - Use the memory handoff stage after import parsing, categorization, writing, validation, and final-review context are available to persist any reusable learning as governed memory for future import work.
+  - Respect the gates and close sub-agents before proceeding to next step.
 
 Use supporting references only at their trigger point:
 
@@ -41,5 +51,6 @@ Give a concise import-run summary with statement outcomes, artifact links, ledge
 ## Guardrails
 
 - Follow the shared ownership map for process, categorize, write, query, and memory boundaries.
+- Follow the shared workflow rules for status management, question handling, sub-agent handoff, and memory use.
 - Follow the import artifact contract for import-owned artifact paths, contents, and update rules.
 - Avoid reading all references files at once, read them in order and only when their trigger points are reached.

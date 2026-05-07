@@ -7,9 +7,6 @@ description: Manage governed local auto-bean memory by inspecting, pruning, corr
 
 Read this reference before acting:
 
-- `.agents/skills/shared/workflow-rules.md`
-- `.agents/skills/shared/ownership-map.md`
-- `.agents/skills/shared/sub-agent-return-examples.md`
 - `.agents/skills/shared/memory-access-rules.md`
 
 Use this skill when the user asks to inspect, review, explain, correct, prune, reorganize, or persist reusable auto-bean memory.
@@ -76,9 +73,10 @@ When invoked by `$auto-bean-import`, return using the shared compact return sche
 
 Guardrails:
 
+- Follow the shared ownership map for process, categorize, write, query, and memory boundaries.
+- Follow the shared workflow rules for status management, question handling, sub-agent handoff, and memory use.
 - Treat memory as advisory context, not silent authority.
 - Do not store user financial decisions in installed skill files, templates, or product-repo `.agents/skills/`.
-- Do not write `.auto-bean/memory/**` from import, categorize, query, process, or write workflows directly; those workflows may identify reusable learning and hand it to this skill.
 - Do not treat import-owned artifacts as durable memory; use them only as governed source/audit context for eligible memory records.
 - Do not create additional category files, databases, vector stores, caches, YAML files, or ad hoc memory blobs for MVP.
 - Fail closed when the destination file, record type, source context, eligibility, target identity, or storage path is unclear.
