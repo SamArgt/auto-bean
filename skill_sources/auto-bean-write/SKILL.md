@@ -3,9 +3,7 @@ name: auto-bean-write
 description: Draft, review, and safely write Beancount transactions into the ledger from trusted evidence. Use when a Coding agent needs to add or update transaction entries in `ledger.beancount` or included `beancount/**` files, choose accounts and postings, respect Beancount balancing and account currency constraints, or ask and wait for clarification when transaction intent is ambiguous.
 ---
 
-Always read before acting:
-
-- `.agents/skills/shared/beancount-syntax-and-best-practices.md`
+Start by reading `.agents/skills/shared/beancount-syntax-and-best-practices.md`
 
 Read when needed:
 
@@ -45,9 +43,7 @@ Follow this workflow:
    - transfer intent, duplicate risk, or balancing rationale
 5. Check Beancount rules before encoding the entry:
    - transactions must balance
-   - the header shape is dated transaction header plus postings
    - header data must contain the payee and narration and avoid generic payees such as "April shopping online" when the statement provides clearer details, but do not guess when the statement is ambiguous
-   - tags and links belong on the transaction header
    - metadata belongs on indented `key: value` lines under the entry or posting it describes
    - prefer explicit posting amounts even though Beancount can infer one omitted amount
    - respect currency constraints declared on `open` directives
@@ -56,30 +52,16 @@ Follow this workflow:
    - reuse the file that already owns similar transactions when possible
    - do not reshuffle the include graph just to insert one transaction
 7. Draft the transaction directly in the working tree using explicit, inspectable postings.
-   - keep the transaction minimal
-   - preserve the ledger's existing style for payee, narration, posting order, metadata, tags, links, indentation, and quoting
-   - omit at most one posting amount, and only when the balancing intent is obvious from the evidence and ledger context
-8. Run transaction-specific review checks on the drafted result:
-   - compare against nearby ledger entries for likely duplicates
-   - inspect same-date and same-amount activity for possible transfers
-   - verify each posting account is already open for the relevant currency, or ask and wait before introducing supporting directives
-   - check that no posting silently changes the economic meaning of the evidence
-9. Ask a bounded clarification question instead of guessing whenever the evidence leaves any material ambiguity, following the shared question-handling contract:
-   - account identity
-   - transfer versus expense or income interpretation
-   - duplicate suspicion
-   - missing currency
-   - missing counterposting
-   - unclear payee, narration, or metadata needed to match ledger conventions
+   - keep the transaction minimal but never group entries, write the postings at the vendor-level.
+8. Ask a bounded clarification question instead of guessing whenever the evidence leaves any material ambiguity, following the shared question-handling contract:
    - when invoked by `$auto-bean-import`, follow the shared import-invoked broker rule and return the pending-question id, artifact path, blocker flags, and safe work completed
    - otherwise wait for the user answer, then resume the same transaction-writing task rather than returning a terminal blocked state
-   - if the answer is still ambiguous, follow the shared follow-up rule before proceeding or reporting the remaining blocker to the calling skill
-10. Validate after drafting the mutation.
+9. Validate after drafting the mutation.
     - prefer `./scripts/validate-ledger.sh`
     - otherwise use `./.venv/bin/bean-check ledger.beancount`
     - if validation fails, do not claim success or finalize
     - leave the working-tree edit in place unless the user explicitly asks to revert it, and report the changed files, validation command, concrete failure, and smallest proposed fix
-11. Present a concise review package before any commit or push step:
+10. Present a concise review package before any commit or push step:
     - what transaction was written or changed
     - which file changed and why it is the right target
     - the evidence used
@@ -87,7 +69,7 @@ Follow this workflow:
     - duplicate, transfer, balancing, or currency risks found
     - the validation outcome
     - a clear statement that the working tree is changed but not finalized until approval is granted
-12. Ask for explicit approval before commit or push finalization when used directly. When invoked by `$auto-bean-import`, never own commit or push finalization; return the mutation, validation, focused diff summary, assumptions, blockers, pending-question ids, and import artifact path using the shared compact return schema for orchestrator-owned approval and finalization. If approval is denied or deferred, leave the working-tree mutation unfinalized and explain its current state.
+11. Ask for explicit approval before commit or push finalization when used directly. When invoked by `$auto-bean-import`, never own commit or push finalization; use the shared compact return schema for orchestrator-owned approval and finalization. If approval is denied or deferred, leave the working-tree mutation unfinalized and explain its current state.
 
 Guardrails:
 
