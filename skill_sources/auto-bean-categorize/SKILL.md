@@ -29,30 +29,28 @@ Read when needed:
 Workflow:
 
 1. Confirm the assigned scope:
-   - handle only the assigned parsed/intermediate artifact
+   - handle only the assigned parsed/intermediate statement
    - do not scan for other parsed files or raw statements
-   - do not decide which artifact should run next
    - do not ask for commit, push, or final import approval
-2. Inspect this artifact and ledger context:
+2. Inspect this statement and ledger context:
    - read the assigned parsed evidence, current status entry, and supplied memory hints
    - use `$auto-bean-query` for ledger reads, account discovery, register inspection, balances, date-bounded activity, duplicate exploration, transaction existence, and account constraints
    - do not approximate those reads by grepping ledger transactions when `$auto-bean-query` can answer them
-3. Work forward while collecting questions:
-   - follow the shared question-handling contract
-   - categorize, reconcile, deduplicate, and record every item whose evidence supports safe analysis
-   - collect unresolved decisions in a categorize artifact under `.auto-bean/artifacts/categorize/`
-   - return control to `$auto-bean-import` after all safe progress for this assigned artifact is persisted, so `$auto-bean-import` can ask the user or continue to posting through `$auto-bean-write`
-   - collect eligible reusable learning throughout categorization, reconciliation, deduplication, and clarification; include memory type, source context, decision, scope, confidence or review state, supporting evidence, current-evidence checks, and why it should be reused later
-4. Categorize each transaction in this artifact:
+3. Create or open the working categorize artifact:
+   - read `.agents/skills/auto-bean-categorize/references/categorize-artifact-rules.md`
+   - create `.auto-bean/artifacts/categorize/<artifact_prefix>--categorize.md` early whenever this work may produce review details, pending or answered questions, reconciliation findings, blockers, warnings, memory suggestions, or posting inputs that should not live only in the return message
+   - if an artifact already exists, use it as the working review surface and preserve any clearly labeled `Import Batch Cross-Statement Review` section
+   - keep collecting safe progress in the artifact while working; for trivial no-blocker work, returning without an artifact is still allowed by the artifact rules
+4. Categorize each transaction in the assigned parsed statement:
    - use current parsed facts plus governed memory hints from `.auto-bean/memory/category_mappings.json`, `.auto-bean/memory/account_mappings.json`, `.auto-bean/memory/import_sources/index.json`, matching import-source memory, and other fixed memory files only when they directly apply
    - treat parsed `account_owner` and `account_names` as statement evidence for selecting account mappings, transfer context, and memory applicability; do not treat them as ledger account names unless a current ledger check or approved mapping supports that
    - apply the shared memory access rules before reusing category, account, transfer, duplicate, naming, clarification, or import-source memory
    - if memory matches under the shared strong-evidence threshold, record the matched memory path, record identity or stable summary, matched transaction facts, and resulting category/account suggestion
    - if no reliable memory matches, provide evidence-based suggestions: likely category/account, supporting statement facts, relevant ledger conventions, confidence, and plausible alternatives
    - when categorization materially affects future postings and evidence does not support one safe choice, record a pending question and continue with any remaining safe work before returning control to `$auto-bean-import`
-5. Reconcile and deduplicate only this artifact's parsed transactions:
+5. Reconcile and deduplicate only this statement's parsed transactions:
    - use `$auto-bean-query` for existing ledger activity needed to compare parsed transactions and suggested postings
-   - compare parsed transactions and category/account suggestions against existing ledger entries, other candidate transactions supplied for this artifact, and the parsed evidence
+   - compare parsed transactions and category/account suggestions against existing ledger entries, other candidate transactions supplied for this statement, and the parsed evidence
    - surface findings only under:
      - `likely_transfer`
      - `possible_duplicate`
@@ -62,16 +60,10 @@ Workflow:
    - use `possible_future_transfer` when a transfer pattern looks strong but no existing or supplied counterpart booking matches yet
    - anchor findings in parsed facts, suggested accounts/categories, existing ledger entries, account constraints, links, metadata, imported ids, or nearby balance assertions
    - fail closed when a finding cannot be safely classified or resolved; do not guess, auto-net, auto-merge, silently drop, or rewrite candidate transactions
-6. Create or update a categorize artifact when needed:
-   - read `.agents/skills/auto-bean-categorize/references/categorize-artifact-rules.md`
-   - create or update the artifact according to those rules
-7. Handle clarification needs for this artifact:
-   - read `.agents/skills/auto-bean-categorize/references/clarification-guidance.md` before returning any question
+6. Handle clarification needs:
    - set `user_input_required: true` when account/category choice, transfer intent, duplicate suspicion, source-specific meaning, or categorization remains materially ambiguous
    - follow the shared question-handling contract; for import-invoked work, normally return question ids and the categorize artifact path so `$auto-bean-import` can keep the main thread
-   - after `$auto-bean-import` supplies user answers, record the answers in the categorize artifact, resume this same artifact with the persisted artifact context and status pointer, then re-run categorization, reconciliation, and deduplication as needed
-   - if the answer is still insufficient, follow the shared follow-up rule and return the remaining blocker to `$auto-bean-import`
-8. Update only this artifact's status:
+8. Update only this statement's status:
    - require the assigned statement to be at `categorize_ready` before categorization work starts
    - set `categorize_blocked` when required categorization, reconciliation, duplicate, transfer, or source-interpretation input is unresolved
    - set `categorize_review` after categorization, reconciliation, and deduplication work is persisted, with any user-input needs recorded in the categorize artifact

@@ -22,6 +22,6 @@ Use for categorization sub-agent handoff, cross-statement review, and user revie
 - For each statement at `categorize_review` or `categorize_blocked`, read the categorize artifact.
 - For `categorize_blocked` statements, broker missing information, risky ambiguity, unresolved reconciliation findings, and manual extraction needs through the shared question contract.
 - Batch compatible questions in the main thread; use fillable artifacts when provided.
-- After answers, update the owning artifacts and status entries.
+- After answers, update both the categorize artifact and the import-owned artifacts and status entries.
 - Move resolved statements to `write_ready`.
 - Gate: continue to write handoff only if ALL statements are at `write_ready`. Wait for user answers for `categorize_blocked` or `categorize_review` statements before advancing to write handoff.
