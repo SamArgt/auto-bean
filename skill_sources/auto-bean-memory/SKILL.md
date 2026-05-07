@@ -73,7 +73,7 @@ When invoked by `$auto-bean-import`, return using the shared compact return sche
 
 Guardrails:
 
-- Follow the shared ownership map for process, categorize, write, query, and memory boundaries.
+- Follow the shared ownership map to respect your scope.
 - Follow the shared workflow rules for status management, question handling, sub-agent handoff, and memory use.
 - Treat memory as advisory context, not silent authority.
 - Do not store user financial decisions in installed skill files, templates, or product-repo `.agents/skills/`.

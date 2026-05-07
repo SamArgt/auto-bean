@@ -71,21 +71,7 @@ When memory is missing, malformed, stale, too broad, inconsistent with current e
 
 When memory influences a proposal, include review attribution: memory path, `memory_type`, record identity or stable summary, matched current evidence, decision influenced, and limits on reuse such as confidence, scope, conflicts checked, or why the memory stayed advisory.
 
-## Writing memory
 
-Only `$auto-bean-memory` may modify `.auto-bean/memory/**`. Other skills may identify eligible reusable decisions and request persistence, but they must not own direct memory writes.
+Guardrails:
 
-Durable memory writes do not require prior user approval when `$auto-bean-memory` can verify that the reusable decision is narrow, evidence-backed, current, and safe to reuse. Worker memory suggestions are candidates, not commands; validate them against current evidence, source/audit provenance, scope, and reuse limits before writing.
-
-Do not persist broad preferences, tentative guesses, blocked findings, rejected interpretations, validation-failed outcomes, unresolved clarifications, or records that would bypass future evidence checks unless the user explicitly asks to preserve that learning. After every durable memory change, surface what changed, why it was eligible, the source/audit context, the exact path changed, and future reuse limits.
-
-Before writing, validate with `jq` or another structured JSON parser:
-
-```sh
-jq empty .auto-bean/memory/category_mappings.json
-jq '.schema_version == 1 and .memory_type == "category_mapping" and (.records | type == "array")' .auto-bean/memory/category_mappings.json
-```
-
-For import-source behavior, validate the index before reading or editing any source file, and edit only valid index entries under `.auto-bean/memory/import_sources/`.
-
-Preserve unrelated records, keep deterministic two-space JSON with a trailing newline, and avoid broad rewrites or new storage systems. Fail closed when the destination file, record type, source context, eligibility, target identity, or storage path is unclear.
+- Only `$auto-bean-memory` may modify `.auto-bean/memory/**`. Other skills may identify eligible reusable decisions and request persistence, but they must not own direct memory writes.

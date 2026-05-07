@@ -23,8 +23,8 @@ High-frequency paths:
 
 ## Read before acting:
 
-- `.agents/skills/shared/workflow-rules.md` for shared expectations on status management, question handling, sub-agent handoff, and memory use
-- `.agents/skills/shared/ownership-map.md` for which skill owns which artifact, evidence, question, memory, and ledger scopes
+- Read `.agents/skills/shared/workflow-rules.md` for shared expectations on status management, question handling, sub-agent handoff, and memory use
+- Read `.agents/skills/shared/ownership-map.md` for which skill owns which artifact, evidence, question, memory, and ledger scopes
 
 ## Import Workflow
 
@@ -49,7 +49,7 @@ Before commit or push for ledger mutations:
 - keep parsed statement facts separate from derived ledger edits
 - show reconciliation findings and required user decisions
 - validate with `./scripts/validate-ledger.sh` or `./.venv/bin/bean-check ledger.beancount`
-- summarize changed files and show `git diff`
+- summarize changed files
 - make clear that working-tree changes are not accepted into history until the user approves finalization
 
 ### Import Status Reference
@@ -84,10 +84,10 @@ Always:
 - route transaction writing through `$auto-bean-write`
 - validate ledger mutations before final review
 - keep working-tree changes separate from accepted history until the user approves finalization
+- respect the boundaries between each workflow
 
 Never:
 
-- treat the product repo as the live ledger workspace
 - treat unapproved working-tree changes as finalized
 - bypass `$auto-bean-import` for import final approval, commit readiness, or push readiness
 

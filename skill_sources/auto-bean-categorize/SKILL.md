@@ -90,8 +90,7 @@ Workflow:
 
 Guardrails:
 
-- Follow the shared ownership map to respect your scope.
+- Follow the shared ownership map to respect your scope strictly.
 - Follow the shared workflow rules for status management, question handling, sub-agent handoff, and memory use.
-- Do not write or edit Beancount ledger entries.
 - Do not bypass clarification with a best guess when ambiguity is material.
 - Do not erase import-batch cross-statement review notes when resuming or updating a categorize artifact.

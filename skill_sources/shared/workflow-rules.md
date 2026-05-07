@@ -4,7 +4,7 @@ Purpose: shared execution rules for auto-bean skills. Skill-specific instruction
 
 ## Required References
 
-Authored skills link to installed workspace paths under `.agents/skills/...` because `auto-bean init` materializes `skill_sources/` into that runtime location. If a required installed reference is missing, report the missing path and stop that stage rather than guessing. If an optional reference is missing, say what was unavailable and continue only when the remaining evidence is enough.
+If a required installed reference is missing, report the missing path and stop that stage rather than guessing. If an optional reference is missing, say what was unavailable and continue only when the remaining evidence is enough.
 
 ## Judgment
 
