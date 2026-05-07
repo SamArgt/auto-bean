@@ -47,6 +47,8 @@ YYYY-MM-DD custom "import_marker" Assets:Checking "statement-2026-01"
 ```
 
 - Header shape is `DATE [txn|FLAG] [[PAYEE] NARRATION]`.
+- Header data should contain a human readable payee and narration when the ledger's style expects them, even if they could be inferred from metadata or tags.
+- Avoid generic payees like "Card purchase" when the statement provides a clearer name, but do not guess when the statement is ambiguous.
 - Common flags are `*` for cleared and `!` for needs-attention.
 - Tags use `#tag`; links use `^link`; both belong on the transaction header.
 - Metadata is written as indented `key: value` pairs under the entry or posting it describes.

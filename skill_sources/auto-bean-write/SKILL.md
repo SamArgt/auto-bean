@@ -31,7 +31,7 @@ Follow this workflow:
    - inspect included `beancount/**` files that are relevant to the target accounts or target date range
    - find existing `open` directives, recent similar transactions, account naming conventions, tags, links, metadata keys, and file placement patterns
 3. Identify the evidence source that justifies the transaction:
-   - reviewed `statements/parsed/*.json`
+   - reviewed the parsed statement under `statements/parsed/`
    - an existing ledger correction request
    - explicit user-provided transaction facts
    - another bounded workspace artifact with concrete transaction details
@@ -39,13 +39,14 @@ Follow this workflow:
    - follow the shared memory access rules before using memory-derived suggestions
 4. If the evidence does not establish the core transaction facts, follow the shared question-handling contract for the missing fields:
    - date
-   - payee or narration shape when materially needed by the ledger style
+   - payee or narration shape
    - posting accounts
    - amount and currency
    - transfer intent, duplicate risk, or balancing rationale
 5. Check Beancount rules before encoding the entry:
    - transactions must balance
    - the header shape is dated transaction header plus postings
+   - header data must contain the payee and narration and avoid generic payees such as "April shopping online" when the statement provides clearer details, but do not guess when the statement is ambiguous
    - tags and links belong on the transaction header
    - metadata belongs on indented `key: value` lines under the entry or posting it describes
    - prefer explicit posting amounts even though Beancount can infer one omitted amount
