@@ -14,6 +14,7 @@ Inputs from `$auto-bean-import`:
 
 Always read before acting:
 
+- `.auto-bean/memory/MEMORY.md`
 - `.agents/skills/shared/sub-agent-return-examples.md`
 - `.agents/skills/shared/parsed-statement-jq-reading.md` before inspecting large parsed statement JSON files
 - `.agents/skills/shared/import-status-reading.md` before reading or updating a large `statements/import-status.yml`
@@ -42,13 +43,14 @@ Workflow:
    - if an artifact already exists, use it as the working review surface and preserve any clearly labeled `Import Batch Cross-Statement Review` section
    - keep collecting safe progress in the artifact while working; for trivial no-blocker work, returning without an artifact is still allowed by the artifact rules
 4. Categorize each transaction in the assigned parsed statement:
-   - use current parsed facts plus governed memory hints from `.auto-bean/memory/category_mappings.json`, `.auto-bean/memory/account_mappings.json`, `.auto-bean/memory/import_sources/index.json`, matching import-source memory, and other fixed memory files only when they directly apply
+   - use current parsed facts plus relevant `.auto-bean/memory/MEMORY.md` context and governed workflow memory hints from `.auto-bean/memory/category_mappings.json`, `.auto-bean/memory/account_mappings.json`, `.auto-bean/memory/import_sources/index.json`, matching import-source memory, `.auto-bean/memory/transfer_detection.json`, and `.auto-bean/memory/deduplication_decisions.json` only when they directly apply
    - treat parsed `account_owner` and `account_names` as statement evidence for selecting account mappings, transfer context, and memory applicability; do not treat them as ledger account names unless a current ledger check or approved mapping supports that
    - apply the shared memory access rules before reusing category, account, transfer, duplicate, naming, clarification, or import-source memory
    - if memory matches under the shared strong-evidence threshold, record the matched memory path, record identity or stable summary, matched transaction facts, and resulting category/account suggestion
    - if no reliable memory matches, provide evidence-based suggestions: likely category/account, supporting statement facts, relevant ledger conventions, confidence, and plausible alternatives
    - when categorization materially affects future postings and evidence does not support one safe choice, record a pending question and continue with any remaining safe work before returning control to `$auto-bean-import`
 5. Reconcile and deduplicate only this statement's parsed transactions:
+   - explicitly load `.auto-bean/memory/transfer_detection.json` before transfer detection and `.auto-bean/memory/deduplication_decisions.json` before duplicate decisions
    - use `$auto-bean-query` for existing ledger activity needed to compare parsed transactions and suggested postings
    - compare parsed transactions and category/account suggestions against existing ledger entries, other candidate transactions supplied for this statement, and the parsed evidence
    - surface findings only under:
@@ -79,10 +81,12 @@ Workflow:
    - status changes and compact pending-question metadata for this artifact, following the shared artifact boundary
    - reconciliation/deduplication findings with suggested actions
    - every persisted pending user question id and the artifact path where the full question is recorded
+   - `memory_md_suggestions`: concise suggested `.auto-bean/memory/MEMORY.md` updates for the main thread, or `[]` when none were found
 
 Guardrails:
 
 - Follow the shared ownership map to respect your scope strictly.
 - Follow the shared workflow rules for status management, question handling, sub-agent handoff, and memory use.
+- Do not edit `.auto-bean/memory/MEMORY.md` when running as a sub-agent.
 - Do not bypass clarification with a best guess when ambiguity is material.
 - Do not erase import-batch cross-statement review notes when resuming or updating a categorize artifact.

@@ -7,6 +7,7 @@ Use this only for the raw-to-parsed stage assigned by `$auto-bean-import`.
 
 Inputs from `$auto-bean-import`:
 
+- relevant `.auto-bean/memory/MEMORY.md` context
 - one raw statement path under `statements/raw/`
 - the matching `statements/import-status.yml` entry when one exists
 - the expected parsed-output path or naming rule
@@ -15,6 +16,7 @@ Inputs from `$auto-bean-import`:
 
 Always read before acting:
 
+- `.auto-bean/memory/MEMORY.md`
 - `.agents/skills/shared/sub-agent-return-examples.md`
 - `.agents/skills/shared/parsed-statement-output.example.json`
 - `.agents/skills/shared/import-status-reading.md` before reading or updating a large `statements/import-status.yml`
@@ -35,6 +37,7 @@ Workflow:
    - do not invoke `$auto-bean-categorize`
    - keep raw inputs in `statements/raw/`, parsed outputs in `statements/parsed/`, parse state in `statements/import-status.yml`, and the process artifact in `.auto-bean/artifacts/process/`
 2. Plan from this input:
+   - use `.auto-bean/memory/MEMORY.md` only for relevant user profile, main-account, preference, correction, and general source context
    - verify the source exists and is `.pdf`, `.csv`, `.xlsx`, or `.xls`
    - compute a deterministic fingerprint such as `sha256`
    - compare the fingerprint to the supplied status entry, if any
@@ -85,6 +88,7 @@ Workflow:
    - memory reuse attribution if governed memory influenced parsing or source handling
    - every process artifact written under `.auto-bean/artifacts/process/`, with question ids, affected intermediate-statement fields, source-memory attribution, and processing-related memory suggestions
    - `memory_suggestions`: every eligible reusable-learning candidate, or `[]` when none were found
+   - `memory_md_suggestions`: concise suggested `.auto-bean/memory/MEMORY.md` updates for the main thread, or `[]` when none were found
 
 Guardrails:
 

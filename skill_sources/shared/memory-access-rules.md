@@ -6,16 +6,17 @@ Durable auto-bean memory lives under `.auto-bean/memory/` in the user workspace.
 
 Memory is advisory: check it against current evidence before reuse, and never let it replace validation, clarification, review, or approval.
 
+`.auto-bean/memory/MEMORY.md` is always-loaded workspace memory. Read it at the start of every new Codex session and include it in every sub-agent handoff. It gathers user profile information such as main accounts, important account relationships, institutions or statement sources, user preferences, user corrections, and other reusable context that is not owned by a workflow-specific memory file.
+
 ## Fixed files
 
 Use these fixed files for MVP memory:
 
+- `.auto-bean/memory/MEMORY.md`
 - `.auto-bean/memory/account_mappings.json`
 - `.auto-bean/memory/category_mappings.json`
-- `.auto-bean/memory/naming_conventions.json`
 - `.auto-bean/memory/transfer_detection.json`
 - `.auto-bean/memory/deduplication_decisions.json`
-- `.auto-bean/memory/clarification_outcomes.json`
 - `.auto-bean/memory/import_sources/index.json`
 - `.auto-bean/memory/import_sources/<source_slug>.json`
 
@@ -23,17 +24,27 @@ Eligible memory categories:
 
 - `account_mapping`
 - `category_mapping`
-- `naming_convention`
 - `import_source_behavior`
 - `transfer_detection`
 - `deduplication_decision`
-- `clarification_outcome`
+- `global_memory`
 
-Every durable record must include `schema_version`, `memory_type`, `source`, `decision`, `scope`, `confidence` or `review_state`, `created_at`, `updated_at`, and `audit`.
+Every durable workflow-specific JSON record must include `schema_version`, `memory_type`, `source`, `decision`, `scope`, `confidence` or `review_state`, `created_at`, `updated_at`, and `audit`.
 
-Non-import-source files must use the top-level shape `schema_version`, `memory_type`, and `records`. Import-source behavior must read `.auto-bean/memory/import_sources/index.json` first; source files are valid only when referenced by an index entry whose path stays under `.auto-bean/memory/import_sources/`.
+Workflow-specific JSON files must use the top-level shape `schema_version`, `memory_type`, and `records`. Import-source behavior must read `.auto-bean/memory/import_sources/index.json` first; source files are valid only when referenced by an index entry whose path stays under `.auto-bean/memory/import_sources/`.
+
+Use workflow-specific files only at their relevant workflow stages:
+
+- `.auto-bean/memory/import_sources/index.json` and matching import-source files: discovery and raw-to-parsed processing.
+- `.auto-bean/memory/account_mappings.json`: account inspection, statement account matching, and transaction posting handoffs.
+- `.auto-bean/memory/category_mappings.json`: categorization and posting handoffs.
+- `.auto-bean/memory/transfer_detection.json`: reconciliation, transfer detection, and posting-risk review.
+- `.auto-bean/memory/deduplication_decisions.json`: deduplication and posting-risk review.
+- `.auto-bean/memory/MEMORY.md`: every new session and every sub-agent handoff, plus main-thread end-of-session review and memory inspection/correction/persistence work.
 
 ## Reading memory
+
+Read `.auto-bean/memory/MEMORY.md` directly and summarize only relevant sections in conversation or handoff messages. Do not dump the whole file unless the user asks to inspect it. If you are running as a sub-agent, do not write this file; include suggested additions, replacements, or removals in your return instead.
 
 Prefer `jq` for memory inspection, especially when files are large. Query only the fields needed for the task instead of dumping entire files into the conversation.
 
@@ -74,4 +85,4 @@ When memory influences a proposal, include review attribution: memory path, `mem
 
 Guardrails:
 
-- Only `$auto-bean-memory` may modify `.auto-bean/memory/**`. Other skills may identify eligible reusable decisions and request persistence, but they must not own direct memory writes.
+- Only `$auto-bean-memory` may modify `.auto-bean/memory/**` files, both workflow specific JSON files and the global MEMORY.md file.

@@ -14,7 +14,7 @@ Use for discovery, process sub-agent assignment, and process-question resolution
    - Gate: continue to process sub-agent assignment only after all raw statements are at `raw_ready` and import-owned artifacts are created or updated.
 2. Spawn process sub-agents with `$auto-bean-process`:
    - Spawn a sub-agent for each process-eligible statement.
-   - Give each sub-agent the source path, current status entry, retry metadata, expected parsed-output path or naming rule, shared artifact prefix, selected `import_source_behavior` memory path or summary, and the instruction to use `$auto-bean-process`.
+   - Give each sub-agent relevant `.auto-bean/memory/MEMORY.md` context, the source path, current status entry, retry metadata, expected parsed-output path or naming rule, shared artifact prefix, selected `import_source_behavior` memory path or summary, and the instruction to use `$auto-bean-process`.
    - Require the process return schema.
    - Wait for all assigned process sub-agents before downstream parsed-statement handoff.
    - Gate: continue to process resolution only after every spawned sub-agent has returned `process_blocked`, `process_review`, or `account_review`.

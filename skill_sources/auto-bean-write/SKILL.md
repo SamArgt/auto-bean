@@ -3,7 +3,10 @@ name: auto-bean-write
 description: Draft, review, and safely write Beancount transactions into the ledger from trusted evidence. Use when a Coding agent needs to add or update transaction entries in `ledger.beancount` or included `beancount/**` files, choose accounts and postings, respect Beancount balancing and account currency constraints, or ask and wait for clarification when transaction intent is ambiguous.
 ---
 
-Start by reading `.agents/skills/shared/beancount-syntax-and-best-practices.md`
+Start by reading:
+
+- `.auto-bean/memory/MEMORY.md`
+- `.agents/skills/shared/beancount-syntax-and-best-practices.md`
 
 Read when needed:
 
@@ -35,6 +38,7 @@ Follow this workflow:
    - another bounded workspace artifact with concrete transaction details
    - memory-derived suggestions handed off by `$auto-bean-import` from `$auto-bean-categorize`, with current evidence and attribution already attached
    - follow the shared memory access rules before using memory-derived suggestions
+   - use `.auto-bean/memory/MEMORY.md` for relevant user profile, main-account, preference, and correction context, but do not let it override transaction evidence
 4. If the evidence does not establish the core transaction facts, follow the shared question-handling contract for the missing fields:
    - date
    - payee or narration shape
@@ -71,6 +75,7 @@ Follow this workflow:
     - the validation outcome
     - a clear statement that the working tree is changed but not finalized until approval is granted
 11. Ask for explicit approval before commit or push finalization when used directly. When invoked by `$auto-bean-import`, never own commit or push finalization; use the shared compact return schema for orchestrator-owned approval and finalization. If approval is denied or deferred, leave the working-tree mutation unfinalized and explain its current state.
+12. Before ending a direct main-thread writing session, update `.auto-bean/memory/MEMORY.md` with durable reusable user-profile, preference, or correction learnings, or say that there was nothing to add. When invoked as an import sub-agent, do not edit `.auto-bean/memory/MEMORY.md`; return suggested updates for `$auto-bean-import`.
 
 Guardrails:
 

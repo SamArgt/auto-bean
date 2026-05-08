@@ -7,6 +7,7 @@ Use this as the user-facing import entrypoint. Delegate mechanics to narrower sk
 
 Always read before acting:
 
+- `.auto-bean/memory/MEMORY.md`
 - `.agents/skills/shared/workflow-rules.md`
 - `.agents/skills/shared/ownership-map.md`
 - `.agents/skills/shared/import-status-reading.md`
@@ -15,6 +16,7 @@ Always read before acting:
 ## Execution Model
 
 - When a stage reference says to spawn a sub-agent, do that for independent statements when the runtime permits it.
+- Include relevant `.auto-bean/memory/MEMORY.md` context in every sub-agent handoff.
 - If sub-agents are unavailable, run the same stage serially and preserve all artifact, status, and return contracts.
 
 ## Workflow
@@ -46,7 +48,9 @@ Use supporting references only at their trigger point:
 
 ## End With
 
-Give a concise import-run summary with statement outcomes, artifact links, ledger or status changes, validation results, memory handoff result, and remaining approvals or blockers.
+Review and update `.auto-bean/memory/MEMORY.md` with any durable main-thread learnings from the session and any eligible suggestions returned by sub-agents. If nothing should be added, leave it unchanged and say so.
+
+Give a concise import-run summary with statement outcomes, artifact links, ledger or status changes, validation results, memory handoff result, `MEMORY.md` update result, and remaining approvals or blockers.
 
 ## Guardrails
 

@@ -4,8 +4,7 @@ This is a user-owned ledger workspace. Keep product-code work in the `auto-bean`
 
 Codex is the orchestrator. Installed skills under `.agents/skills/` are the execution surface.
 
-Context7 MCP is configured for Codex in the gitignored `.codex/config.toml` so skills can look up current external-library documentation. If a Context7 API key was provided during initialization, it is stored in that local config file and must not be committed.
-
+Context7 MCP is configured for Codex in the gitignored `.codex/config.toml` so skills can look up current external-library documentation.
 ## Quick Start
 
 - Use `$auto-bean-import` for statement imports from `statements/raw/`.
@@ -25,6 +24,20 @@ High-frequency paths:
 
 - Read `.agents/skills/shared/workflow-rules.md` for shared expectations on status management, question handling, sub-agent handoff, and memory use
 - Read `.agents/skills/shared/ownership-map.md` for which skill owns which artifact, evidence, question, memory, and ledger scopes
+
+### Memory
+
+Read `.auto-bean/memory/MEMORY.md` at session start and whenever preparing a sub-agent handoff.
+Read `.agents/skills/shared/memory-access-rules.md`
+
+Skills may suggest useful governed memory. Only `$auto-bean-memory` writes workflow-specific `.auto-bean/memory/**` JSON files, and reused memory is advisory, never silent authority. Sub-agents must return suggested `.auto-bean/memory/MEMORY.md` edits instead of changing that file directly.
+
+
+## Before Ending A Main-Thread Session
+
+Update `.auto-bean/memory/MEMORY.md` before ending every main-thread session. Add or revise only durable, reusable, non-secret context learned from the session, such as main accounts, account relationships, user preferences, and user corrections. If nothing reusable was learned, leave the file unchanged and say so briefly in the final response.
+
+Sub-agents must not edit `.auto-bean/memory/MEMORY.md`. They may read relevant context supplied by the main thread and return concise `MEMORY.md` update suggestions for the main thread to review and apply.
 
 ## Import Workflow
 
@@ -58,13 +71,6 @@ Read `.agents/skills/shared/import-status-reading.md` for the canonical per-stat
 
 Only mark a statement `done` after user approval of the final import result.
 
-### Memory
-
-Read `.agents/skills/shared/memory-access-rules.md` before relying on or requesting durable memory persistence.
-
-Read `.agents/skills/shared/workflow-rules.md`, `.agents/skills/shared/ownership-map.md`, and `.agents/skills/shared/sub-agent-return-examples.md` for shared evidence, artifact privacy, ownership, and sub-agent return expectations.
-
-Skills may suggest useful governed memory. Only `$auto-bean-memory` writes `.auto-bean/memory/**`, and reused memory is advisory, never silent authority.
 
 ### Reference Paths
 
@@ -72,7 +78,8 @@ Skills may suggest useful governed memory. Only `$auto-bean-memory` writes `.aut
 - `.auto-bean/artifacts/categorize/`: optional categorization, reconciliation, deduplication, and user-input artifacts
 - `.auto-bean/artifacts/import/`: statement-scoped import provenance and import-brokered answers
 - `.auto-bean/artifacts/process/`: raw-to-parsed processing notes, warnings, and process questions
-- `.auto-bean/memory/`: governed memory
+- `.auto-bean/memory/MEMORY.md`: always-loaded user profile, preference, correction, and general workspace memory
+- `.auto-bean/memory/`: governed workflow-specific memory
 - `.agents/skills/`: installed runtime skills
 - `.codex/config.toml`: gitignored project-scoped Codex MCP configuration for Context7
 

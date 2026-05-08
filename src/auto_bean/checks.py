@@ -147,6 +147,7 @@ class WorkspaceChecks:
             for path in (
                 template_directory / "README.md",
                 template_directory / "AGENTS.md",
+                template_directory / ".auto-bean" / "memory" / "MEMORY.md",
                 template_directory / "scripts" / "install-dependencies.sh",
                 template_directory / "scripts" / "open-fava.sh",
                 template_directory / "scripts" / "validate-ledger.sh",

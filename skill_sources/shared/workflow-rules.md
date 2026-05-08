@@ -20,4 +20,8 @@ Artifacts should link to stage-owned detail rather than copying full warning, qu
 
 Do not include raw statement dumps, full ledger excerpts, secret tokens, tax identifiers, full account numbers, or full card numbers in Markdown artifacts unless the user explicitly requires that exact value for review. Prefer redacted forms such as last four digits, stable row ids, source paths, and artifact links.
 
-For ownership boundaries, read `.agents/skills/shared/ownership-map.md`. For sub-agent returns to `$auto-bean-import`, read `.agents/skills/shared/sub-agent-return-examples.md`.
+## Sub-agent handoff
+
+When spawning a sub-agent, provide clear instructions on which skill to use, the relevant artifact paths, the expected return schema, any relevant memory context and its scope.
+Tell the sub-agent to not ask for clarification or additional information from the user; all required context must be supplied in the handoff.
+Tell the sub-agent to not edit `.auto-bean/memory/MEMORY.md` directly; it must return any suggested global-memory updates for the main thread to review and apply.
