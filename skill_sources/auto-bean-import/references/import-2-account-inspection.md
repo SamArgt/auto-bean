@@ -7,9 +7,9 @@ Use for first-seen account derivation and opening-balance checks.
 - For each statement at `account_review`, inspect existing ledger accounts with `$auto-bean-query`.
 - Read relevant `import_source_behavior` memory selected during discovery or reported by `$auto-bean-process`.
 - Search `.auto-bean/memory/account_mappings.json` for any matching account-mapping memory under the shared strong-evidence threshold.
-- Classify inferred accounts as `existing_account`, `first_seen_candidate`, or `blocked_inference`.
+- Classify inferred accounts as `existing_account`, `first_seen_candidate`, or `blocked_inference`. For `existing_account`, write down their corresponding account in the import-owned artifact.
 - Consider only banking, credit card, loans, cash, and investment account types for first-seen structure inference.
-- Infer only institution-owned balance-sheet accounts and opening balances; leave expense, income, and other transaction categories to `$auto-bean-categorize`.
+- Infer only institution-owned balance-sheet accounts and opening balances;
 - Infer Beancount-safe account names and minimal supporting directives only when current facts meet the shared strong-evidence threshold.
 - Before writing directives, present exact proposed directives, target file, supporting parsed evidence, and reason the account appears first-seen. Ask the user to approve or correct it.
 - Set `account_blocked` while required account identity, currency, mutation-target, duplicate-risk, or approval questions are unresolved.

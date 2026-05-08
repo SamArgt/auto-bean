@@ -43,7 +43,7 @@ Workflow:
    - if an artifact already exists, use it as the working review surface and preserve any clearly labeled `Import Batch Cross-Statement Review` section
    - keep collecting safe progress in the artifact while working; for trivial no-blocker work, returning without an artifact is still allowed by the artifact rules
 4. Categorize each transaction in the assigned parsed statement:
-   - use current parsed facts plus relevant `.auto-bean/memory/MEMORY.md` context and governed workflow memory hints from `.auto-bean/memory/category_mappings.json`, `.auto-bean/memory/account_mappings.json`, `.auto-bean/memory/import_sources/index.json`, matching import-source memory, `.auto-bean/memory/transfer_detection.json`, and `.auto-bean/memory/deduplication_decisions.json` only when they directly apply
+   - use current parsed facts plus relevant `.auto-bean/memory/MEMORY.md` context and governed workflow memory hints from `.auto-bean/memory/category_mappings.json`.
    - treat parsed `account_owner` and `account_names` as statement evidence for selecting account mappings, transfer context, and memory applicability; do not treat them as ledger account names unless a current ledger check or approved mapping supports that
    - apply the shared memory access rules before reusing category, account, transfer, duplicate, naming, clarification, or import-source memory
    - if memory matches under the shared strong-evidence threshold, record the matched memory path, record identity or stable summary, matched transaction facts, and resulting category/account suggestion
