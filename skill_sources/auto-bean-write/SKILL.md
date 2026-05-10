@@ -26,7 +26,7 @@ If the transaction-writing task is part of an import workflow but you don't have
 
 Follow this workflow:
 
-1. Restate the requested ledger-writing task in plain language.
+1. Restate the requested ledger-writing task and whether it is direct or import-invoked.
 2. Inspect the current ledger context before drafting anything:
    - read `ledger.beancount`
    - inspect included `beancount/**` files that are relevant to the target accounts or target date range
@@ -75,7 +75,6 @@ Follow this workflow:
     - the validation outcome
     - a clear statement that the working tree is changed but not finalized until approval is granted
 11. Ask for explicit approval before commit or push finalization when used directly. When invoked by `$auto-bean-import`, never own commit or push finalization; use the shared compact return schema for orchestrator-owned approval and finalization. If approval is denied or deferred, leave the working-tree mutation unfinalized and explain its current state.
-12. Before ending a direct main-thread writing session, update `.auto-bean/memory/MEMORY.md` with durable global user-profile, preference, or correction learnings, or say that there was nothing to add. Hand workflow-specific JSON memory candidates to `$auto-bean-memory`; do not write JSON memory files directly. When invoked as an import sub-agent, do not edit `.auto-bean/memory/MEMORY.md`; return suggested updates for `$auto-bean-import`.
 
 Guardrails:
 

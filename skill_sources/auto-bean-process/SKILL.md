@@ -32,7 +32,7 @@ Read when needed:
 Workflow:
 
 1. Confirm the assigned scope:
-   - process only the assigned raw statement path
+   - process only the assigned raw statement path, status entry, expected parsed-output path or rule, and shared artifact prefix
    - do not scan `statements/raw/` for more work
    - do not invoke `$auto-bean-categorize`
    - keep raw inputs in `statements/raw/`, parsed outputs in `statements/parsed/`, parse state in `statements/import-status.yml`, and the process artifact in `.auto-bean/artifacts/process/`
@@ -80,15 +80,14 @@ Workflow:
    - reflect only the process artifact path in the parsed output and status entry; do not embed warning, question, or answer payloads outside the process artifact
    - when user input is required, never ask the user directly; return only persisted question ids, the process artifact path, and operational blocker flags to `$auto-bean-import` so the orchestrator can ask and update or resume the intermediate statement
    - collect eligible reusable learning into a `Memory Suggestions` section of the process artifact, even when there are no user questions
-7. Return control to `$auto-bean-import` using the shared compact return schema, including:
+7. Return control to `$auto-bean-import`:
    - assigned source path and source fingerprint
    - parsed output path and parse run id
    - status change for this input
    - whether warnings or blockers exist, retry metadata, and evidence-quality result, with warning details kept in the process artifact
    - memory reuse attribution if governed memory influenced parsing or source handling
    - every process artifact written under `.auto-bean/artifacts/process/`, with question ids, affected intermediate-statement fields, source-memory attribution, and processing-related memory suggestions
-   - `memory_suggestions`: every eligible reusable-learning candidate, or `[]` when none were found
-   - `memory_md_suggestions`: concise suggested `.auto-bean/memory/MEMORY.md` updates for the main thread, or `[]` when none were found
+  
 
 Guardrails:
 

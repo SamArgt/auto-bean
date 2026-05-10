@@ -30,7 +30,7 @@ Read when needed:
 Workflow:
 
 1. Confirm the assigned scope:
-   - handle only the assigned parsed/intermediate statement
+   - handle only the assigned parsed/intermediate statement, status entry, and shared artifact prefix
    - do not scan for other parsed files or raw statements
    - do not ask for commit, push, or final import approval
 2. Inspect this statement and ledger context:
@@ -39,9 +39,9 @@ Workflow:
    - do not approximate those reads by grepping ledger transactions when `$auto-bean-query` can answer them
 3. Create or open the working categorize artifact:
    - read `.agents/skills/auto-bean-categorize/references/categorize-artifact-rules.md`
-   - create `.auto-bean/artifacts/categorize/<artifact_prefix>--categorize.md` early whenever this work may produce review details, pending or answered questions, reconciliation findings, blockers, warnings, memory suggestions, or posting inputs that should not live only in the return message
+   - create `.auto-bean/artifacts/categorize/<artifact_prefix>--categorize.md` early as the working review surface for this statement
    - if an artifact already exists, use it as the working review surface and preserve any clearly labeled `Import Batch Cross-Statement Review` section
-   - keep collecting safe progress in the artifact while working; for trivial no-blocker work, returning without an artifact is still allowed by the artifact rules
+   - keep collecting safe progress in the artifact while working
 4. Categorize each transaction in the assigned parsed statement:
    - use current parsed facts plus relevant `.auto-bean/memory/MEMORY.md` context and governed workflow memory hints from `.auto-bean/memory/category_mappings.json`.
    - treat parsed `account_owner` and `account_names` as statement evidence for selecting account mappings, transfer context, and memory applicability; do not treat them as ledger account names unless a current ledger check or approved mapping supports that
@@ -65,16 +65,16 @@ Workflow:
 6. Handle clarification needs:
    - set `user_input_required: true` when account/category choice, transfer intent, duplicate suspicion, source-specific meaning, or categorization remains materially ambiguous
    - follow the shared question-handling contract; when invoked by `$auto-bean-import`, never ask the user directly, and return only persisted question ids, the categorize artifact path, and operational blocker flags so `$auto-bean-import` can broker the question in the main thread
-8. Update only this statement's status:
+7. Update only this statement's status:
    - require the assigned statement to be at `categorize_ready` before categorization work starts
    - set `categorize_blocked` when required categorization, reconciliation, duplicate, transfer, or source-interpretation input is unresolved
    - set `categorize_review` after categorization, reconciliation, and deduplication work is persisted, with any user-input needs recorded in the categorize artifact
 
    - allowed status updates from this stage are `categorize_blocked` and `categorize_review`; `$auto-bean-import` advances later statuses after review, posting, validation, and approval
    - refresh the matching entry in `statements/import-status.yml`; do not create a second workflow-tracking file, and do not copy warning, question, or answer payloads into the status entry
-9. Return control to `$auto-bean-import` using the shared compact return schema, including:
+8. Return control to `$auto-bean-import`:
    - assigned parsed/intermediate artifact path
-   - categorize artifact path if one was created or updated, including whether it needs user completion
+   - categorize artifact path, including whether it needs user completion
    - short summary of what was categorized, reconciled, deduplicated, or blocked
    - categorization results and memory attribution
    - suggested transaction posting inputs for `$auto-bean-import` to pass to `$auto-bean-write` after user input is resolved

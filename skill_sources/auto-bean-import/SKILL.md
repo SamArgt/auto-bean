@@ -24,20 +24,29 @@ Always read before acting:
 Follow this ordered reference map; the stage mechanics live there. For each step, read its reference fully before acting, and wait to open the next reference until the current step is complete.
 
 1. Read and follow `.agents/skills/auto-bean-import/references/import-1-discovery.md`
-  - Use the discovery stage for raw statement discovery, process sub-agent assignment, and process-question resolution.
-  - Respect the gates and close sub-agents before proceeding to next step.
+  - Create or refresh one status entry and import-owned artifact per raw statement.
+  - Use the same artifact prefix for process, categorize, and import artifacts.
+  - Respect the gates and close sub-agents before proceeding.
 2. Read and follow `.agents/skills/auto-bean-import/references/import-2-account-inspection.md`
-  - Use the account inspection stage for account review, opening balance checks, and balance review.
-  - Respect the gates before proceeding to next step.
+  - Resolve account review and opening-balance checks.
+  - Respect the gates before proceeding.
 3. Read and follow `.agents/skills/auto-bean-import/references/import-3-categorization-review.md`
-  - Use the categorization review stage for categorization sub-agent handoff, cross-statement review, and user review before writing.
-  - Respect the gates and close sub-agents before proceeding to next step.
+  - Complete categorization handoff, cross-statement review, and user review before writing.
+  - Respect the gates and close sub-agents before proceeding.
 4. Read and follow `.agents/skills/auto-bean-import/references/import-4-write-final-review.md`
-  - Use the write and final review stage for write handoff, write-stage user brokering, validation review, and final import approval.
-  - Respect the gates and close sub-agents before proceeding to next step.
+  - Complete write handoff, write-stage brokering, validation review, and final approval.
+  - Respect the gates and close sub-agents before proceeding.
 5. Read and follow `.agents/skills/auto-bean-import/references/import-5-memory-handoff.md`
-  - Use the memory handoff stage after import parsing, categorization, writing, validation, and final-review context are available to persist any reusable learning as governed memory for future import work.
-  - Respect the gates and close sub-agents before proceeding to next step.
+  - Persist reusable learning through governed memory handoff only after stage context is available.
+  - Respect the gates and close sub-agents before proceeding.
+6. Completion checklist:
+  - every in-scope statement has a current status entry and matching import-owned artifact
+  - each completed stage recorded artifact paths, question ids, decisions, and gate result
+  - no statement advanced past a blocked or unresolved review status
+  - ledger mutations, validation results, and final approval state are reflected in import-owned artifacts
+  - governed JSON memory candidates were routed through the memory handoff stage
+  - durable `MEMORY.md` suggestions were reviewed and applied or skipped by the main thread
+  - final response includes statement outcomes, artifact links, ledger/status changes, validation result, memory result, `MEMORY.md` result, and remaining blockers or approvals
 
 Use supporting references only at their trigger point:
 
@@ -45,12 +54,6 @@ Use supporting references only at their trigger point:
 - Read `.agents/skills/shared/question-handling-contract.md` before surfacing or resuming stage questions.
 - Read `.agents/skills/shared/memory-access-rules.md` before using governed memory hints.
 - Read `.agents/skills/shared/import-status.example.yml` only when creating new status fields or auditing schema shape.
-
-## End With
-
-As the main-thread orchestrator, review and update `.auto-bean/memory/MEMORY.md` with any durable global user context learned during the session and any eligible `MEMORY.md` suggestions returned by sub-agents. Route workflow-specific JSON memory persistence through the memory handoff stage; do not write JSON memory files directly.
-
-Give a concise import-run summary with statement outcomes, artifact links, ledger or status changes, validation results, memory handoff result, `MEMORY.md` update result, and remaining approvals or blockers.
 
 ## Guardrails
 

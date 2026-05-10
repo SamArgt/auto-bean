@@ -2,7 +2,7 @@
 
 Use when creating or updating a categorize artifact.
 
-Create a Markdown artifact whenever there are reconciliation findings, pending or answered questions, blockers, warnings, memory suggestions, or posting inputs too large for a compact return. For trivial no-blocker work, returning without an artifact is allowed.
+Create a Markdown artifact for every assigned import categorization task. Keep trivial no-blocker artifacts short, but still preserve the audit trail.
 
 Rules:
 
