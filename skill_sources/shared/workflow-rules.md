@@ -14,6 +14,17 @@ Treat evidence as strong only when at least two independent current facts agree,
 
 Workflow-specific JSON memory writes are owned by `$auto-bean-memory`. Main-thread orchestrators and direct main-thread write sessions may update `.auto-bean/memory/MEMORY.md` at session end with durable global user context; sub-agents must return suggested `MEMORY.md` edits instead of writing it.
 
+## Fail-Closed Semantics
+
+Fail closed means no guessing and no silent continuation past a material ambiguity, validation failure, ownership conflict, or unsafe path. Apply this invariant in order:
+
+1. Persist any deterministic safe progress already produced in the stage-owned output or artifact, without inventing missing facts.
+2. Update the stage status to the blocked state when that stage has a status model; if the skill is read-only or has no status model, do not invent one.
+3. Record blocker details in the owning artifact or response surface: affected path or record id, evidence checked, why continuing would be unsafe, and what input or repair is required.
+4. Return explicit blocker metadata to the caller or user, including required input, resume requirements, and any safe progress path.
+
+If persisting safe progress itself would be unsafe, path-ambiguous, or outside ownership, skip that write and return the blocker with the concrete reason.
+
 ## Artifacts
 
 Artifact language should be plain and reviewable. Internal returns may be compact and technical.

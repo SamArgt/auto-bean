@@ -79,4 +79,4 @@ Guardrails:
 - Do not store user financial decisions in installed skill files, templates, or product-repo `.agents/skills/`.
 - Do not treat import-owned artifacts as durable memory; use them only as governed source/audit context for eligible memory records.
 - Do not create additional category files, databases, vector stores, caches, YAML files, or ad hoc memory blobs for MVP.
-- Fail closed when the destination file, record type, source context, eligibility, target identity, or storage path is unclear.
+- Apply the shared fail-closed invariant when the destination file, record type, source context, eligibility, target identity, or storage path is unclear; do not write durable memory until the blocker is resolved.

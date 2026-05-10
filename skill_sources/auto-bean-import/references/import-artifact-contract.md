@@ -56,7 +56,7 @@ Do not include workflow counts, current status, highest status reached, retry co
 - Treat `statements/import-status.yml` as the only orchestration status index. The import artifact may reference the matching status entry path or key, but it must not duplicate current status or progress fields.
 - Persist every import-owned decision here before asking the user for approval, handing work to another stage, invoking `$auto-bean-memory`, or marking the matching status entry `done`.
 - Store summaries, paths, stable ids, and evidence references. Do not copy raw statement dumps, full parsed statement payloads, complete ledgers, or unrelated financial data into this artifact.
-- Fail closed when the artifact path would escape `.auto-bean/artifacts/import/`, when the source prefix does not match the raw statement's process and categorize artifacts, when the import artifact cannot be read or updated, or when artifact references conflict with `statements/import-status.yml`.
+- Apply the shared fail-closed invariant when the artifact path would escape `.auto-bean/artifacts/import/`, when the source prefix does not match the raw statement's process and categorize artifacts, when the import artifact cannot be read or updated, or when artifact references conflict with `statements/import-status.yml`.
 
 ## Memory Handoff
 

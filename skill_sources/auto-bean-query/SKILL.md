@@ -58,6 +58,6 @@ Guardrails:
 
 - Keep this skill read-only.
 - Prefer `bean-query` over ad hoc parsing when the question is answerable in BQL.
-- Fail closed when account identity, date interpretation, or valuation semantics are ambiguous.
+- Apply the shared fail-closed invariant when account identity, date interpretation, or valuation semantics are ambiguous; because this skill is read-only, return blocker details and required clarification instead of mutating status or ledger files.
 - Do not overstate precision when results depend on inventories, costs, or price data the query did not normalize.
 - Keep outputs concise, inspectable, and easy to reconcile against the ledger.

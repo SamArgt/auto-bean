@@ -61,7 +61,7 @@ Workflow:
    - include only necessary parse metadata and extracted evidence such as `parse_run_id`, `source_file`, `source_fingerprint`, `source_format`, parser identifier, `parsed_at`, process artifact path, `account_owner`, `account_names`, `statement_metadata`, and extracted records
    - populate `account_owner`, `account_names`, and `statement_metadata` only from raw-statement evidence; use `null`, `[]`, or omitted nested fields when the statement does not expose values clearly, and record extraction ambiguity in the process artifact
    - when present, use `statement_metadata` for statement-scoped facts such as institution name, statement period, and statement issue date; put account-specific facts under `statement_metadata.accounts[]`, including a stable parsed `account_id`, account identifiers, account type, primary currency, opening/closing/available balances, reported record counts, and balance reconciliation checks
-   - set `account_id` on every extracted record to point to the matching `statement_metadata.accounts[]` entry; if a record's account cannot be identified in a multi-account statement, stop and record the ambiguity instead of assigning it by guess
+   - set `account_id` on every extracted record to point to the matching `statement_metadata.accounts[]` entry; if a record's account cannot be identified in a multi-account statement, apply the shared fail-closed invariant with `process_blocked` instead of assigning it by guess
    - keep all contract keys in `snake_case`
    - on re-parse, write a new versioned output and refresh only this statement's status entry
 5. Update only this input's status:

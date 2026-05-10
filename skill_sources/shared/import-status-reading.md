@@ -45,4 +45,4 @@ Recovery:
 
 - If YAML is malformed, has duplicate keys, has path conflicts, or cannot be parsed without losing comments or unrelated entries, stop before editing and report the affected path or line when known.
 - If an entry has an unknown status, keep it out of automatic dispatch and ask `$auto-bean-import` or the user to resolve the status.
-- If two entries point to the same raw statement, parsed statement, or stage artifact incompatibly, fail closed and surface the conflict instead of choosing one silently.
+- If two entries point to the same raw statement, parsed statement, or stage artifact incompatibly, apply the shared fail-closed invariant and surface the conflict instead of choosing one silently.
