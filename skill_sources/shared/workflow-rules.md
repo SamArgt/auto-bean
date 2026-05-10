@@ -82,7 +82,7 @@ If a requested mutation is outside these owners, ask which workflow should own i
 
 ## Sub-Agent Handoff
 
-When spawning a sub-agent, provide clear instructions on which skill to use, what is its clear scope, the relevant artifact paths, expected compact return schema, and any relevant memory context.
+When spawning a sub-agent, provide clear instructions on which skill to use, what are its boundaries, the relevant artifact paths, expected compact return schema, and any relevant memory context.
 
 Tell the sub-agent not to ask the user for clarification; all required context must be supplied in the handoff. Tell it not to edit `.auto-bean/memory/MEMORY.md` directly.
 
