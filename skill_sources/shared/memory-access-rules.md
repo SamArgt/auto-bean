@@ -46,7 +46,7 @@ Use workflow-specific files only at their relevant workflow stages:
 
 Read `.auto-bean/memory/MEMORY.md` directly and summarize only relevant sections in conversation or handoff messages. Do not dump the whole file unless the user asks to inspect it. If you are running as a sub-agent, do not write this file; include suggested additions, replacements, or removals in your return instead.
 
-Prefer `jq` for memory inspection, especially when files are large. Query only the fields needed for the task instead of dumping entire files into the conversation.
+SHOULD prefer `jq` for memory inspection, especially when files are large. Query only the fields needed for the task instead of dumping entire files into the conversation.
 
 List record counts:
 

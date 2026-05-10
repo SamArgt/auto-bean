@@ -5,7 +5,7 @@ description: Orchestrate statement imports from raw statement discovery through 
 
 Use this as the user-facing import entrypoint. Delegate mechanics to narrower skills instead of duplicating their procedures.
 
-Always read before acting:
+MUST read before acting:
 
 - `.auto-bean/memory/MEMORY.md`
 - `.agents/skills/shared/workflow-rules.md`
@@ -22,23 +22,15 @@ Always read before acting:
 
 Follow this ordered reference map; the stage mechanics live there. For each step, read its reference fully before acting, and wait to open the next reference until the current step is complete.
 
-1. Read and follow `.agents/skills/auto-bean-import/references/import-1-discovery.md`
-  - Create or refresh one status entry and import-owned artifact per raw statement.
-  - Use the same artifact prefix for process, categorize, and import artifacts.
-  - Respect the gates and close sub-agents before proceeding.
-2. Read and follow `.agents/skills/auto-bean-import/references/import-2-account-inspection.md`
-  - Resolve account review and opening-balance checks.
-  - Respect the gates before proceeding.
-3. Read and follow `.agents/skills/auto-bean-import/references/import-3-categorization-review.md`
-  - Complete categorization handoff, cross-statement review, and user review before writing.
-  - Respect the gates and close sub-agents before proceeding.
-4. Read and follow `.agents/skills/auto-bean-import/references/import-4-write-final-review.md`
-  - Complete write handoff, write-stage brokering, validation review, and final approval.
-  - Respect the gates and close sub-agents before proceeding.
-5. Read and follow `.agents/skills/auto-bean-import/references/import-5-memory-handoff.md`
-  - Persist reusable learning through governed memory handoff only after stage context is available and memory eligibility has been checked.
-  - Respect the gates and close sub-agents before proceeding.
-6. Completion checklist:
+| stage | file to read | gate conditions | outputs |
+| --- | --- | --- | --- |
+| 1 discovery and processing | [import-1-discovery.md](references/import-1-discovery.md) | raw statements have current status entries and import artifacts; process sub-agents are closed or serial work is complete | status entries, process artifacts, parsed statements, compact process returns |
+| 2 account inspection | [import-2-account-inspection.md](references/import-2-account-inspection.md) | account identity, currency, mutation target, duplicate risk, and approved account-opening needs are resolved or blocked | import artifact account decisions, status transitions, validation references |
+| 3 categorization review | [import-3-categorization-review.md](references/import-3-categorization-review.md) | statements are at `categorize_review` or intentionally blocked; cross-statement transfer and duplicate review is resolved before writing, categorize subagents are closed | categorize artifact paths, compact question ids, posting handoff inputs |
+| 4 write and final review | [import-4-write-final-review.md](references/import-4-write-final-review.md) | write sub-agents are closed; validation passes or blockers are recorded; final approval is explicit before `done` | ledger changes, validation results, final approval decisions, status updates |
+| 5 memory handoff | [import-5-memory-handoff.md](references/import-5-memory-handoff.md) | memory example references selected by `$auto-bean-memory` | eligible reusable learning has provenance and review state; memory handoff is separate from statement advancement | governed memory result, `MEMORY.md` updates or skips, final summary |
+
+Completion checklist:
   - every in-scope statement has a current status entry and matching import-owned artifact
   - each completed stage recorded artifact paths, question ids, decisions, and gate result
   - no statement advanced past a blocked or unresolved review status

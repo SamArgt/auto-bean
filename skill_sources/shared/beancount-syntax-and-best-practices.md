@@ -5,7 +5,7 @@ Purpose: Beancount syntax, ledger structure, and mutation safety only. Workflow 
 ## Core rules
 
 - Reuse the workspace's existing root account names, include graph, quoting style, and file layout.
-- Prefer explicit postings and directives over shorthand.
+- SHOULD prefer explicit postings and directives over shorthand.
 - Avoid duplicate directives, duplicate transactions, and silent rewrites of history.
 - Treat balancing failures and `open` directive currency restrictions as hard safety checks, not soft suggestions.
 
@@ -53,7 +53,7 @@ YYYY-MM-DD custom "import_marker" Assets:Checking "statement-2026-01"
 - Tags use `#tag`; links use `^link`; both belong on the transaction header.
 - Metadata is written as indented `key: value` pairs under the entry or posting it describes.
 - Postings may include units, lot cost `{...}`, price `@ ...`, metadata, and an optional posting flag.
-- Prefer explicit balancing amounts even though Beancount can infer one missing amount.
+- SHOULD prefer explicit balancing amounts even though Beancount can infer one missing amount.
 - Leave at most one posting amount omitted, and only when the intended balance is unambiguous.
 - Only emit costs or prices when the source evidence clearly supports them.
 - Preserve the ledger's established metadata keys, quoting style, and posting order.

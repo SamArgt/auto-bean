@@ -27,7 +27,7 @@ Keep it focused on ledger evidence and finding quality, not workflow actions.
 
 ## Conservative matching rules
 
-- Prefer exact amount and currency matches before weaker narration similarity.
+- SHOULD prefer exact amount and currency matches before weaker narration similarity.
 - Treat imported ids, links, and stable metadata as stronger duplicate signals than plain-text descriptions.
 - For transfers, look for opposite cash movement, nearby timing, and account context that suggests the same owner moved funds internally.
 - For duplicates, compare both against existing ledger history and same-run parsed or categorized candidates.

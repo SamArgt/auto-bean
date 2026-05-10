@@ -22,7 +22,7 @@ High-frequency paths:
 
 ## Read before acting:
 
-- Read `.agents/skills/shared/workflow-rules.md` for shared expectations on ownership, status management, question handling, sub-agent handoff, compact returns, and memory use
+- Read `.agents/skills/shared/workflow-rules.md` for shared expectations on modality, ownership, status management, question handling, sub-agent handoff, compact returns, composition rules, and memory use
 - Read `.auto-bean/memory/MEMORY.md` at session start and whenever preparing a sub-agent handoff.
 - Read `.agents/skills/shared/memory-access-rules.md` to understand how to access and read workflow-specific memories.
 
@@ -76,7 +76,7 @@ Only mark a statement `done` after user approval of the final import result.
 
 ### Guardrails
 
-Always:
+MUST:
 
 - route ledger reads through `$auto-bean-query` when Beancount can answer them
 - route transaction writing through `$auto-bean-write`
@@ -84,9 +84,7 @@ Always:
 - keep working-tree changes separate from accepted history until the user approves finalization
 - respect the boundaries between each workflow
 
-Never:
+MUST NOT:
 
 - treat unapproved working-tree changes as finalized
 - bypass `$auto-bean-import` for import final approval, commit readiness, or push readiness
-
-Prefer git-backed revert for committed recovery.

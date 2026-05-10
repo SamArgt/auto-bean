@@ -3,7 +3,7 @@ name: auto-bean-write
 description: Draft, review, and safely write Beancount transactions into the ledger from trusted evidence. Use when a Coding agent needs to add or update transaction entries in `ledger.beancount` or included `beancount/**` files, choose accounts and postings, respect Beancount balancing and account currency constraints, or ask and wait for clarification when transaction intent is ambiguous.
 ---
 
-Always read before acting:
+MUST read before acting:
 
 - `.auto-bean/memory/MEMORY.md`
 - `.agents/skills/shared/workflow-rules.md`
@@ -11,7 +11,7 @@ Always read before acting:
 
 Read when needed:
 
-- `.agents/skills/shared/memory-access-rules.md` MUST be read when transaction evidence includes memory-derived account, category, transfer, duplicate, source, or posting suggestions; when current evidence contradicts a memory-derived suggestion; or when an approved transaction-writing result reveals reusable memory. Workflow-specific JSON persistence is handed to `$auto-bean-memory`.
+- `.agents/skills/shared/memory-access-rules.md` MUST be read when transaction evidence includes memory-derived account, category, transfer, duplicate, source, or posting suggestions; when current evidence contradicts a memory-derived suggestion; or when an approved transaction-writing result reveals reusable memory.
 - `.agents/skills/shared/parsed-statement-jq-reading.md` MUST be read before inspecting any parsed statement JSON from an import handoff, before selecting transaction rows from a large parsed file, and before troubleshooting mismatches between parsed `account_id` values and posting evidence.
 
 
@@ -56,6 +56,8 @@ Follow this workflow:
 6. Choose the narrowest mutation target that fits the ledger's current include graph and organization.
    - reuse the file that already owns similar transactions when possible
    - do not reshuffle the include graph just to insert one transaction
+   - default-allowed supporting directives are limited to transaction entries, minimal `open` directives required for the target accounts, and narrowly scoped `balance` directives required for integrity or validation of the written transaction
+   - ask for explicit user approval before writing anything beyond that allowlist, including include-graph reorganization, new include files, broad account-tree moves, commodity declarations, price directives, plugin/options changes, or unrelated cleanup
 7. Draft the transaction directly in the working tree using explicit, inspectable postings.
    - keep the transaction minimal but never group entries, write the postings at the vendor-level.
 8. Ask a bounded clarification question instead of guessing whenever the evidence leaves any material ambiguity, following the shared question-handling rules:
@@ -74,8 +76,7 @@ Follow this workflow:
     - duplicate, transfer, balancing, or currency risks found
     - the validation outcome
     - a clear statement that the working tree is changed but not finalized until approval is granted
-11. Ask for explicit approval before commit or push finalization when used directly. When invoked by `$auto-bean-import`, never own commit or push finalization; use the shared compact return schema for orchestrator-owned approval and finalization. If approval is denied or deferred, leave the working-tree mutation unfinalized and explain its current state.
-
+11. When invoked by `$auto-bean-import` use the shared compact return schema for orchestrator-owned approval and finalization.
 Guardrails:
 
 - Keep the scope limited to writing or correcting transaction entries and the minimum supporting directives required for those entries.
@@ -83,5 +84,4 @@ Guardrails:
 - Do not silently net transactions together, merge duplicates, or suppress suspected transfers.
 - Do not rely on an omitted posting amount when the counterposting account or balance intent is still uncertain.
 - Do not write into an account that is closed or restricted to different currencies by its `open` directive.
-- Do not bypass validation or the commit/push approval boundary; when import-invoked, that boundary is owned by `$auto-bean-import`.
 - Do not imply that a drafted transaction is accepted history before explicit approval and successful finalization.

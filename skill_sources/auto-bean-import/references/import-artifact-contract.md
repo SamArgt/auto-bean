@@ -16,13 +16,13 @@ Example for `statements/raw/checking/jan-2026.pdf`:
 - categorize artifact: `.auto-bean/artifacts/categorize/checking-jan-2026--categorize.md`
 - import artifact: `.auto-bean/artifacts/import/checking-jan-2026--import.md`
 
-Prefer the raw filename stem as the prefix after normalizing it to a filesystem-safe slug. If two raw statements would produce the same prefix, add the minimal parent-directory slug or fingerprint suffix needed to make the prefix unique, then use that same disambiguated prefix for every artifact related to that raw statement. Keep all import-owned paths inside `.auto-bean/artifacts/import/`. Do not create one global file or one batch artifact for multiple raw statements.
+SHOULD prefer the raw filename stem as the prefix after normalizing it to a filesystem-safe slug. If two raw statements would produce the same prefix, add the minimal parent-directory slug or fingerprint suffix needed to make the prefix unique, then use that same disambiguated prefix for every artifact related to that raw statement. Keep all import-owned paths inside `.auto-bean/artifacts/import/`. Do not create one global file or one batch artifact for multiple raw statements.
 
 ## Format
 
 Optimize the artifact for human review. Use Markdown headings, compact tables, checklists, and short bullets. Use stable ids for statements, questions, decisions, and handoffs so later updates can replace the relevant section deterministically.
 
-Prefer readable Markdown over large structured-data blocks. Use fenced code blocks only for short exact values that need to be copied or audited, such as proposed Beancount directives, validation command output summaries, or small transaction excerpts.
+SHOULD prefer readable Markdown over large structured-data blocks. Use fenced code blocks only for short exact values that need to be copied or audited, such as proposed Beancount directives, validation command output summaries, or small transaction excerpts.
 
 ## Required Sections
 
@@ -50,10 +50,23 @@ Do not include workflow counts, current status, highest status reached, retry co
 - Import-owned first-seen account decisions, write handoffs, user approval decisions, and governed memory handoff decisions may be recorded in detail because those belong to `$auto-bean-import`.
 - For `import_source_behavior` memory, record only the memory path, stable summary, matched current evidence, decision influenced, and limits on reuse. Do not copy entire memory files into the import artifact.
 
+Allowed compact detail examples:
+
+- `question_id: cat-q-014`, `source_artifact: .auto-bean/artifacts/categorize/checking-jan-2026--categorize.md`, `decision: pending`.
+- `finding: possible duplicate`, `paired_artifact: .auto-bean/artifacts/categorize/card-jan-2026--categorize.md`, `matched_facts: date, amount, external_id`, `action: broker user decision`.
+- `memory_candidate: category_mapping`, `origin: cat-q-014`, `source_artifact: ...--categorize.md`, `eligibility: ready_for_memory_handoff`.
+
+Forbidden copied detail examples:
+
+- Full process or categorize question bodies copied into `## Questions`.
+- Full warning narratives, parser stdout/stderr, parsed JSON records, or statement-local categorization analysis copied from stage-owned artifacts.
+- Complete memory records or full import-source behavior files copied into `## Memory Attribution`.
+
 ## Update Rules
 
 - Update the artifact whenever `$auto-bean-import` records or resolves an import-owned user question, makes a first-seen account decision, records a cross-statement transfer or duplicate review candidate, invokes `$auto-bean-write`, receives validation output that informs a decision, asks for final user approval, or prepares the governed memory handoff. If the question belongs to a stage-owned artifact, update that individual artifact with the full answer and keep only ids, paths, and import-level decisions here.
 - Treat `statements/import-status.yml` as the only orchestration status index. The import artifact may reference the matching status entry path or key, but it must not duplicate current status or progress fields.
+- When artifact references conflict with `statements/import-status.yml`, use the shared status/artifact reconciliation hierarchy: source-file reality, status operational pointers, artifact references, then fail closed with a brokered repair question when unresolved.
 - Persist every import-owned decision here before asking the user for approval, handing work to another stage, invoking `$auto-bean-memory`, or marking the matching status entry `done`.
 - Store summaries, paths, stable ids, and evidence references. Do not copy raw statement dumps, full parsed statement payloads, complete ledgers, or unrelated financial data into this artifact.
 - Apply the shared fail-closed invariant when the artifact path would escape `.auto-bean/artifacts/import/`, when the source prefix does not match the raw statement's process and categorize artifacts, when the import artifact cannot be read or updated, or when artifact references conflict with `statements/import-status.yml`.

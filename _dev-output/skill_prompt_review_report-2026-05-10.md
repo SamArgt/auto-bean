@@ -161,7 +161,7 @@ Current guidance allows returning without categorize artifact for trivial no-blo
 
 ---
 
-### A-4 (P2) Memory relevance criteria are dispersed and unevenly phrased
+### [DONE] A-4 (P2) Memory relevance criteria are dispersed and unevenly phrased
 
 **Concerned files**
 - `skill_sources/shared/memory-access-rules.md`
@@ -182,7 +182,7 @@ Skills reference relevance/confidence in different wording, increasing interpret
 
 ---
 
-### A-5 (P2) “Minimal supporting directives” in write skill may be interpreted too broadly
+### [DONE] A-5 (P2) “Minimal supporting directives” in write skill may be interpreted too broadly
 
 **Concerned file**
 - `skill_sources/auto-bean-write/SKILL.md`
@@ -226,7 +226,7 @@ Users may perceive inconsistent agent behavior across stages (hesitant in one st
 
 ---
 
-### P-2 (P2) Modality inconsistency (`MUST`, `Always`, `Prefer`, `Normally`)
+### [DONE] P-2 (P2) Modality inconsistency (`MUST`, `Always`, `Prefer`, `Normally`)
 
 **Concerned files**
 - All `skill_sources/**.md` stage/shared files
@@ -267,7 +267,7 @@ Long instruction ladders with many conditional branches are robust but hard to e
 
 ---
 
-### L-2 (P2) Repeated policy text creates drift risk
+### [DONE] L-2 (P2) Repeated policy text creates drift risk
 
 **Concerned files**
 - `skill_sources/shared/*.md`
@@ -282,7 +282,7 @@ Similar rules (question broker, memory advisory nature, status payload boundarie
 
 ---
 
-### L-3 (P2) Import reference sequencing is correct but mentally heavy
+### [DONE] L-3 (P2) Import reference sequencing is correct but mentally heavy
 
 **Concerned files**
 - `skill_sources/auto-bean-import/SKILL.md`
@@ -340,7 +340,7 @@ Missing clear steps for malformed structured workflow state such as parsed state
 
 ---
 
-### S-3 (P2) Status vs artifact divergence resolution lacks tie-break hierarchy
+### [DONE] S-3 (P2) Status vs artifact divergence resolution lacks tie-break hierarchy
 
 **Concerned files**
 - `skill_sources/shared/import-status-reading.md`
@@ -362,7 +362,7 @@ References mention boundaries but not one canonical precedence order for conflic
 
 ---
 
-### S-4 (P2) Query-stage non-BQL escalation path is underdefined
+### [DONE] S-4 (P2) Query-stage non-BQL escalation path is underdefined
 
 **Concerned file**
 - `skill_sources/auto-bean-query/SKILL.md`
@@ -399,7 +399,7 @@ Imported contract says NEVER; downstream language sometimes says normally/usuall
 
 ---
 
-### X-2 (P2) Ownership-map breadth conflicts with stage end-of-session memory behaviors
+### [DONE] X-2 (P2) Ownership-map breadth conflicts with stage end-of-session memory behaviors
 
 **Concerned files**
 - `skill_sources/shared/workflow-rules.md`
@@ -412,7 +412,7 @@ Imported contract says NEVER; downstream language sometimes says normally/usuall
 
 ---
 
-### X-3 (P2) Import artifact boundaries vs stage return richness can still drift
+### [DONE] X-3 (P2) Import artifact boundaries vs stage return richness can still drift
 
 **Concerned files**
 - `skill_sources/auto-bean-import/references/import-artifact-contract.md`
@@ -448,14 +448,14 @@ Return schemas may include rich detail; import artifact contract restricts copyi
 9. [DONE] Add fast-path checklists and completion checklists to process/categorize/import.
 
 ## P2 (Backlog)
-10. Normalize modality taxonomy (MUST/SHOULD/MAY) across all markdown prompts.
-11. Reduce repeated policy text by linking canonical shared anchors.
-12. Add status/artifact divergence precedence and reconciliation procedure.
-13. Add query non-BQL escalation branch guidance.
-14. Add composition examples for allowed/forbidden import-artifact detail.
-15. Add authoring/lint rules that prevent weakening shared invariants in downstream files.
-16. Add import stage dependency matrix for cognitive load reduction.
-17. Add shared memory gating checklist IDs and required usage points.
+10. [DONE] Normalize modality taxonomy (MUST/SHOULD/MAY) across all markdown prompts.
+11. [DONE] Reduce repeated policy text by linking canonical shared anchors.
+12. [DONE] Add status/artifact divergence precedence and reconciliation procedure.
+13. [DONE] Add query non-BQL escalation branch guidance.
+14. [DONE] Add composition examples for allowed/forbidden import-artifact detail.
+15. [DONE] Add authoring/lint rules that prevent weakening shared invariants in downstream files.
+16. [DONE] Add import stage dependency matrix for cognitive load reduction.
+17. [DONE] Add shared memory gating checklist IDs and required usage points.
 
 ---
 

@@ -6,7 +6,7 @@ Read Context7 Beancount docs before relying on unfamiliar BQL details. This file
 
 ## Quick rules
 
-- Prefer `bean-query ledger.beancount 'SELECT ...'` for direct answers.
+- SHOULD prefer `bean-query ledger.beancount 'SELECT ...'` for direct answers.
 - Keep account filters explicit with exact names or `account ~ 'Pattern'`.
 - Start with grouped summaries, then move to detail rows if the user asks why or where a number came from.
 - Remember that `position` and `balance` can be inventories, not plain scalar values.
@@ -90,4 +90,4 @@ Use when the user wants trends over time rather than a single total.
 
 - `bean-query ledger.beancount` opens the interactive shell.
 - The shell supports `set` options for formatting such as `format`, `boxed`, `spaced`, `pager`, and `expand`.
-- Prefer one-shot CLI queries in agent runs unless interactive exploration is clearly more efficient.
+- SHOULD prefer one-shot CLI queries in agent runs unless interactive exploration is clearly more efficient.

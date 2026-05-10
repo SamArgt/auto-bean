@@ -5,7 +5,7 @@ description: Query and explain Beancount ledgers safely with `bean-query` and th
 
 # Auto Bean Query
 
-Always read before acting:
+MUST read before acting:
 - `.auto-bean/memory/MEMORY.md`
 - `.agents/skills/shared/workflow-rules.md`
 - `.agents/skills/auto-bean-query/references/bean-query-patterns.md`
@@ -13,7 +13,7 @@ Always read before acting:
 Read when needed:
 
 - `.agents/skills/shared/beancount-syntax-and-best-practices.md` MUST be read before relying on account hierarchy, directive names, currency restrictions, `open`/`close` directives, or other ledger semantics to interpret results.
-- `.agents/skills/shared/memory-access-rules.md` MUST be read when query results might inform reusable memory, when query results verify or contradict advisory memory, or when another skill asks this skill to check memory-derived facts against the ledger. Any workflow-specific JSON persistence is handed to `$auto-bean-memory`.
+- `.agents/skills/shared/memory-access-rules.md` MUST be read when query results might inform reusable memory, when query results verify or contradict advisory memory, or when another skill asks this skill to check memory-derived facts against the ledger.
 
 Follow this workflow:
 
@@ -25,12 +25,12 @@ Follow this workflow:
    - Reuse the workspace's existing account names and hierarchy rather than inventing aliases.
 3. Read `.agents/skills/auto-bean-query/references/bean-query-patterns.md` for common query shapes and result-interpretation guidance.
 4. Use Context7 Beancount docs before making non-trivial assumptions about `bean-query`, BQL syntax, aggregation behavior, inventory math, or date-window semantics.
-   - Prefer `/beancount/docs`.
+   - SHOULD prefer `/beancount/docs`.
    - Treat Beancount documentation as the authority for query syntax and reporting semantics.
 5. Choose the narrowest query that answers the user safely.
-   - Prefer direct CLI execution: `bean-query ledger.beancount 'SELECT ...'`
+   - SHOULD prefer direct CLI execution: `bean-query ledger.beancount 'SELECT ...'`
    - Use filters for account patterns, date bounds, or explicit accounts instead of broad full-ledger dumps.
-   - Prefer grouped summaries first for exploratory questions, then drill into register-style detail if needed.
+   - SHOULD prefer grouped summaries first for exploratory questions, then drill into register-style detail if needed.
 6. Use Beancount-native query patterns rather than inventing SQL features that BQL may not support.
    - For balances by account, prefer `SELECT account, sum(position) ... GROUP BY account`.
    - For readable commodity breakdowns, prefer `units(sum(position))` and `cost(sum(position))` when inventories would otherwise be opaque.
@@ -41,6 +41,7 @@ Follow this workflow:
    - If the result is empty, explain whether that likely means no matching postings, a too-narrow filter, or an account-name mismatch.
    - If the result mixes multiple commodities or lots, explain that `position` and `balance` may be inventories rather than single scalar amounts.
    - If market value conversion or cost basis would materially change the answer, say so explicitly instead of implying a simple cash balance.
+   - If BQL cannot answer the question safely, explain the limitation, show the closest safe BQL query or evidence check that was possible, and route mutation requests, advanced valuation decisions, or account-structure decisions to the owning workflow instead of approximating silently.
 8. Present the outcome in an audit-friendly way.
    - Show the actual `bean-query` command or the final BQL query.
    - Summarize what the result means in plain language.
@@ -57,7 +58,7 @@ Follow this workflow:
 Guardrails:
 
 - Keep this skill read-only.
-- Prefer `bean-query` over ad hoc parsing when the question is answerable in BQL.
+- SHOULD prefer `bean-query` over ad hoc parsing when the question is answerable in BQL.
 - Apply the shared fail-closed invariant when account identity, date interpretation, or valuation semantics are ambiguous; because this skill is read-only, return blocker details and required clarification instead of mutating status or ledger files.
 - Do not overstate precision when results depend on inventories, costs, or price data the query did not normalize.
 - Keep outputs concise, inspectable, and easy to reconcile against the ledger.

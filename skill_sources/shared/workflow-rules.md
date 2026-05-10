@@ -23,7 +23,7 @@ Use these rules whenever a workflow encounters missing information, risky ambigu
 - Ask only bounded questions that name the affected statement, record, transaction, or ledger decision.
 - Provide evidence-backed suggestions as often as possible, including a recommended default when current facts support one.
 - Keep observed facts, agent suggestions, risks of guessing, and user-editable answer fields visibly separate.
-- Prefer one consolidated question set per stage or artifact over scattered one-off prompts.
+- SHOULD prefer one consolidated question set per stage or artifact over scattered one-off prompts.
 - Treat missing account identity, transfer intent, duplicate suspicion, or source-specific meaning as clarification blockers rather than Beancount interpolation problems.
 - Update the artifact after the answer, carrying the persisted artifact context and the exact answer supplied.
 
@@ -65,7 +65,7 @@ Artifact language should be plain and reviewable. Internal returns may be compac
 
 Artifacts should link to stage-owned detail rather than copying full warning, question, answer, reconciliation, parsed-statement, or ledger payloads across ownership boundaries. For example, a categorize artifact should link to the relevant parsed statement and ledger evidence rather than copying large excerpts of them. An import-owned artifact should link to the relevant categorize artifact rather than copying its full content.
 
-Do not include raw statement dumps, full ledger excerpts, secret tokens, tax identifiers, full account numbers, or full card numbers in Markdown artifacts unless the user explicitly requires that exact value for review. Prefer redacted forms such as last four digits, stable row ids, source paths, and artifact links.
+Do not include raw statement dumps, full ledger excerpts, secret tokens, tax identifiers, full account numbers, or full card numbers in Markdown artifacts unless the user explicitly requires that exact value for review. SHOULD prefer redacted forms such as last four digits, stable row ids, source paths, and artifact links.
 
 ## Structured State Repair
 

@@ -14,7 +14,7 @@ Inputs from `$auto-bean-import`:
 - the shared raw-statement artifact prefix to use for this source's process, categorize, and import artifacts
 - any relevant source-memory hint already selected for this input
 
-Always read before acting:
+MUST read before acting:
 
 - `.auto-bean/memory/MEMORY.md`
 - `.agents/skills/shared/workflow-rules.md`
@@ -25,7 +25,7 @@ Read when needed:
 
 - `.agents/skills/shared/import-status.example.yml` MUST be read when creating new status fields, auditing schema shape, or reconciling an unexpected status entry before updating it.
 - `.agents/skills/shared/parsed-statement-jq-reading.md` MUST be read before inspecting any existing parsed statement JSON, comparing a prior parse to a new parse, or investigating record-count, `account_id`, statement metadata, or multi-account mismatches.
-- `.agents/skills/shared/memory-access-rules.md` MUST be read before using, rejecting, correcting, or proposing governed memory hints, including parser, source, account, filename-pattern, or statement-shape hints.
+- `.agents/skills/shared/memory-access-rules.md` MUST be read before using, rejecting, correcting, or proposing governed memory hints, including parser, source, account, filename-pattern, or statement-shape hints;
 - `.auto-bean/memory/import_sources/index.json`, then the matching indexed `import_source_behavior` memory file, MUST be read when source identity, institution, raw-statement account owner, raw-statement account names, account hints, statement shape, filename pattern, or fingerprint suggests a narrow match. Do not open non-matching source files.
 
 Workflow:
@@ -42,7 +42,6 @@ Workflow:
    - compare the fingerprint to the supplied status entry, if any
    - look for applicable `import_source_behavior` memory through `.auto-bean/memory/import_sources/index.json`, opening only matching indexed source files
    - use source-behavior memory only for processing-relevant facts such as parser hints, statement shape, column semantics, filename/source identity patterns, raw-statement account owner and account name patterns, account identity hints, and reusable import handling checks
-   - apply the shared memory access rules before using any selected source memory
 3. Parse with the local Docling CLI:
    - prefer `./.venv/bin/docling` directly on the assigned source; if it is unavailable but `uv run docling` works in this workspace, use `uv run docling` with the same arguments
    - enforce an execution timeout for each Docling attempt: PDF `120s`; CSV, XLSX, and XLS `60s`
