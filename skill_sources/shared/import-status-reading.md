@@ -45,4 +45,15 @@ Recovery:
 
 - If YAML is malformed, has duplicate keys, has path conflicts, or cannot be parsed without losing comments or unrelated entries, stop before editing and report the affected path or line when known.
 - If an entry has an unknown status, keep it out of automatic dispatch and ask `$auto-bean-import` or the user to resolve the status.
-- If two entries point to the same raw statement, parsed statement, or stage artifact incompatibly, fail closed and surface the conflict instead of choosing one silently.
+- If two entries point to the same raw statement, parsed statement, or stage artifact incompatibly, apply the shared fail-closed invariant and surface the conflict instead of choosing one silently.
+
+## Status And Artifact Reconciliation
+
+When `statements/import-status.yml` and stage artifacts disagree, reconcile in this order:
+
+1. Existing source-file reality: raw statement path, source fingerprint, parsed statement existence, and artifact path safety.
+2. Status entry operational pointers: current status, parsed statement path, artifact paths, retry metadata, and compact flags.
+3. Artifact references and human-readable decisions in the owning process, categorize, or import artifact.
+4. If the conflict remains unresolved, apply the shared fail-closed invariant, keep the statement out of downstream dispatch, and ask through `$auto-bean-import` with the conflicting paths and required repair.
+
+Use this hierarchy only to decide which surface to inspect or repair first. It does not authorize copying detailed artifact payloads into status or overriding stage-owned decisions without evidence.

@@ -180,7 +180,7 @@ Scope: All authored skills under `skill_sources/*/SKILL.md` and their interface 
 2. **Centralize commit/push authority statement** DONE
    - Add one unambiguous rule in import: commit/push is always orchestrator-owned; write never finalizes when invoked by import.
 
-3. **Create shared “question-handling contract” snippet** DONE
+3. **Create shared “question-handling rules” snippet** DONE
    - Put common guidance in shared reference and link from process/categorize/write/import to reduce duplication.
 
 4. **Add a global import-owned artifact contract** DONE

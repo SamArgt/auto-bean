@@ -22,22 +22,13 @@ High-frequency paths:
 
 ## Read before acting:
 
-- Read `.agents/skills/shared/workflow-rules.md` for shared expectations on status management, question handling, sub-agent handoff, and memory use
-- Read `.agents/skills/shared/ownership-map.md` for which skill owns which artifact, evidence, question, memory, and ledger scopes
-
-### Memory
-
-Read `.auto-bean/memory/MEMORY.md` at session start and whenever preparing a sub-agent handoff.
-Read `.agents/skills/shared/memory-access-rules.md`
-
-Skills may suggest useful governed memory. Only `$auto-bean-memory` writes workflow-specific `.auto-bean/memory/**` JSON files, and reused memory is advisory, never silent authority. Sub-agents must return suggested `.auto-bean/memory/MEMORY.md` edits instead of changing that file directly.
-
+- Read `.agents/skills/shared/workflow-rules.md` for shared expectations on modality, ownership, status management, question handling, sub-agent handoff, compact returns, composition rules, and memory use
+- Read `.auto-bean/memory/MEMORY.md` at session start and whenever preparing a sub-agent handoff.
+- Read `.agents/skills/shared/memory-access-rules.md` to understand how to access and read workflow-specific memories.
 
 ## Before Ending A Main-Thread Session
 
-Update `.auto-bean/memory/MEMORY.md` before ending every main-thread session. Add or revise only durable, reusable, non-secret context learned from the session, such as main accounts, account relationships, user preferences, and user corrections. If nothing reusable was learned, leave the file unchanged and say so briefly in the final response.
-
-Sub-agents must not edit `.auto-bean/memory/MEMORY.md`. They may read relevant context supplied by the main thread and return concise `MEMORY.md` update suggestions for the main thread to review and apply.
+Use `$auto-bean-memory` to persist any eligible reusable decisions from the session through governed memory. Summarize the persisted learning, source and audit context, memory paths, and reuse limits in the final response. Memory update is not mandatory, it should be use only if there is eligible reusable learning.
 
 ## Import Workflow
 
@@ -49,7 +40,7 @@ For import workflows, `$auto-bean-import` is the sole broker for final user appr
 
 ## User Input
 
-When workflow work needs user input, persist safe deterministic progress first and follow `.agents/skills/shared/question-handling-contract.md`.
+When workflow work needs user input, persist safe deterministic progress first and follow the question-handling section in `.agents/skills/shared/workflow-rules.md`.
 
 After the user answers, resume the same statement, artifact, transaction, or memory operation from existing files with that answer in context.
 
@@ -85,7 +76,7 @@ Only mark a statement `done` after user approval of the final import result.
 
 ### Guardrails
 
-Always:
+MUST:
 
 - route ledger reads through `$auto-bean-query` when Beancount can answer them
 - route transaction writing through `$auto-bean-write`
@@ -93,9 +84,7 @@ Always:
 - keep working-tree changes separate from accepted history until the user approves finalization
 - respect the boundaries between each workflow
 
-Never:
+MUST NOT:
 
 - treat unapproved working-tree changes as finalized
 - bypass `$auto-bean-import` for import final approval, commit readiness, or push readiness
-
-Prefer git-backed revert for committed recovery.

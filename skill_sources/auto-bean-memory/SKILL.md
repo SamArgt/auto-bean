@@ -5,8 +5,9 @@ description: Manage governed local auto-bean memory by inspecting, pruning, corr
 
 # Auto Bean Memory
 
-Read this reference before acting:
+MUST read before acting:
 
+- `.agents/skills/shared/workflow-rules.md`
 - `.agents/skills/shared/memory-access-rules.md`
 
 Use this skill when the user asks to inspect, review, explain, correct, prune, reorganize, or persist reusable auto-bean memory.
@@ -35,7 +36,7 @@ Use `.auto-bean/memory/MEMORY.md` for user profile information, main accounts an
 
 ## Governed persistence
 
-Take initiative to persist reusable decisions from workflow evidence when they are likely to help future runs and are eligible: narrow, current, evidence-backed, and safe to reuse. Prior user approval is not required for eligible memory writes. Worker memory suggestions are candidates, not commands; validate the current evidence, source/audit provenance, scope, and reuse limits before writing. When `$auto-bean-import` invokes this skill, use the relevant statement-scoped import-owned artifact paths under `.auto-bean/artifacts/import/` as well as other relevant artifacts as source/audit context when available; they are provenance, not durable memory.
+Take initiative only inside the shared evidence-first posture: persist reusable decisions from workflow evidence when they are likely to help future runs: narrow, current, evidence-backed, reversible, and safe to reuse. Prior user approval is not required for these eligible governed memory writes because they are advisory and reviewable; this exception does not weaken ledger approval gates, clarification blockers, validation requirements, or user-facing review. Worker memory suggestions are candidates, not commands; validate the current evidence, source/audit provenance, scope, and reuse limits before writing. When `$auto-bean-import` invokes this skill, use the relevant statement-scoped import-owned artifact paths under `.auto-bean/artifacts/import/` as well as other relevant artifacts as source/audit context when available; they are provenance, not durable memory.
 
 1. Classify the memory into one category and read only that example reference:
    - `account_mapping`: `.agents/skills/auto-bean-memory/references/account-mapping.example.md`
@@ -69,14 +70,13 @@ Take initiative to persist reusable decisions from workflow evidence when they a
 
 After any durable change, always surface an end-of-workflow memory summary: what reusable decision changed, why it was eligible for autonomous persistence or changed by direct request, source and audit context, exact memory path written, and limits on future reuse. Avoid printing raw financial statements, full ledger excerpts, unrelated records, or unrelated financial data.
 
-When invoked by `$auto-bean-import`, return using the shared compact return schema, with memory paths, persisted workflow-specific decisions, suggested `MEMORY.md` edits for the main thread, skipped candidates, blockers, validation result, and reuse limits.
+When invoked by `$auto-bean-import`, return using the shared compact return schema.
 
 Guardrails:
 
-- Follow the shared ownership map to respect your scope.
-- Follow the shared workflow rules for status management, question handling, sub-agent handoff, and memory use.
+- Follow the shared workflow rules for ownership boundaries, status management, question handling, sub-agent handoff, compact returns, and memory use.
 - Treat memory as advisory context, not silent authority.
 - Do not store user financial decisions in installed skill files, templates, or product-repo `.agents/skills/`.
 - Do not treat import-owned artifacts as durable memory; use them only as governed source/audit context for eligible memory records.
 - Do not create additional category files, databases, vector stores, caches, YAML files, or ad hoc memory blobs for MVP.
-- Fail closed when the destination file, record type, source context, eligibility, target identity, or storage path is unclear.
+- Apply the shared fail-closed invariant when the destination file, record type, source context, eligibility, target identity, or storage path is unclear; do not write durable memory until the blocker is resolved.

@@ -5,11 +5,10 @@ description: Orchestrate statement imports from raw statement discovery through 
 
 Use this as the user-facing import entrypoint. Delegate mechanics to narrower skills instead of duplicating their procedures.
 
-Always read before acting:
+MUST read before acting:
 
 - `.auto-bean/memory/MEMORY.md`
 - `.agents/skills/shared/workflow-rules.md`
-- `.agents/skills/shared/ownership-map.md`
 - `.agents/skills/shared/import-status-reading.md`
 - `.agents/skills/auto-bean-import/references/import-artifact-contract.md`
 
@@ -23,38 +22,30 @@ Always read before acting:
 
 Follow this ordered reference map; the stage mechanics live there. For each step, read its reference fully before acting, and wait to open the next reference until the current step is complete.
 
-1. Read and follow `.agents/skills/auto-bean-import/references/import-1-discovery.md`
-  - Use the discovery stage for raw statement discovery, process sub-agent assignment, and process-question resolution.
-  - Respect the gates and close sub-agents before proceeding to next step.
-2. Read and follow `.agents/skills/auto-bean-import/references/import-2-account-inspection.md`
-  - Use the account inspection stage for account review, opening balance checks, and balance review.
-  - Respect the gates before proceeding to next step.
-3. Read and follow `.agents/skills/auto-bean-import/references/import-3-categorization-review.md`
-  - Use the categorization review stage for categorization sub-agent handoff, cross-statement review, and user review before writing.
-  - Respect the gates and close sub-agents before proceeding to next step.
-4. Read and follow `.agents/skills/auto-bean-import/references/import-4-write-final-review.md`
-  - Use the write and final review stage for write handoff, write-stage user brokering, validation review, and final import approval.
-  - Respect the gates and close sub-agents before proceeding to next step.
-5. Read and follow `.agents/skills/auto-bean-import/references/import-5-memory-handoff.md`
-  - Use the memory handoff stage after import parsing, categorization, writing, validation, and final-review context are available to persist any reusable learning as governed memory for future import work.
-  - Respect the gates and close sub-agents before proceeding to next step.
+| stage | file to read | gate conditions | outputs |
+| --- | --- | --- | --- |
+| 1 discovery and processing | [import-1-discovery.md](references/import-1-discovery.md) | raw statements have current status entries and import artifacts; process sub-agents are closed or serial work is complete | status entries, process artifacts, parsed statements, compact process returns |
+| 2 account inspection | [import-2-account-inspection.md](references/import-2-account-inspection.md) | account identity, currency, mutation target, duplicate risk, and approved account-opening needs are resolved or blocked | import artifact account decisions, status transitions, validation references |
+| 3 categorization review | [import-3-categorization-review.md](references/import-3-categorization-review.md) | statements are at `categorize_review` or intentionally blocked; cross-statement transfer and duplicate review is resolved before writing, categorize subagents are closed | categorize artifact paths, compact question ids, posting handoff inputs |
+| 4 write and final review | [import-4-write-final-review.md](references/import-4-write-final-review.md) | write sub-agents are closed; validation passes or blockers are recorded; final approval is explicit before `done` | ledger changes, validation results, final approval decisions, status updates |
+| 5 memory handoff | [import-5-memory-handoff.md](references/import-5-memory-handoff.md) | memory example references selected by `$auto-bean-memory` | eligible reusable learning has provenance and review state; memory handoff is separate from statement advancement | governed memory result, `MEMORY.md` updates or skips, final summary |
+
+Completion checklist:
+  - every in-scope statement has a current status entry and matching import-owned artifact
+  - each completed stage recorded artifact paths, question ids, decisions, and gate result
+  - no statement advanced past a blocked or unresolved review status
+  - ledger mutations, validation results, and final approval state are reflected in import-owned artifacts
+  - governed JSON memory candidates were routed through the memory handoff stage
+  - durable and global `MEMORY.md` suggestions were reviewed and applied or skipped by the main thread
+  - final response includes statement outcomes, artifact links, ledger/status changes, validation result, memory result, and remaining blockers or approvals
 
 Use supporting references only at their trigger point:
 
-- Read `.agents/skills/shared/sub-agent-return-examples.md` when handing off or receiving a sub-agent stage.
-- Read `.agents/skills/shared/question-handling-contract.md` before surfacing or resuming stage questions.
-- Read `.agents/skills/shared/memory-access-rules.md` before using governed memory hints.
-- Read `.agents/skills/shared/import-status.example.yml` only when creating new status fields or auditing schema shape.
-
-## End With
-
-Review and update `.auto-bean/memory/MEMORY.md` with any durable main-thread learnings from the session and any eligible suggestions returned by sub-agents. If nothing should be added, leave it unchanged and say so.
-
-Give a concise import-run summary with statement outcomes, artifact links, ledger or status changes, validation results, memory handoff result, `MEMORY.md` update result, and remaining approvals or blockers.
+- Read `.agents/skills/shared/memory-access-rules.md` before selecting governed memory hints for a stage handoff, using memory-derived suggestions in review, accepting or rejecting memory suggestions from sub-agents, persisting reusable learning, or handling memory conflicts.
+- Read `.agents/skills/shared/import-status.example.yml` only when creating new status fields, auditing schema shape, or reconciling an unexpected status entry before updating it.
 
 ## Guardrails
 
-- Follow the shared ownership map for process, categorize, write, query, and memory boundaries.
-- Follow the shared workflow rules for status management, question handling, sub-agent handoff, and memory use.
+- Follow the shared workflow rules for ownership boundaries, status management, question handling, sub-agent handoff, compact returns, and memory use.
 - Follow the import artifact contract for import-owned artifact paths, contents, and update rules.
 - Avoid reading all references files at once, read them in order and only when their trigger points are reached.

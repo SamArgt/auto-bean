@@ -20,7 +20,7 @@ Use for categorization sub-agent handoff, cross-statement review, and user revie
 ## 3. User Review
 
 - For each statement at `categorize_review` or `categorize_blocked`, read the categorize artifact.
-- For `categorize_blocked` statements, broker missing information, risky ambiguity, unresolved reconciliation findings, and manual extraction needs through the shared question contract.
+- For `categorize_blocked` statements, broker missing information, risky ambiguity, unresolved reconciliation findings, and manual extraction needs through the shared question-handling rules.
 - Batch compatible questions in the main thread; use fillable artifacts when provided.
 - After answers, update both the categorize artifact and the import-owned artifacts and status entries.
 - Move resolved statements to `write_ready`.

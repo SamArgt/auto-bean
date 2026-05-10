@@ -12,25 +12,24 @@ Inputs from `$auto-bean-import`:
 - the shared raw-statement artifact prefix to use for this source's process, categorize, and import artifacts
 - any relevant memory hints, reconciliation context, or user answers already approved for this artifact
 
-Always read before acting:
+MUST read before acting:
 
 - `.auto-bean/memory/MEMORY.md`
-- `.agents/skills/shared/sub-agent-return-examples.md`
+- `.agents/skills/shared/workflow-rules.md`
 - `.agents/skills/shared/parsed-statement-jq-reading.md` before inspecting large parsed statement JSON files
 - `.agents/skills/shared/import-status-reading.md` before reading or updating a large `statements/import-status.yml`
 - `.agents/skills/auto-bean-categorize/references/reconciliation-findings.md` for transfer, duplicate, balance, currency, or future-transfer findings
 
 Read when needed:
 
-- `.agents/skills/shared/parsed-statement-output.example.json` when the parsed statement shape, required fields, or field meanings are unclear
-- `.agents/skills/shared/memory-access-rules.md` before using governed memory hints
-- `.agents/skills/shared/question-handling-contract.md` before recording or returning pending user questions
-- `.agents/skills/auto-bean-categorize/references/categorize-artifact-rules.md` before creating or updating a user-facing categorize artifact
+- `.agents/skills/shared/parsed-statement-output.example.json` MUST be read when parsed statement shape, required fields, field meanings, `statement_metadata.accounts[]`, or extracted-record `account_id` relationships are unclear or inconsistent.
+- `.agents/skills/shared/memory-access-rules.md` MUST be read before using, rejecting, correcting, or proposing governed memory hints for category, account, transfer, duplicate, naming, clarification, or import-source behavior
+- `.agents/skills/auto-bean-categorize/references/categorize-artifact-rules.md` MUST be read before creating or updating a user-facing categorize artifact.
 
 Workflow:
 
 1. Confirm the assigned scope:
-   - handle only the assigned parsed/intermediate statement
+   - handle only the assigned parsed/intermediate statement, status entry, and shared artifact prefix
    - do not scan for other parsed files or raw statements
    - do not ask for commit, push, or final import approval
 2. Inspect this statement and ledger context:
@@ -39,13 +38,13 @@ Workflow:
    - do not approximate those reads by grepping ledger transactions when `$auto-bean-query` can answer them
 3. Create or open the working categorize artifact:
    - read `.agents/skills/auto-bean-categorize/references/categorize-artifact-rules.md`
-   - create `.auto-bean/artifacts/categorize/<artifact_prefix>--categorize.md` early whenever this work may produce review details, pending or answered questions, reconciliation findings, blockers, warnings, memory suggestions, or posting inputs that should not live only in the return message
+   - create `.auto-bean/artifacts/categorize/<artifact_prefix>--categorize.md` early as the working review surface for this statement
    - if an artifact already exists, use it as the working review surface and preserve any clearly labeled `Import Batch Cross-Statement Review` section
-   - keep collecting safe progress in the artifact while working; for trivial no-blocker work, returning without an artifact is still allowed by the artifact rules
+   - keep collecting safe progress in the artifact while working
 4. Categorize each transaction in the assigned parsed statement:
    - use current parsed facts plus relevant `.auto-bean/memory/MEMORY.md` context and governed workflow memory hints from `.auto-bean/memory/category_mappings.json`.
    - treat parsed `account_owner` and `account_names` as statement evidence for selecting account mappings, transfer context, and memory applicability; do not treat them as ledger account names unless a current ledger check or approved mapping supports that
-   - apply the shared memory access rules before reusing category, account, transfer, duplicate, naming, clarification, or import-source memory
+   - if a memory-derived suggestion materially affects a posting account, category, transfer classification, duplicate decision, or user question, read `.agents/skills/shared/memory-access-rules.md` even when the suggestion was supplied by `$auto-bean-import`
    - if memory matches under the shared strong-evidence threshold, record the matched memory path, record identity or stable summary, matched transaction facts, and resulting category/account suggestion
    - if no reliable memory matches, provide evidence-based suggestions: likely category/account, supporting statement facts, relevant ledger conventions, confidence, and plausible alternatives
    - when categorization materially affects future postings and evidence does not support one safe choice, record a pending question and continue with any remaining safe work before returning control to `$auto-bean-import`
@@ -61,20 +60,20 @@ Workflow:
      - `possible_future_transfer`
    - use `possible_future_transfer` when a transfer pattern looks strong but no existing or supplied counterpart booking matches yet
    - anchor findings in parsed facts, suggested accounts/categories, existing ledger entries, account constraints, links, metadata, imported ids, or nearby balance assertions
-   - fail closed when a finding cannot be safely classified or resolved; do not guess, auto-net, auto-merge, silently drop, or rewrite candidate transactions
+   - apply the shared fail-closed invariant with `categorize_blocked` when a finding cannot be safely classified or resolved; do not guess, auto-net, auto-merge, silently drop, or rewrite candidate transactions
 6. Handle clarification needs:
    - set `user_input_required: true` when account/category choice, transfer intent, duplicate suspicion, source-specific meaning, or categorization remains materially ambiguous
-   - follow the shared question-handling contract; for import-invoked work, normally return question ids and the categorize artifact path so `$auto-bean-import` can keep the main thread
-8. Update only this statement's status:
+   - follow the shared question-handling rules; when invoked by `$auto-bean-import`, never ask the user directly, and return only persisted question ids, the categorize artifact path, and operational blocker flags so `$auto-bean-import` can broker the question in the main thread
+7. Update only this statement's status:
    - require the assigned statement to be at `categorize_ready` before categorization work starts
    - set `categorize_blocked` when required categorization, reconciliation, duplicate, transfer, or source-interpretation input is unresolved
    - set `categorize_review` after categorization, reconciliation, and deduplication work is persisted, with any user-input needs recorded in the categorize artifact
 
    - allowed status updates from this stage are `categorize_blocked` and `categorize_review`; `$auto-bean-import` advances later statuses after review, posting, validation, and approval
    - refresh the matching entry in `statements/import-status.yml`; do not create a second workflow-tracking file, and do not copy warning, question, or answer payloads into the status entry
-9. Return control to `$auto-bean-import` using the shared compact return schema, including:
+8. Return control to `$auto-bean-import`:
    - assigned parsed/intermediate artifact path
-   - categorize artifact path if one was created or updated, including whether it needs user completion
+   - categorize artifact path, including whether it needs user completion
    - short summary of what was categorized, reconciled, deduplicated, or blocked
    - categorization results and memory attribution
    - suggested transaction posting inputs for `$auto-bean-import` to pass to `$auto-bean-write` after user input is resolved
@@ -85,8 +84,7 @@ Workflow:
 
 Guardrails:
 
-- Follow the shared ownership map to respect your scope strictly.
-- Follow the shared workflow rules for status management, question handling, sub-agent handoff, and memory use.
+- Follow the shared workflow rules for ownership boundaries, status management, question handling, sub-agent handoff, compact returns, and memory use.
 - Do not edit `.auto-bean/memory/MEMORY.md` when running as a sub-agent.
 - Do not bypass clarification with a best guess when ambiguity is material.
 - Do not erase import-batch cross-statement review notes when resuming or updating a categorize artifact.

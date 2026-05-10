@@ -5,7 +5,7 @@ Use for write handoff, write-stage user brokering, validation review, and final 
 ## 1. Write Handoff
 
 - For each `write_ready` statement, spawn a sub-agent and instruct it to use `$auto-bean-write` with import-owned and categorize artifact context.
-- Broker any write-stage clarification through the shared question contract.
+- Broker any write-stage clarification through the shared question-handling rules.
 - Keep statements at `write_blocked` while write-stage clarification, repair, or validation fixes are unresolved.
 - After user answers for `write_blocked`, resume `$auto-bean-write`.
 - Set `final_review` only after import-derived transactions are written and validated.
@@ -19,5 +19,10 @@ Use for write handoff, write-stage user brokering, validation review, and final 
 - Mark entries `done` only after the user approves the final import result.
 - Gate: close only statements at `done`; keep unapproved statements at `final_review`.
 
+## 3. Completion Checklist
 
-Final Gate: close all write sub-agents for which write is complete and statement status has been moved to `done`.
+- Each write return is recorded with changed files, validation result, blocker/question ids, and artifact references.
+- Statements with unresolved write clarification, repair, or validation failure remain `write_blocked`.
+- Final review includes status/artifact reconciliation and closing-balance checks.
+- Unapproved statements remain `final_review`; approved completed statements are marked `done`.
+- Write sub-agents are closed after their completed statements are moved to `done`.
