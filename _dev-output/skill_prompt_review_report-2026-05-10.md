@@ -25,7 +25,7 @@ Priority snapshot:
 
 ## 1) Contradiction Detection
 
-### C-1 (P0) Memory ownership contradiction: who can write `.auto-bean/memory/**`
+### [DONE] C-1 (P0) Memory ownership contradiction: who can write `.auto-bean/memory/**` 
 
 **Concerned files**
 - `skill_sources/shared/ownership-map.md`
@@ -59,7 +59,7 @@ This creates a direct policy contradiction and can produce two failure modes:
 
 ---
 
-### C-2 (P0) Sub-agent user-question rule is absolute in shared contract but softened in stage text
+### [DONE] C-2 (P0) Sub-agent user-question rule is absolute in shared contract but softened in stage text
 
 **Concerned files**
 - `skill_sources/shared/question-handling-contract.md`
