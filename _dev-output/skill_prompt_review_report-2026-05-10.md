@@ -248,13 +248,14 @@ Mixed modal verbs reduce deterministic interpretation and make contract-strength
 
 ## 4) Cognitive Load Assessment
 
-### L-1 (P1) Deep nested constraints in process/categorize/import raise execution error risk
+### L-1 (P1) Deep nested constraints in process/categorize/import/write raise execution error risk
 
 **Concerned files**
 - `skill_sources/auto-bean-process/SKILL.md`
 - `skill_sources/auto-bean-categorize/SKILL.md`
 - `skill_sources/auto-bean-import/SKILL.md`
 - `skill_sources/auto-bean-import/references/import-*.md`
+- `skill_sources/auto-bean-write/SKILL.md`
 
 **Problem detail**
 Long instruction ladders with many conditional branches are robust but hard to execute consistently in one pass.
