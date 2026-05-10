@@ -85,4 +85,5 @@ When memory influences a proposal, include review attribution: memory path, `mem
 
 Guardrails:
 
-- Only `$auto-bean-memory` may modify `.auto-bean/memory/**` files, both workflow specific JSON files and the global MEMORY.md file.
+- Only `$auto-bean-memory` may modify workflow-specific JSON memory files: `.auto-bean/memory/*.json` and `.auto-bean/memory/import_sources/*.json`.
+- Main-thread orchestrators and direct main-thread write sessions may update `.auto-bean/memory/MEMORY.md` for durable global user profile, preference, correction, and general workspace context.

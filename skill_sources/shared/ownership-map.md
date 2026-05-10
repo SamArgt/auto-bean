@@ -18,7 +18,8 @@ Purpose: single reference for which stage owns each workflow surface.
 | Transaction drafting | `$auto-bean-write` | Writes transaction entries and minimal transaction-supporting directives from trusted evidence. |
 | Final import approval | `$auto-bean-import` | User-facing approval broker for import workflows. |
 | Commit and push readiness | `$auto-bean-import` | Import-owned finalization boundary. |
-| Governed memory writes | `$auto-bean-memory` | Only this skill writes `.auto-bean/memory/**`. |
+| Workflow-specific JSON memory writes | `$auto-bean-memory` | Only this skill writes `.auto-bean/memory/*.json` and `.auto-bean/memory/import_sources/*.json`. |
+| Global profile memory (`MEMORY.md`) | main-thread orchestrator or direct write session | `$auto-bean-import`, direct `$auto-bean-write`, and `$auto-bean-memory` may update `.auto-bean/memory/MEMORY.md` for durable user profile, preference, correction, and general workspace context. Sub-agents return suggestions only. |
 | Ledger reads and analysis | `$auto-bean-query` | Read-only Beancount and BQL analysis. |
 
 If a requested mutation is outside these owners, ask which workflow should own it instead of expanding a read-only or sub-agent skill.

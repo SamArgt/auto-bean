@@ -10,7 +10,7 @@ Start by reading:
 
 Read when needed:
 
-- `.agents/skills/shared/memory-access-rules.md` when transaction evidence includes memory-derived suggestions or when an approved transaction-writing result reveals reusable memory, so any persistence is handed to `$auto-bean-memory`
+- `.agents/skills/shared/memory-access-rules.md` when transaction evidence includes memory-derived suggestions or when an approved transaction-writing result reveals reusable memory, so workflow-specific JSON persistence is handed to `$auto-bean-memory`
 - `.agents/skills/shared/question-handling-contract.md` before asking, returning, or resuming transaction-specific clarification questions
 
 
@@ -75,7 +75,7 @@ Follow this workflow:
     - the validation outcome
     - a clear statement that the working tree is changed but not finalized until approval is granted
 11. Ask for explicit approval before commit or push finalization when used directly. When invoked by `$auto-bean-import`, never own commit or push finalization; use the shared compact return schema for orchestrator-owned approval and finalization. If approval is denied or deferred, leave the working-tree mutation unfinalized and explain its current state.
-12. Before ending a direct main-thread writing session, update `.auto-bean/memory/MEMORY.md` with durable reusable user-profile, preference, or correction learnings, or say that there was nothing to add. When invoked as an import sub-agent, do not edit `.auto-bean/memory/MEMORY.md`; return suggested updates for `$auto-bean-import`.
+12. Before ending a direct main-thread writing session, update `.auto-bean/memory/MEMORY.md` with durable global user-profile, preference, or correction learnings, or say that there was nothing to add. Hand workflow-specific JSON memory candidates to `$auto-bean-memory`; do not write JSON memory files directly. When invoked as an import sub-agent, do not edit `.auto-bean/memory/MEMORY.md`; return suggested updates for `$auto-bean-import`.
 
 Guardrails:
 

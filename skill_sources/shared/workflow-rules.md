@@ -12,6 +12,8 @@ Be conservative with financial facts, explicit about uncertainty, and proactive 
 
 Treat evidence as strong only when at least two independent current facts agree, such as institution or account identity plus currency, external id plus amount/date, or statement account metadata plus current ledger account constraints. Memory alone never makes evidence strong or a match confident; it must match current evidence and remain advisory.
 
+Workflow-specific JSON memory writes are owned by `$auto-bean-memory`. Main-thread orchestrators and direct main-thread write sessions may update `.auto-bean/memory/MEMORY.md` at session end with durable global user context; sub-agents must return suggested `MEMORY.md` edits instead of writing it.
+
 ## Artifacts
 
 Artifact language should be plain and reviewable. Internal returns may be compact and technical.

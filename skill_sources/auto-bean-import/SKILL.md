@@ -48,7 +48,7 @@ Use supporting references only at their trigger point:
 
 ## End With
 
-Review and update `.auto-bean/memory/MEMORY.md` with any durable main-thread learnings from the session and any eligible suggestions returned by sub-agents. If nothing should be added, leave it unchanged and say so.
+As the main-thread orchestrator, review and update `.auto-bean/memory/MEMORY.md` with any durable global user context learned during the session and any eligible `MEMORY.md` suggestions returned by sub-agents. Route workflow-specific JSON memory persistence through the memory handoff stage; do not write JSON memory files directly.
 
 Give a concise import-run summary with statement outcomes, artifact links, ledger or status changes, validation results, memory handoff result, `MEMORY.md` update result, and remaining approvals or blockers.
 

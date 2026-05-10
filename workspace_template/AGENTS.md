@@ -30,7 +30,7 @@ High-frequency paths:
 Read `.auto-bean/memory/MEMORY.md` at session start and whenever preparing a sub-agent handoff.
 Read `.agents/skills/shared/memory-access-rules.md`
 
-Skills may suggest useful governed memory. Only `$auto-bean-memory` writes workflow-specific `.auto-bean/memory/**` JSON files, and reused memory is advisory, never silent authority. Sub-agents must return suggested `.auto-bean/memory/MEMORY.md` edits instead of changing that file directly.
+Skills may suggest useful governed memory. Only `$auto-bean-memory` writes workflow-specific JSON memory files under `.auto-bean/memory/`, and reused memory is advisory, never silent authority. Main-thread orchestrators and direct main-thread write sessions may update `.auto-bean/memory/MEMORY.md`; sub-agents must return suggested `MEMORY.md` edits instead of changing that file directly.
 
 
 ## Before Ending A Main-Thread Session
