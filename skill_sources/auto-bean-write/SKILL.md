@@ -11,8 +11,9 @@ Always read before acting:
 
 Read when needed:
 
-- `.agents/skills/shared/memory-access-rules.md` when transaction evidence includes memory-derived suggestions or when an approved transaction-writing result reveals reusable memory, so workflow-specific JSON persistence is handed to `$auto-bean-memory`
-- `.agents/skills/shared/question-handling-contract.md` before asking, returning, or resuming transaction-specific clarification questions
+- `.agents/skills/shared/memory-access-rules.md` MUST be read when transaction evidence includes memory-derived account, category, transfer, duplicate, source, or posting suggestions; when current evidence contradicts a memory-derived suggestion; or when an approved transaction-writing result reveals reusable memory. Workflow-specific JSON persistence is handed to `$auto-bean-memory`.
+- `.agents/skills/shared/question-handling-contract.md` MUST be read before asking, returning, resuming, or resolving transaction-specific clarification questions.
+- `.agents/skills/shared/parsed-statement-jq-reading.md` MUST be read before inspecting any parsed statement JSON from an import handoff, before selecting transaction rows from a large parsed file, and before troubleshooting mismatches between parsed `account_id` values and posting evidence.
 
 
 If the transaction-writing task is part of an import workflow, make sure to:

@@ -12,8 +12,8 @@ Always read before acting:
 
 Read when needed:
 
-- `.agents/skills/shared/beancount-syntax-and-best-practices.md` when account hierarchy, directive names, currency restrictions, or other ledger semantics matter for interpreting results
-- `.agents/skills/shared/memory-access-rules.md` when query results might inform reusable memory or may help verify advisory memory reuse against ledger facts, so any persistence is handed to `$auto-bean-memory`
+- `.agents/skills/shared/beancount-syntax-and-best-practices.md` MUST be read before relying on account hierarchy, directive names, currency restrictions, `open`/`close` directives, or other ledger semantics to interpret results.
+- `.agents/skills/shared/memory-access-rules.md` MUST be read when query results might inform reusable memory, when query results verify or contradict advisory memory, or when another skill asks this skill to check memory-derived facts against the ledger. Any workflow-specific JSON persistence is handed to `$auto-bean-memory`.
 
 Follow this workflow:
 
@@ -36,6 +36,7 @@ Follow this workflow:
    - For readable commodity breakdowns, prefer `units(sum(position))` and `cost(sum(position))` when inventories would otherwise be opaque.
    - For register-style output, prefer `SELECT date, payee, narration, account, position, balance ... ORDER BY date`.
    - For period reports, use `FROM OPEN ON ... CLOSE ON ...` semantics when the question is about reporting windows rather than raw posting dates.
+   - If the task involves opening/closing balances, period statements, income or expense totals for a bounded period, or comparison across periods, treat reporting-window semantics as material and consult the query-pattern reference before choosing the query shape.
 7. Execute the query, inspect the raw result, and sanity-check it before answering.
    - If the result is empty, explain whether that likely means no matching postings, a too-narrow filter, or an account-name mismatch.
    - If the result mixes multiple commodities or lots, explain that `position` and `balance` may be inventories rather than single scalar amounts.

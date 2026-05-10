@@ -24,10 +24,10 @@ Always read before acting:
 
 Read when needed:
 
-- `.agents/skills/shared/import-status.example.yml` only when creating new status fields or auditing schema shape
-- `.agents/skills/shared/parsed-statement-jq-reading.md` before inspecting large parsed statement JSON files
-- `.agents/skills/shared/memory-access-rules.md` before using governed memory hints
-- `.auto-bean/memory/import_sources/index.json`, then the matching indexed `import_source_behavior` memory file when source identity, institution, raw-statement account owner, raw-statement account names, account hints, statement shape, filename pattern, or fingerprint suggests a narrow match
+- `.agents/skills/shared/import-status.example.yml` MUST be read when creating new status fields, auditing schema shape, or reconciling an unexpected status entry before updating it.
+- `.agents/skills/shared/parsed-statement-jq-reading.md` MUST be read before inspecting any existing parsed statement JSON, comparing a prior parse to a new parse, or investigating record-count, `account_id`, statement metadata, or multi-account mismatches.
+- `.agents/skills/shared/memory-access-rules.md` MUST be read before using, rejecting, correcting, or proposing governed memory hints, including parser, source, account, filename-pattern, or statement-shape hints.
+- `.auto-bean/memory/import_sources/index.json`, then the matching indexed `import_source_behavior` memory file, MUST be read when source identity, institution, raw-statement account owner, raw-statement account names, account hints, statement shape, filename pattern, or fingerprint suggests a narrow match. Do not open non-matching source files.
 
 Workflow:
 
@@ -62,6 +62,7 @@ Workflow:
    - populate `account_owner`, `account_names`, and `statement_metadata` only from raw-statement evidence; use `null`, `[]`, or omitted nested fields when the statement does not expose values clearly, and record extraction ambiguity in the process artifact
    - when present, use `statement_metadata` for statement-scoped facts such as institution name, statement period, and statement issue date; put account-specific facts under `statement_metadata.accounts[]`, including a stable parsed `account_id`, account identifiers, account type, primary currency, opening/closing/available balances, reported record counts, and balance reconciliation checks
    - set `account_id` on every extracted record to point to the matching `statement_metadata.accounts[]` entry; if a record's account cannot be identified in a multi-account statement, apply the shared fail-closed invariant with `process_blocked` instead of assigning it by guess
+   - when a multi-account statement has missing, duplicated, or mismatched `account_id` values, read `.agents/skills/shared/parsed-statement-jq-reading.md` before continuing and block rather than guessing if the mismatch cannot be resolved from statement evidence
    - keep all contract keys in `snake_case`
    - on re-parse, write a new versioned output and refresh only this statement's status entry
 5. Update only this input's status:

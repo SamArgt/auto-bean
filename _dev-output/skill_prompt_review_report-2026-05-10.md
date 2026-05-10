@@ -116,12 +116,10 @@ Add a shared 4-step invariant in `workflow-rules.md`:
 
 ---
 
-### A-2 (P1) “Read when needed” trigger thresholds are underspecified
+### [DONE] A-2 (P1) “Read when needed” trigger thresholds are underspecified
 
 **Concerned files**
-- `skill_sources/auto-bean-query/SKILL.md`
-- `skill_sources/auto-bean-process/SKILL.md`
-- `skill_sources/auto-bean-categorize/SKILL.md`
+- `skill_sources/*/SKILL.md`
 - `skill_sources/shared/memory-access-rules.md`
 
 **Problem detail**
@@ -138,7 +136,7 @@ Add a shared 4-step invariant in `workflow-rules.md`:
 
 ---
 
-### A-3 (P1) Optional categorize artifact can reduce audit continuity
+### [DONE] A-3 (P1) Optional categorize artifact can reduce audit continuity
 
 **Concerned files**
 - `skill_sources/auto-bean-categorize/SKILL.md`
@@ -438,17 +436,17 @@ Return schemas may include rich detail; import artifact contract restricts copyi
 ## Prioritized Improvement Plan
 
 ## P0 (Immediate)
-1. Resolve memory write ownership contradiction between ownership map and stage/workspace requirements.
-2. Standardize absolute “never ask user directly” wording for import-invoked sub-agents in all stage files.
+1. [DONE] Resolve memory write ownership contradiction between ownership map and stage/workspace requirements.
+2. [DONE]Standardize absolute “never ask user directly” wording for import-invoked sub-agents in all stage files.
 
 ## P1 (Next sprint)
-3. Add canonical “fail closed” operational steps in shared workflow rules.
-4. Add deterministic “read when needed” trigger tables in query/process/categorize.
-5. Require always-on categorize artifact with short-form template option.
+3. [DONE] Add canonical “fail closed” operational steps in shared workflow rules.
+4. [DONE] Add deterministic “read when needed” trigger tables in query/process/categorize/write.
+5. [DONE] Require always-on categorize artifact with short-form template option.
 6. Add timeout/retry/error taxonomy for docling execution.
 7. Add malformed artifact repair protocol.
 8. Add shared persona statement clarifying conservative default vs governed proactive memory writes.
-9. Add fast-path checklists and completion checklists to process/categorize/import.
+9. [DONE] Add fast-path checklists and completion checklists to process/categorize/import.
 
 ## P2 (Backlog)
 10. Normalize modality taxonomy (MUST/SHOULD/MAY) across all markdown prompts.

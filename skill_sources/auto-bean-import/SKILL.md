@@ -49,9 +49,9 @@ Follow this ordered reference map; the stage mechanics live there. For each step
 
 Use supporting references only at their trigger point:
 
-- Read `.agents/skills/shared/question-handling-contract.md` before surfacing or resuming stage questions.
-- Read `.agents/skills/shared/memory-access-rules.md` before using governed memory hints.
-- Read `.agents/skills/shared/import-status.example.yml` only when creating new status fields or auditing schema shape.
+- Read `.agents/skills/shared/question-handling-contract.md` before surfacing, resuming, updating, or resolving stage questions from process, account inspection, categorize, write, or memory handoff work.
+- Read `.agents/skills/shared/memory-access-rules.md` before selecting governed memory hints for a stage handoff, using memory-derived suggestions in review, accepting or rejecting memory suggestions from sub-agents, persisting reusable learning, or handling memory conflicts.
+- Read `.agents/skills/shared/import-status.example.yml` only when creating new status fields, auditing schema shape, or reconciling an unexpected status entry before updating it.
 
 ## Guardrails
 

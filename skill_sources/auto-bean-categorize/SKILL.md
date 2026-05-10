@@ -22,10 +22,10 @@ Always read before acting:
 
 Read when needed:
 
-- `.agents/skills/shared/parsed-statement-output.example.json` when the parsed statement shape, required fields, or field meanings are unclear
-- `.agents/skills/shared/memory-access-rules.md` before using governed memory hints
-- `.agents/skills/shared/question-handling-contract.md` before recording or returning pending user questions
-- `.agents/skills/auto-bean-categorize/references/categorize-artifact-rules.md` before creating or updating a user-facing categorize artifact
+- `.agents/skills/shared/parsed-statement-output.example.json` MUST be read when parsed statement shape, required fields, field meanings, `statement_metadata.accounts[]`, or extracted-record `account_id` relationships are unclear or inconsistent.
+- `.agents/skills/shared/memory-access-rules.md` MUST be read before using, rejecting, correcting, or proposing governed memory hints for category, account, transfer, duplicate, naming, clarification, or import-source behavior.
+- `.agents/skills/shared/question-handling-contract.md` MUST be read before recording, returning, resuming, or marking resolved any pending user question.
+- `.agents/skills/auto-bean-categorize/references/categorize-artifact-rules.md` MUST be read before creating or updating a user-facing categorize artifact.
 
 Workflow:
 
@@ -46,6 +46,7 @@ Workflow:
    - use current parsed facts plus relevant `.auto-bean/memory/MEMORY.md` context and governed workflow memory hints from `.auto-bean/memory/category_mappings.json`.
    - treat parsed `account_owner` and `account_names` as statement evidence for selecting account mappings, transfer context, and memory applicability; do not treat them as ledger account names unless a current ledger check or approved mapping supports that
    - apply the shared memory access rules before reusing category, account, transfer, duplicate, naming, clarification, or import-source memory
+   - if a memory-derived suggestion materially affects a posting account, category, transfer classification, duplicate decision, or user question, read `.agents/skills/shared/memory-access-rules.md` even when the suggestion was supplied by `$auto-bean-import`
    - if memory matches under the shared strong-evidence threshold, record the matched memory path, record identity or stable summary, matched transaction facts, and resulting category/account suggestion
    - if no reliable memory matches, provide evidence-based suggestions: likely category/account, supporting statement facts, relevant ledger conventions, confidence, and plausible alternatives
    - when categorization materially affects future postings and evidence does not support one safe choice, record a pending question and continue with any remaining safe work before returning control to `$auto-bean-import`
