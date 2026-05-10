@@ -322,20 +322,20 @@ Docling command guidance is good, but timeout, retry classes, and failover thres
 
 ---
 
-### S-2 (P1) Malformed artifact repair flow not explicit enough
+### [DONE] S-2 (P1) Malformed structured state repair flow not explicit enough
 
 **Concerned files**
 - `skill_sources/auto-bean-import/references/import-artifact-contract.md`
 - `skill_sources/shared/workflow-rules.md`
 
 **Problem detail**
-Missing clear steps for partially corrupted markdown artifacts or malformed JSON memory records.
+Missing clear steps for malformed structured workflow state such as parsed statement JSON, `statements/import-status.yml`, or governed JSON memory records. Markdown artifacts are less fragile as long as they retain the right readable content.
 
 **Suggested solution**
-- Add repair protocol:
+- Add structured-state repair protocol:
   1. Preserve original file.
-  2. Append `## Recovery Notes` with timestamp and issue.
-  3. Restore minimum required sections.
+  2. Repair only inside the owning surface from recoverable evidence.
+  3. Re-parse and validate before downstream use.
   4. Mark unresolved ambiguity as blocker.
 
 ---

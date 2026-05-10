@@ -65,6 +65,20 @@ Artifacts should link to stage-owned detail rather than copying full warning, qu
 
 Do not include raw statement dumps, full ledger excerpts, secret tokens, tax identifiers, full account numbers, or full card numbers in Markdown artifacts unless the user explicitly requires that exact value for review. Prefer redacted forms such as last four digits, stable row ids, source paths, and artifact links.
 
+## Structured State Repair
+
+Markdown artifacts are review surfaces. Do not block merely because their headings or formatting drift if the right content, ids, decisions, and evidence links are present and readable; update them normally within ownership boundaries.
+
+Structured workflow state must remain parseable and schema-compatible before it is used for downstream decisions. This includes parsed statement JSON under `statements/parsed/`, `statements/import-status.yml`, and governed JSON memory under `.auto-bean/memory/`.
+
+When structured state is malformed, has duplicate/conflicting keys, fails schema expectations, or cannot be parsed without losing unrelated data:
+
+1. Repair only inside the owning surface and only from recoverable evidence: source statement evidence for parsed JSON, current stage/status evidence for `import-status.yml`, and eligible governed evidence for JSON memory.
+2. Re-parse and validate the repaired file before using it for account identity, status transitions, posting inputs, memory reuse, or final approval.
+3. Apply the fail-closed invariant for any unresolved ambiguity: record the affected path, parse/schema issue, evidence checked, and required repair in the owning artifact or response; keep or move the statement to the appropriate blocked state when status exists; return explicit resume requirements.
+
+Ownership still applies during repair.
+
 ## Ownership
 
 | surface | owner |
