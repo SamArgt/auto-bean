@@ -304,7 +304,7 @@ Similar rules (question broker, memory advisory nature, status payload boundarie
 
 ## 5) Semantic Coverage Gaps
 
-### S-1 (P1) Missing explicit timeout/retry taxonomy for external tooling
+### [DONE] S-1 (P1) Missing explicit timeout/retry taxonomy for external tooling
 
 **Concerned file**
 - `skill_sources/auto-bean-process/SKILL.md`
@@ -443,7 +443,7 @@ Return schemas may include rich detail; import artifact contract restricts copyi
 3. [DONE] Add canonical “fail closed” operational steps in shared workflow rules.
 4. [DONE] Add deterministic “read when needed” trigger tables in query/process/categorize/write.
 5. [DONE] Require always-on categorize artifact with short-form template option.
-6. Add timeout/retry/error taxonomy for docling execution.
+6. [DONE]Add timeout/retry/error taxonomy for docling execution.
 7. Add malformed artifact repair protocol.
 8. Add shared persona statement clarifying conservative default vs governed proactive memory writes.
 9. [DONE] Add fast-path checklists and completion checklists to process/categorize/import.

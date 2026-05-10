@@ -46,6 +46,13 @@ Workflow:
    - apply the shared memory access rules before using any selected source memory
 3. Parse with the local Docling CLI:
    - prefer `./.venv/bin/docling` directly on the assigned source; if it is unavailable but `uv run docling` works in this workspace, use `uv run docling` with the same arguments
+   - enforce an execution timeout for each Docling attempt: PDF `120s`; CSV, XLSX, and XLS `60s`
+   - classify failures before retrying:
+     - transient execution failure: timeout, interrupted process, temporary filesystem read error, or temp-output write race; retry once with a fresh temp output path, then set `process_blocked` if it fails again
+     - parser crash: nonzero Docling exit, exception traceback, malformed JSON output, or output missing required evidence; do not retry unless the failure text clearly names a transient IO condition
+     - unsupported or unsafe input: unsupported extension, encrypted/password-protected file, scanned or textless PDF, corrupt file, missing source, unavailable Docling/dependency, or command path unavailable through both supported paths; do not retry
+   - map unrecovered failures deterministically to `process_blocked`: record `last_process_failure_reason` as `tool_timeout`, `transient_io_failure`, `parser_crash`, `malformed_parser_output`, `unsupported_format`, `encrypted_or_unreadable_source`, `textless_pdf`, `missing_source`, or `tool_unavailable`
+   - include the timeout, attempt count, command path used, failure class, concise stderr/stdout summary, temp output path if any, and required manual repair or dependency action in the process artifact
    - request JSON output into a unique temp path under `.auto-bean/tmp/`
    - default command patterns:
      - PDF: `./.venv/bin/docling statements/raw/bank/jan-2026.pdf --to json --output .auto-bean/tmp/docling-20260411T090000Z-jan-2026-1ef7e13f`
@@ -95,4 +102,3 @@ Guardrails:
 - Follow the shared workflow rules for ownership boundaries, status management, question handling, sub-agent handoff, compact returns, and memory use.
 - Do not claim success when evidence is ambiguous, structure is risky, or validation fails.
 - Do not process unassigned statements.
-- Follow the shared import-invoked question broker rule for process-stage questions.
