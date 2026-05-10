@@ -202,7 +202,7 @@ Without explicit bounds, this can expand into structural ledger edits not necess
 
 ## 3) Persona Consistency (tone/behavior)
 
-### P-1 (P1) Conservative workflow persona vs proactive memory persona
+### [DONE] P-1 (P1) Conservative workflow persona vs proactive memory persona
 
 **Concerned files**
 - `skill_sources/shared/workflow-rules.md`
@@ -443,8 +443,8 @@ Return schemas may include rich detail; import artifact contract restricts copyi
 4. [DONE] Add deterministic “read when needed” trigger tables in query/process/categorize/write.
 5. [DONE] Require always-on categorize artifact with short-form template option.
 6. [DONE]Add timeout/retry/error taxonomy for docling execution.
-7. Add malformed artifact repair protocol.
-8. Add shared persona statement clarifying conservative default vs governed proactive memory writes.
+7. [DONE] Add malformed artifact repair protocol.
+8. [DONE] Add shared persona statement clarifying conservative default vs governed proactive memory writes.
 9. [DONE] Add fast-path checklists and completion checklists to process/categorize/import.
 
 ## P2 (Backlog)

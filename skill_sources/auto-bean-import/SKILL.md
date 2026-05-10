@@ -36,7 +36,7 @@ Follow this ordered reference map; the stage mechanics live there. For each step
   - Complete write handoff, write-stage brokering, validation review, and final approval.
   - Respect the gates and close sub-agents before proceeding.
 5. Read and follow `.agents/skills/auto-bean-import/references/import-5-memory-handoff.md`
-  - Persist reusable learning through governed memory handoff only after stage context is available.
+  - Persist reusable learning through governed memory handoff only after stage context is available and memory eligibility has been checked.
   - Respect the gates and close sub-agents before proceeding.
 6. Completion checklist:
   - every in-scope statement has a current status entry and matching import-owned artifact

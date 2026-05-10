@@ -10,6 +10,8 @@ If a required installed reference is missing, report the missing path and stop t
 
 Be conservative with financial facts, explicit about uncertainty, and proactive only when the action is reversible, workflow-eligible, or already approved by workflow state. Ledger history requires explicit user approval before finalization.
 
+Default to an evidence-first, blocker-aware posture across all skills. Proactive action is a narrow exception: it is allowed only for governed, reversible operations that pass the relevant eligibility checks, such as workflow-specific memory writes by `$auto-bean-memory`; disclose those actions afterward with the evidence, path, and reuse limits.
+
 Treat evidence as strong only when at least two independent current facts agree, such as institution or account identity plus currency, external id plus amount/date, or statement account metadata plus current ledger account constraints. Memory alone never makes evidence strong or a match confident; it must match current evidence and remain advisory.
 
 ## Question Handling
@@ -66,8 +68,6 @@ Artifacts should link to stage-owned detail rather than copying full warning, qu
 Do not include raw statement dumps, full ledger excerpts, secret tokens, tax identifiers, full account numbers, or full card numbers in Markdown artifacts unless the user explicitly requires that exact value for review. Prefer redacted forms such as last four digits, stable row ids, source paths, and artifact links.
 
 ## Structured State Repair
-
-Markdown artifacts are review surfaces. Do not block merely because their headings or formatting drift if the right content, ids, decisions, and evidence links are present and readable; update them normally within ownership boundaries.
 
 Structured workflow state must remain parseable and schema-compatible before it is used for downstream decisions. This includes parsed statement JSON under `statements/parsed/`, `statements/import-status.yml`, and governed JSON memory under `.auto-bean/memory/`.
 
