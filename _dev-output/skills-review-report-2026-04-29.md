@@ -31,7 +31,7 @@ That line is orchestration behavior, not Beancount syntax. It adds cognitive noi
 
 **Suggestion:** split this doc into:
 - **pure Beancount syntax/ledger safety** (kept shared), and
-- **workflow interaction guidance** (moved to `question-handling-contract.md` or per-skill docs).
+- **workflow interaction guidance** (moved to `workflow-rules.md` or per-skill docs).
 
 ### B. `shared/import-status.example.yml` appears under-used as an active dependency
 
@@ -60,10 +60,10 @@ There is still meaningful repetition across skills despite previous cleanup.
 - record question in artifact,
 - return question ids + artifact path to import when import-invoked.
 
-Since `shared/question-handling-contract.md` already centralizes this, repeated long-form copies in each `SKILL.md` can be reduced.
+Since `shared/workflow-rules.md` already centralizes this, repeated long-form copies in each `SKILL.md` can be reduced.
 
 **Suggestion:** replace repeated paragraphs with a short pointer:
-- "Follow shared question-handling contract; only list stage-specific exceptions here."
+- "Follow shared question-handling rules; only list stage-specific exceptions here."
 
 ### B. Repeated memory fail-closed language
 
@@ -100,7 +100,7 @@ Example: Beancount syntax doc includes cross-skill collaboration instructions; p
 
 ### C. Similar "do not store X in import-status" guidance appears in multiple places
 
-This rule already appears clearly in `import-status-reading.md` and `question-handling-contract.md`.
+This rule already appears clearly in `import-status-reading.md` and `workflow-rules.md`.
 
 **Suggestion:** retain canonical wording in one place, and in other files reference it briefly.
 
@@ -148,9 +148,9 @@ This improves scan speed and reduces interpretation drift for orchestrator behav
 
 ### 3) Centralize repeated "persist safe progress before asking" language by reference
 
-`workspace_template/AGENTS.md` repeats a longer variant of the same question-handling rule already formalized in `shared/question-handling-contract.md`.
+`workspace_template/AGENTS.md` repeats a longer variant of the same question-handling rule already formalized in `shared/workflow-rules.md`.
 
-**Suggestion:** keep a short local reminder and link to the shared contract to avoid policy divergence.
+**Suggestion:** keep a short local reminder and link to the shared rules to avoid policy divergence.
 
 ### 4) Clarify commit/push authority with one explicit sentence
 

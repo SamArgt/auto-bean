@@ -12,13 +12,17 @@ from rich.progress import (
     TextColumn,
     TimeElapsedColumn,
 )
+from rich.syntax import Syntax
 
 from auto_bean.init import (
     CheckStatus,
     CommandOutcome,
     DiagnosticCheck,
-    InitService,
-    build_init_service,
+    WorkspaceFileChange,
+    WorkspaceInitService,
+    WorkspaceUpdateService,
+    build_workspace_init_service,
+    build_workspace_update_service,
 )
 
 _STATUS_STYLES = {
@@ -26,6 +30,7 @@ _STATUS_STYLES = {
     CheckStatus.FAIL: "red",
     CheckStatus.WARN: "yellow",
 }
+_VERBOSE_CHECK_DETAIL_EXCLUSIONS = {"changes", "diffs"}
 
 
 @click.group(invoke_without_command=True)
@@ -45,7 +50,7 @@ def cli(ctx: click.Context) -> int:
     help="Print stage results as they complete.",
 )
 def init(project_name: str, verbose: bool) -> int:
-    service = build_init_service()
+    service = build_workspace_init_service()
     coding_agent = service.prompt_for_coding_agent()
     context7_api_key = service.prompt_for_context7_api_key()
     renderer = RichWorkflowRenderer(verbose=verbose)
@@ -75,7 +80,7 @@ def init(project_name: str, verbose: bool) -> int:
     help="Print stage results as they complete.",
 )
 def update(workspace: str, check_only: bool, verbose: bool) -> int:
-    service = build_init_service()
+    service = build_workspace_update_service()
     renderer = RichWorkflowRenderer(verbose=verbose, description="Updating workspace")
     result = _run_update(
         workspace=workspace,
@@ -84,7 +89,7 @@ def update(workspace: str, check_only: bool, verbose: bool) -> int:
         current_task_reporter=renderer.start_check,
         service=service,
     )
-    renderer.finish(result)
+    renderer.finish_update(result, check_only=check_only)
     return 1 if result.status not in {"ok"} else 0
 
 
@@ -110,9 +115,9 @@ def _run_init(
     context7_api_key: str | None = None,
     progress_reporter: Callable[[DiagnosticCheck], None] | None = None,
     current_task_reporter: Callable[[str], None] | None = None,
-    service: InitService | None = None,
+    service: WorkspaceInitService | None = None,
 ) -> CommandOutcome:
-    init_service = service if service is not None else build_init_service()
+    init_service = service if service is not None else build_workspace_init_service()
     try:
         init_service.progress_reporter = progress_reporter
         init_service.current_task_reporter = current_task_reporter
@@ -137,15 +142,17 @@ def _run_update(
     check_only: bool = False,
     progress_reporter: Callable[[DiagnosticCheck], None] | None = None,
     current_task_reporter: Callable[[str], None] | None = None,
-    service: InitService | None = None,
+    service: WorkspaceUpdateService | None = None,
 ) -> CommandOutcome:
-    init_service = service if service is not None else build_init_service()
+    update_service = (
+        service if service is not None else build_workspace_update_service()
+    )
     try:
-        init_service.progress_reporter = progress_reporter
-        init_service.current_task_reporter = current_task_reporter
-        return init_service.update(workspace, check_only=check_only)
+        update_service.progress_reporter = progress_reporter
+        update_service.current_task_reporter = current_task_reporter
+        return update_service.update(workspace, check_only=check_only)
     except Exception as exc:
-        return init_service.execution_error(
+        return update_service.execution_error(
             "update",
             details={
                 "exception_type": type(exc).__name__,
@@ -167,10 +174,14 @@ def render_result(result: CommandOutcome, *, as_json: bool, verbose: bool) -> No
 
 class RichWorkflowRenderer:
     def __init__(
-        self, *, verbose: bool, description: str = "Initializing workspace"
+        self,
+        *,
+        verbose: bool,
+        description: str = "Initializing workspace",
+        console: Console | None = None,
     ) -> None:
         self.verbose = verbose
-        self.console = Console()
+        self.console = console if console is not None else Console()
         self.progress = Progress(
             SpinnerColumn(),
             TextColumn("[progress.description]{task.description}"),
@@ -197,7 +208,7 @@ class RichWorkflowRenderer:
             f"[{status_style}][{status_label}][/{status_style}] {check.name}: {check.message} [dim]({duration_text})[/dim]"
         )
         for key, value in check.details.items():
-            if value:
+            if value and key not in _VERBOSE_CHECK_DETAIL_EXCLUSIONS:
                 self.progress.console.print(f"  [dim]{key}:[/dim] {value}")
 
     def finish(self, result: CommandOutcome) -> None:
@@ -208,9 +219,62 @@ class RichWorkflowRenderer:
         if result.status not in {"ok", "updates_available"}:
             label = "Failed"
         self.console.print(f"[bold {style}]{label}:[/bold {style}] {result.message}")
-        paths = result.details.get("changed_paths") or result.details.get(
-            "updated_paths"
-        )
-        if isinstance(paths, list) and paths:
-            for path in paths:
-                self.console.print(f"  [dim]{path}[/dim]")
+
+    def finish_update(self, result: CommandOutcome, *, check_only: bool) -> None:
+        self.progress.update(self._task_id, completed=len(result.checks))
+        self.progress.stop()
+        if result.status == "ok":
+            style = "green"
+            label = "Success"
+        elif result.status == "updates_available":
+            style = "yellow"
+            label = "Needs update"
+        else:
+            style = "red"
+            label = "Failed"
+        self.console.print(f"[bold {style}]{label}:[/bold {style}] {result.message}")
+        if result.status not in {"ok", "updates_available"}:
+            return
+        plan = result.update_plan
+        if plan is None or not plan:
+            return
+        update_label = "Would update" if check_only else "Updated"
+        delete_label = "Would delete" if check_only else "Deleted"
+        if plan.updates:
+            update_lines = sum(change.concerned_line_count for change in plan.updates)
+            self.console.print(
+                f"[bold green]{update_label} {len(plan.updates)} file(s), "
+                f"{update_lines} line(s):[/bold green]"
+            )
+            for change in plan.updates:
+                self.console.print(
+                    f"  [dim]{change.path}[/dim] "
+                    f"({change.concerned_line_count} lines, "
+                    f"[green]+{change.added_line_count}[/green]/"
+                    f"[red]-{change.removed_line_count}[/red])"
+                )
+        if plan.removals:
+            self.console.print(
+                f"[bold red]{delete_label} {len(plan.removals)} file(s):[/bold red]"
+            )
+            for change in plan.removals:
+                self.console.print(f"  [dim]{change.path}[/dim]")
+        if self.verbose:
+            self._render_update_diffs(plan.changes)
+
+    def _render_update_diffs(self, changes: Sequence[WorkspaceFileChange]) -> None:
+        for change in changes:
+            if not change.diff:
+                continue
+            self.console.print()
+            self.console.print(
+                f"[bold]diff --git a/{change.path} b/{change.path}[/bold]"
+            )
+            self.console.print(
+                Syntax(
+                    change.diff.rstrip(),
+                    "diff",
+                    background_color="default",
+                    word_wrap=False,
+                )
+            )

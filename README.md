@@ -114,7 +114,7 @@ Users normally should not call this directly. `auto-bean-import` delegates to it
 
 ### `auto-bean-memory`
 
-Governed memory persistence for approved reusable decisions such as account mappings, categorization patterns, transfer detection behavior, naming conventions, import-source behavior, deduplication decisions, and clarification outcomes.
+Governed memory persistence for eligible reusable decisions. Workflow-specific memory keeps account mappings, categorization patterns, transfer detection behavior, import-source behavior, and deduplication decisions in stage-owned JSON files. Cross-workflow user profile details, preferences, corrections, naming preferences, and clarification outcomes live in `.auto-bean/memory/MEMORY.md`.
 
 Workflows may suggest memory. Only this skill should write `.auto-bean/memory/**`.
 
@@ -135,17 +135,25 @@ auto-bean init my-ledger --json
 
 ### `auto-bean update [WORKSPACE]`
 
-Updates managed workspace files from the current packaged product assets.
+Updates managed workspace files from the current packaged product assets and removes
+stale files from managed workspace areas when those files no longer exist in the
+packaged product.
 
 It updates:
 
+- `README.md`
 - `AGENTS.md`
+- `scripts/install-dependencies.sh`
+- `scripts/open-fava.sh`
+- `scripts/validate-ledger.sh`
 - managed files under `.agents/skills/`
 
 It does not overwrite:
 
 - `ledger.beancount`
 - `beancount/`
+- `statement/`
+- `statements/`
 - `.auto-bean/`
 
 Check what would change:
@@ -171,6 +179,16 @@ auto-bean update . --check --json
 ## Workspace Scripts
 
 Generated workspaces include helper scripts under `scripts/`.
+
+### Dependency Installation
+
+Use this after cloning a generated workspace from a remote GitHub repository, where the gitignored `.venv` is not present:
+
+```bash
+./scripts/install-dependencies.sh
+```
+
+This creates the workspace-local `.venv` and installs Beancount, Fava, and Docling.
 
 ### Beancount Validation
 
@@ -202,6 +220,7 @@ A generated workspace looks like this:
 
 ```text
 my-ledger/
+|-- README.md
 |-- AGENTS.md
 |-- ledger.beancount
 |-- beancount/
@@ -216,11 +235,10 @@ my-ledger/
 |   |   `-- categorize/
 |   |-- proposals/
 |   `-- memory/
+|       |-- MEMORY.md
 |       |-- account_mappings.json
 |       |-- category_mappings.json
-|       |-- clarification_outcomes.json
 |       |-- deduplication_decisions.json
-|       |-- naming_conventions.json
 |       |-- transfer_detection.json
 |       `-- import_sources/
 |           `-- index.json
@@ -235,8 +253,9 @@ my-ledger/
 |-- .codex/
 |   `-- config.toml
 |-- scripts/
-|   |-- validate-ledger.sh
-|   `-- open-fava.sh
+|   |-- install-dependencies.sh
+|   |-- open-fava.sh
+|   `-- validate-ledger.sh
 `-- .venv/
 ```
 
@@ -248,7 +267,8 @@ Important boundaries:
 - `statements/parsed/` contains normalized statement evidence, not accepted ledger history.
 - `statements/import-status.yml` tracks parse and import state.
 - `.auto-bean/artifacts/` stores diagnostics and audit artifacts.
-- `.auto-bean/memory/` stores approved reusable workflow memory.
+- `.auto-bean/memory/MEMORY.md` stores always-loaded user profile, preference, correction, and general memory.
+- `.auto-bean/memory/` stores eligible reusable workflow-specific memory.
 - `.agents/skills/` contains installed runtime skills.
 - `.codex/config.toml` configures Context7 MCP for Codex and optionally stores the gitignored Context7 API key entered during init.
 
@@ -260,6 +280,7 @@ Important boundaries:
 
 - This repo authors the CLI, workspace scaffold, and skill behavior.
 - `auto-bean init` materializes those assets into a user-owned workspace.
+- Authored skill sources use installed workspace reference paths under `.agents/skills/...` because those paths are valid after materialization.
 - The generated workspace is a Git repo with a first valid Beancount ledger and an initial commit.
 - Codex skills are the primary user interface after initialization.
 
@@ -276,7 +297,8 @@ Memory is governed:
 
 - Workflows can propose reusable decisions.
 - Memory suggestions are advisory and must stay separate from raw statements, parsed dumps, diagnostics, and ledger entries.
-- `auto-bean-memory` validates and persists approved reusable decisions.
+- `MEMORY.md` is loaded at session start, included in sub-agent handoffs, and reviewed for updates before each main-thread session ends; sub-agents suggest `MEMORY.md` changes instead of editing it.
+- `auto-bean-memory` validates and persists eligible reusable decisions.
 - Other skills should read memory according to the shared memory access rules, but should not write `.auto-bean/memory/**` directly.
 
 Review boundaries are deliberate:

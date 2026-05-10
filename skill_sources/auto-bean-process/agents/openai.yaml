@@ -1,7 +1,7 @@
 interface:
   display_name: "Process Statements"
   short_description: "Process one raw statement into parsed evidence"
-  default_prompt: "Use $auto-bean-process for one assigned raw statement: look for matching import-source behavior memory, normalize it into `statements/parsed/`, update only that input's `statements/import-status.yml` entry to ready, parsed, or parsed_with_warning, keep warnings/questions/answers in the process artifact under `.auto-bean/artifacts/process/` using the shared raw-statement filename prefix, persist processing memory suggestions there too, and return question ids plus parsing results to $auto-bean-import for user brokering, first-seen accounts, posting workflows, and finalization."
+  default_prompt: "Use $auto-bean-process for one assigned raw statement: look for matching import-source behavior memory, normalize it into `statements/parsed/` with the local Docling CLI, update only that input's `statements/import-status.yml` entry to process_blocked, process_review, or account_review, keep warnings/questions/answers in the process artifact under `.auto-bean/artifacts/process/` using the shared raw-statement filename prefix, persist processing memory suggestions there too, and return question ids plus parsing results to $auto-bean-import for user brokering, first-seen accounts, posting workflows, and finalization."
 
 policy:
   allow_implicit_invocation: false
