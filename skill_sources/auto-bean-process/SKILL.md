@@ -78,7 +78,7 @@ Workflow:
    - write one deterministic process artifact under `.auto-bean/artifacts/process/`, using the shared raw-statement artifact prefix from `$auto-bean-import`, such as `.auto-bean/artifacts/process/<artifact_prefix>--process.md`
    - use that process artifact for process-stage questions, manual extraction notes, source-memory reuse attribution, and processing-related `memory_suggestions`
    - reflect only the process artifact path in the parsed output and status entry; do not embed warning, question, or answer payloads outside the process artifact
-   - return the process artifact to `$auto-bean-import` so the orchestrator can ask and update or resume the intermediate statement
+   - when user input is required, never ask the user directly; return only persisted question ids, the process artifact path, and operational blocker flags to `$auto-bean-import` so the orchestrator can ask and update or resume the intermediate statement
    - collect eligible reusable learning into a `Memory Suggestions` section of the process artifact, even when there are no user questions
 7. Return control to `$auto-bean-import` using the shared compact return schema, including:
    - assigned source path and source fingerprint

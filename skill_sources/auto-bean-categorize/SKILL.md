@@ -64,7 +64,7 @@ Workflow:
    - fail closed when a finding cannot be safely classified or resolved; do not guess, auto-net, auto-merge, silently drop, or rewrite candidate transactions
 6. Handle clarification needs:
    - set `user_input_required: true` when account/category choice, transfer intent, duplicate suspicion, source-specific meaning, or categorization remains materially ambiguous
-   - follow the shared question-handling contract; for import-invoked work, normally return question ids and the categorize artifact path so `$auto-bean-import` can keep the main thread
+   - follow the shared question-handling contract; when invoked by `$auto-bean-import`, never ask the user directly, and return only persisted question ids, the categorize artifact path, and operational blocker flags so `$auto-bean-import` can broker the question in the main thread
 8. Update only this statement's status:
    - require the assigned statement to be at `categorize_ready` before categorization work starts
    - set `categorize_blocked` when required categorization, reconciliation, duplicate, transfer, or source-interpretation input is unresolved
