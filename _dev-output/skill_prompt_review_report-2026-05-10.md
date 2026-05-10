@@ -28,7 +28,7 @@ Priority snapshot:
 ### [DONE] C-1 (P0) Memory ownership contradiction: who can write `.auto-bean/memory/**` 
 
 **Concerned files**
-- `skill_sources/shared/ownership-map.md`
+- `skill_sources/shared/workflow-rules.md`
 - `skill_sources/auto-bean-import/SKILL.md`
 - `skill_sources/auto-bean-write/SKILL.md`
 - `workspace_template/AGENTS.md`
@@ -48,7 +48,7 @@ This creates a direct policy contradiction and can produce two failure modes:
 - Session exits non-compliant with workspace policy.
 
 **Suggested solution (recommended)**
-1. Split ownership model into two rows in `ownership-map.md`:
+1. Split ownership model into two rows in `workflow-rules.md`:
    - Workflow-specific JSON memory (`account_mappings.json`, `category_mappings.json`, etc.) -> only `$auto-bean-memory`.
    - Global profile memory (`MEMORY.md`) -> main-thread orchestrators (`$auto-bean-import`, direct `$auto-bean-write`) MAY update at session end; sub-agents MUST only suggest edits.
 2. Keep `$auto-bean-memory` as canonical writer for governed JSON memory.
@@ -405,7 +405,7 @@ Imported contract says NEVER; downstream language sometimes says normally/usuall
 ### X-2 (P2) Ownership-map breadth conflicts with stage end-of-session memory behaviors
 
 **Concerned files**
-- `skill_sources/shared/ownership-map.md`
+- `skill_sources/shared/workflow-rules.md`
 - `skill_sources/auto-bean-import/SKILL.md`
 - `skill_sources/auto-bean-write/SKILL.md`
 - `workspace_template/AGENTS.md`
@@ -419,7 +419,7 @@ Imported contract says NEVER; downstream language sometimes says normally/usuall
 
 **Concerned files**
 - `skill_sources/auto-bean-import/references/import-artifact-contract.md`
-- `skill_sources/shared/sub-agent-return-examples.md`
+- `skill_sources/shared/workflow-rules.md`
 
 **Problem detail**
 Return schemas may include rich detail; import artifact contract restricts copying full stage payloads.
@@ -465,7 +465,7 @@ Return schemas may include rich detail; import artifact contract restricts copyi
 ## Suggested Implementation Sequence
 
 1. **Shared policy pass**
-   - Update `skill_sources/shared/workflow-rules.md`, `ownership-map.md`, `question-handling-contract.md`, `memory-access-rules.md`.
+   - Update `skill_sources/shared/workflow-rules.md`, `question-handling-contract.md`, `memory-access-rules.md`.
 2. **Stage alignment pass**
    - Align `auto-bean-process`, `auto-bean-categorize`, `auto-bean-import`, `auto-bean-write`, `auto-bean-query`, `auto-bean-memory` language to shared invariants.
 3. **Reference contract pass**

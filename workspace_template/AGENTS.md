@@ -22,8 +22,7 @@ High-frequency paths:
 
 ## Read before acting:
 
-- Read `.agents/skills/shared/workflow-rules.md` for shared expectations on status management, question handling, sub-agent handoff, and memory use
-- Read `.agents/skills/shared/ownership-map.md` for which skill owns which artifact, evidence, question, memory, and ledger scopes
+- Read `.agents/skills/shared/workflow-rules.md` for shared expectations on ownership, status management, question handling, sub-agent handoff, compact returns, and memory use
 
 ### Memory
 

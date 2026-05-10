@@ -17,7 +17,7 @@ Inputs from `$auto-bean-import`:
 Always read before acting:
 
 - `.auto-bean/memory/MEMORY.md`
-- `.agents/skills/shared/sub-agent-return-examples.md`
+- `.agents/skills/shared/workflow-rules.md`
 - `.agents/skills/shared/parsed-statement-output.example.json`
 - `.agents/skills/shared/import-status-reading.md` before reading or updating a large `statements/import-status.yml`
 - `.agents/skills/shared/question-handling-contract.md` before recording process questions
@@ -91,8 +91,7 @@ Workflow:
 
 Guardrails:
 
-- Follow the shared ownership map for process, categorize, write, query, and memory boundaries.
-- Follow the shared workflow rules for status management, question handling, sub-agent handoff, and memory use.
+- Follow the shared workflow rules for ownership boundaries, status management, question handling, sub-agent handoff, compact returns, and memory use.
 - Do not claim success when evidence is ambiguous, structure is risky, or validation fails.
 - Do not process unassigned statements.
 - Follow the shared import-invoked question broker rule for process-stage questions.

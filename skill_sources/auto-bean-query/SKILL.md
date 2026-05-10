@@ -6,9 +6,8 @@ description: Query and explain Beancount ledgers safely with `bean-query` and th
 # Auto Bean Query
 
 Always read before acting:
-
+- `.auto-bean/memory/MEMORY.md`
 - `.agents/skills/shared/workflow-rules.md`
-- `.agents/skills/shared/ownership-map.md`
 - `.agents/skills/auto-bean-query/references/bean-query-patterns.md`
 
 Read when needed:

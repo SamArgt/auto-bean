@@ -15,7 +15,7 @@ Inputs from `$auto-bean-import`:
 Always read before acting:
 
 - `.auto-bean/memory/MEMORY.md`
-- `.agents/skills/shared/sub-agent-return-examples.md`
+- `.agents/skills/shared/workflow-rules.md`
 - `.agents/skills/shared/parsed-statement-jq-reading.md` before inspecting large parsed statement JSON files
 - `.agents/skills/shared/import-status-reading.md` before reading or updating a large `statements/import-status.yml`
 - `.agents/skills/auto-bean-categorize/references/reconciliation-findings.md` for transfer, duplicate, balance, currency, or future-transfer findings
@@ -85,8 +85,7 @@ Workflow:
 
 Guardrails:
 
-- Follow the shared ownership map to respect your scope strictly.
-- Follow the shared workflow rules for status management, question handling, sub-agent handoff, and memory use.
+- Follow the shared workflow rules for ownership boundaries, status management, question handling, sub-agent handoff, compact returns, and memory use.
 - Do not edit `.auto-bean/memory/MEMORY.md` when running as a sub-agent.
 - Do not bypass clarification with a best guess when ambiguity is material.
 - Do not erase import-batch cross-statement review notes when resuming or updating a categorize artifact.
