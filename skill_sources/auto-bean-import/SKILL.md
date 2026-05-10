@@ -44,8 +44,8 @@ Follow this ordered reference map; the stage mechanics live there. For each step
   - no statement advanced past a blocked or unresolved review status
   - ledger mutations, validation results, and final approval state are reflected in import-owned artifacts
   - governed JSON memory candidates were routed through the memory handoff stage
-  - durable `MEMORY.md` suggestions were reviewed and applied or skipped by the main thread
-  - final response includes statement outcomes, artifact links, ledger/status changes, validation result, memory result, `MEMORY.md` result, and remaining blockers or approvals
+  - durable and global `MEMORY.md` suggestions were reviewed and applied or skipped by the main thread
+  - final response includes statement outcomes, artifact links, ledger/status changes, validation result, memory result, and remaining blockers or approvals
 
 Use supporting references only at their trigger point:
 

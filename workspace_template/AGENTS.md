@@ -23,20 +23,12 @@ High-frequency paths:
 ## Read before acting:
 
 - Read `.agents/skills/shared/workflow-rules.md` for shared expectations on ownership, status management, question handling, sub-agent handoff, compact returns, and memory use
-
-### Memory
-
-Read `.auto-bean/memory/MEMORY.md` at session start and whenever preparing a sub-agent handoff.
-Read `.agents/skills/shared/memory-access-rules.md`
-
-Skills may suggest useful governed memory. Only `$auto-bean-memory` writes workflow-specific JSON memory files under `.auto-bean/memory/`, and reused memory is advisory, never silent authority. Main-thread orchestrators and direct main-thread write sessions may update `.auto-bean/memory/MEMORY.md`; sub-agents must return suggested `MEMORY.md` edits instead of changing that file directly.
-
+- Read `.auto-bean/memory/MEMORY.md` at session start and whenever preparing a sub-agent handoff.
+- Read `.agents/skills/shared/memory-access-rules.md` to understand how to access and read workflow-specific memories.
 
 ## Before Ending A Main-Thread Session
 
-Update `.auto-bean/memory/MEMORY.md` before ending every main-thread session. Add or revise only durable, reusable, non-secret context learned from the session, such as main accounts, account relationships, user preferences, and user corrections. If nothing reusable was learned, leave the file unchanged and say so briefly in the final response.
-
-Sub-agents must not edit `.auto-bean/memory/MEMORY.md`. They may read relevant context supplied by the main thread and return concise `MEMORY.md` update suggestions for the main thread to review and apply.
+Use `$auto-bean-memory` to persist any eligible reusable decisions from the session through governed memory. Summarize the persisted learning, source and audit context, memory paths, and reuse limits in the final response. Memory update is not mandatory, it should be use only if there is eligible reusable learning.
 
 ## Import Workflow
 

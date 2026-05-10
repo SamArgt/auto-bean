@@ -70,7 +70,7 @@ Take initiative to persist reusable decisions from workflow evidence when they a
 
 After any durable change, always surface an end-of-workflow memory summary: what reusable decision changed, why it was eligible for autonomous persistence or changed by direct request, source and audit context, exact memory path written, and limits on future reuse. Avoid printing raw financial statements, full ledger excerpts, unrelated records, or unrelated financial data.
 
-When invoked by `$auto-bean-import`, return using the shared compact return schema, with memory paths, persisted workflow-specific decisions, suggested `MEMORY.md` edits for the main thread, skipped candidates, blockers, validation result, and reuse limits.
+When invoked by `$auto-bean-import`, return using the shared compact return schema.
 
 Guardrails:
 
