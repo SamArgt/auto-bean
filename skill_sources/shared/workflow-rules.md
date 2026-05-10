@@ -1,6 +1,6 @@
 # Auto Bean Workflow Rules
 
-Purpose: shared execution, ownership, and compact return rules for auto-bean skills. Skill-specific instructions still own their stage mechanics.
+Purpose: shared execution, ownership, question-handling, and compact return rules for auto-bean skills. Skill-specific instructions still own their stage mechanics.
 
 ## Required References
 
@@ -11,6 +11,40 @@ If a required installed reference is missing, report the missing path and stop t
 Be conservative with financial facts, explicit about uncertainty, and proactive only when the action is reversible, workflow-eligible, or already approved by workflow state. Ledger history requires explicit user approval before finalization.
 
 Treat evidence as strong only when at least two independent current facts agree, such as institution or account identity plus currency, external id plus amount/date, or statement account metadata plus current ledger account constraints. Memory alone never makes evidence strong or a match confident; it must match current evidence and remain advisory.
+
+## Question Handling
+
+Use these rules whenever a workflow encounters missing information, risky ambiguity, manual extraction needs, or a user decision that blocks safe progress.
+
+- Persist every deterministic result before asking or returning a question.
+- Record unresolved items in the stage-owned individual artifact before handing control back.
+- Ask only bounded questions that name the affected statement, record, transaction, or ledger decision.
+- Provide evidence-backed suggestions as often as possible, including a recommended default when current facts support one.
+- Keep observed facts, agent suggestions, risks of guessing, and user-editable answer fields visibly separate.
+- Prefer one consolidated question set per stage or artifact over scattered one-off prompts.
+- Treat missing account identity, transfer intent, duplicate suspicion, or source-specific meaning as clarification blockers rather than Beancount interpolation problems.
+- Update the artifact after the answer, carrying the persisted artifact context and the exact answer supplied.
+
+Each persisted question in the owning artifact should include:
+
+- stable question id
+- affected source path, parsed artifact, transaction, or ledger target
+- observed facts
+- why guessing is unsafe
+- smallest useful set of choices or requested facts
+- suggested answer or default choice when evidence supports one
+- fields or decisions that may change after the answer
+- artifact path where the question is recorded
+
+When creating an artifact for question answering, make it easy for a human user to complete without editing surrounding context. Use stable question ids, concise observed facts, clear suggested defaults, checkboxes or short blanks, and explicit "leave blank if unknown" guidance. Put the suggested default first and make accepting it the easiest path, while keeping alternatives and free-form corrections available.
+
+When a sub-agent stage is invoked by `$auto-bean-import`, the sub-agent NEVER asks the user directly. It records safe progress, persists the question in its stage-owned artifact, and returns only question ids, artifact path, and operational blocker flags to `$auto-bean-import`.
+
+`$auto-bean-import` is the user-facing broker for import workflows. It asks the user in the main thread, batches compatible questions when useful, reads completed fillable artifacts, records answers in the relevant individual artifacts, updates or resumes the owning stage with the answer, and keeps blocked statements out of downstream posting or final approval until the required answer is resolved.
+
+Direct-use skills may ask the user themselves, but they must still persist safe progress first, record the question and answer in the relevant individual artifact when an import artifact exists for the task, and resume the same task after the answer.
+
+If an answer is insufficient, ask one bounded follow-up that states the remaining blocker. Do not convert unresolved ambiguity into a guess, placeholder posting, accepted reconciliation decision, or final approval.
 
 ## Fail-Closed Semantics
 
@@ -27,7 +61,7 @@ If persisting safe progress itself would be unsafe, path-ambiguous, or outside o
 
 Artifact language should be plain and reviewable. Internal returns may be compact and technical.
 
-Artifacts should link to stage-owned detail rather than copying full warning, question, answer, reconciliation, parsed-statement, or ledger payloads across ownership boundaries.
+Artifacts should link to stage-owned detail rather than copying full warning, question, answer, reconciliation, parsed-statement, or ledger payloads across ownership boundaries. For example, a categorize artifact should link to the relevant parsed statement and ledger evidence rather than copying large excerpts of them. An import-owned artifact should link to the relevant categorize artifact rather than copying its full content.
 
 Do not include raw statement dumps, full ledger excerpts, secret tokens, tax identifiers, full account numbers, or full card numbers in Markdown artifacts unless the user explicitly requires that exact value for review. Prefer redacted forms such as last four digits, stable row ids, source paths, and artifact links.
 
@@ -48,11 +82,11 @@ If a requested mutation is outside these owners, ask which workflow should own i
 
 ## Sub-Agent Handoff
 
-When spawning a sub-agent, provide clear instructions on which skill to use, the relevant artifact paths, expected compact return schema, and any relevant memory context with its scope.
+When spawning a sub-agent, provide clear instructions on which skill to use, what is its clear scope, the relevant artifact paths, expected compact return schema, and any relevant memory context.
 
 Tell the sub-agent not to ask the user for clarification; all required context must be supplied in the handoff. Tell it not to edit `.auto-bean/memory/MEMORY.md` directly.
 
-Use the same compact return style when running serially instead of through a sub-agent. Use empty lists or `null` for fields that do not apply. Full warning, question, answer, reconciliation, and analysis payloads stay in the owning artifact.
+Use the same compact return style when running serially instead of through a sub-agent. Use empty lists or `null` for fields that do not apply, and follow the artifact boundaries above for detailed payloads.
 
 Generic compact return example:
 

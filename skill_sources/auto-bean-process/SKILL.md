@@ -20,7 +20,6 @@ Always read before acting:
 - `.agents/skills/shared/workflow-rules.md`
 - `.agents/skills/shared/parsed-statement-output.example.json`
 - `.agents/skills/shared/import-status-reading.md` before reading or updating a large `statements/import-status.yml`
-- `.agents/skills/shared/question-handling-contract.md` before recording process questions
 
 Read when needed:
 
@@ -81,7 +80,7 @@ Workflow:
    - when setting `process_blocked`, increment `process_attempts` for the current source fingerprint, set `last_process_failure_reason`, and set `manual_resolution_required: true` once the current-fingerprint attempt count reaches 2
    - when the source fingerprint changes, start a new retry count for that fingerprint while preserving any prior failure context that remains useful in warnings or blocking issues
 6. Continue through safe raw-to-parsed work while collecting questions:
-   - follow the shared question-handling contract
+   - follow the shared question-handling rules
    - keep progressing through every deterministic parsing, normalization, status, and evidence-quality step that does not require guessing
    - write one deterministic process artifact under `.auto-bean/artifacts/process/`, using the shared raw-statement artifact prefix from `$auto-bean-import`, such as `.auto-bean/artifacts/process/<artifact_prefix>--process.md`
    - use that process artifact for process-stage questions, manual extraction notes, source-memory reuse attribution, and processing-related `memory_suggestions`

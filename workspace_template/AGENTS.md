@@ -48,7 +48,7 @@ For import workflows, `$auto-bean-import` is the sole broker for final user appr
 
 ## User Input
 
-When workflow work needs user input, persist safe deterministic progress first and follow `.agents/skills/shared/question-handling-contract.md`.
+When workflow work needs user input, persist safe deterministic progress first and follow the question-handling section in `.agents/skills/shared/workflow-rules.md`.
 
 After the user answers, resume the same statement, artifact, transaction, or memory operation from existing files with that answer in context.
 

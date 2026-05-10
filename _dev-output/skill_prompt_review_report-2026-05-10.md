@@ -59,16 +59,15 @@ This creates a direct policy contradiction and can produce two failure modes:
 
 ---
 
-### [DONE] C-2 (P0) Sub-agent user-question rule is absolute in shared contract but softened in stage text
+### [DONE] C-2 (P0) Sub-agent user-question rule is absolute in shared rules but softened in stage text
 
 **Concerned files**
-- `skill_sources/shared/question-handling-contract.md`
 - `skill_sources/shared/workflow-rules.md`
 - `skill_sources/auto-bean-categorize/SKILL.md`
 - `skill_sources/auto-bean-process/SKILL.md`
 
 **Problem detail**
-- Shared contract is absolute: import-invoked sub-agent NEVER asks the user directly.
+- Shared question-handling rules are absolute: import-invoked sub-agent NEVER asks the user directly.
 - Some stage guidance uses softer phrasing (e.g., “normally return question ids...”), which implies optionality.
 
 **Concrete example of the problem**
@@ -79,7 +78,7 @@ This creates a direct policy contradiction and can produce two failure modes:
 **Suggested solution**
 - Replace all soft phrases with absolute language in import-invoked contexts:
   - “When invoked by `$auto-bean-import`, never ask the user directly; persist question in stage-owned artifact and return only ids/paths/flags.”
-- Add lint-like editorial rule: downstream stage files cannot weaken shared contract modalities.
+- Add lint-like editorial rule: downstream stage files cannot weaken shared rule modalities.
 
 **Sample wording patch**
 - Current (soft): “normally return question ids ...”
@@ -298,7 +297,7 @@ Similar rules (question broker, memory advisory nature, status payload boundarie
   - Stage -> required files -> optional files -> gate conditions -> outputs.
 
 **Example table row**
-- Stage 3 categorization review -> required: import-3 + ownership map + question contract -> gate: all statements at categorize_review or resolved blockers -> outputs: import artifact updates + write handoff inputs.
+- Stage 3 categorization review -> required: import-3 + ownership map + question-handling rules -> gate: all statements at categorize_review or resolved blockers -> outputs: import artifact updates + write handoff inputs.
 
 ---
 
@@ -384,7 +383,7 @@ Read-only scope is clear, but escalation when BQL cannot answer safely (complex 
 ### X-1 (P1) Downstream files occasionally weaken imported shared constraints
 
 **Concerned files**
-- Shared contract: `skill_sources/shared/question-handling-contract.md`
+- Shared question-handling rules: `skill_sources/shared/workflow-rules.md`
 - Downstream stage skills where wording is softer
 
 **Problem detail**
@@ -463,7 +462,7 @@ Return schemas may include rich detail; import artifact contract restricts copyi
 ## Suggested Implementation Sequence
 
 1. **Shared policy pass**
-   - Update `skill_sources/shared/workflow-rules.md`, `question-handling-contract.md`, `memory-access-rules.md`.
+   - Update `skill_sources/shared/workflow-rules.md` and `memory-access-rules.md`.
 2. **Stage alignment pass**
    - Align `auto-bean-process`, `auto-bean-categorize`, `auto-bean-import`, `auto-bean-write`, `auto-bean-query`, `auto-bean-memory` language to shared invariants.
 3. **Reference contract pass**

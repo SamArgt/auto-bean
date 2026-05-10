@@ -5,7 +5,7 @@ Use for write handoff, write-stage user brokering, validation review, and final 
 ## 1. Write Handoff
 
 - For each `write_ready` statement, spawn a sub-agent and instruct it to use `$auto-bean-write` with import-owned and categorize artifact context.
-- Broker any write-stage clarification through the shared question contract.
+- Broker any write-stage clarification through the shared question-handling rules.
 - Keep statements at `write_blocked` while write-stage clarification, repair, or validation fixes are unresolved.
 - After user answers for `write_blocked`, resume `$auto-bean-write`.
 - Set `final_review` only after import-derived transactions are written and validated.

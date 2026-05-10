@@ -8,7 +8,7 @@ Note: the requested `workspace/AGENTS.md` path does not exist in this product re
 
 ## Executive Summary
 
-The skill set is coherent and conservative overall. The strongest design choices are narrow worker ownership, explicit ledger mutation boundaries, status/artifact separation, and a shared question-handling contract. Most risks are not severe contradictions; they are second-order prompt quality issues that can cause inconsistent execution when many linked instructions are loaded together.
+The skill set is coherent and conservative overall. The strongest design choices are narrow worker ownership, explicit ledger mutation boundaries, status/artifact separation, and shared question-handling rules. Most risks are not severe contradictions; they are second-order prompt quality issues that can cause inconsistent execution when many linked instructions are loaded together.
 
 Top risks:
 
@@ -55,7 +55,7 @@ Suggested rewrite: keep `ready` for processable work and introduce `manual_resol
 
 Evidence:
 
-- `skill_sources/shared/question-handling-contract.md:38-42` says import-invoked workers return questions to `$auto-bean-import`, while direct-use skills may ask the user themselves.
+- `skill_sources/shared/workflow-rules.md:38-42` says import-invoked workers return questions to `$auto-bean-import`, while direct-use skills may ask the user themselves.
 - `skill_sources/auto-bean-categorize/references/clarification-guidance.md:18` says "Wait for the user answer before continuing unresolved decisions."
 - `skill_sources/auto-bean-categorize/SKILL.md:77` says import-invoked categorize normally returns question ids so import can keep the main thread.
 
@@ -266,7 +266,7 @@ Fix: change "consolidate all artifacts, questions, answers..." to "consolidate l
 
 No major conflict. The workspace template accurately summarizes import as final approval and commit/push broker, query as read-only, write as transaction writing, and memory as the only memory writer.
 
-Small drift: `workspace_template/AGENTS.md:34` says "When any skill needs user input," follow the shared question contract. Direct-use memory inspection/correction may need ordinary clarification that is not tied to statement artifacts. This is minor because the contract includes direct-use skills, but the phrase could be "When workflow work needs user input..."
+Small drift: `workspace_template/AGENTS.md:34` says "When any skill needs user input," follow the shared question-handling rules. Direct-use memory inspection/correction may need ordinary clarification that is not tied to statement artifacts. This is minor because the rules include direct-use skills, but the phrase could be "When workflow work needs user input..."
 
 ### CCA-5: Runtime paths in authored sources
 

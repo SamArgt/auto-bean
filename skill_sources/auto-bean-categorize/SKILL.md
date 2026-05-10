@@ -24,7 +24,6 @@ Read when needed:
 
 - `.agents/skills/shared/parsed-statement-output.example.json` MUST be read when parsed statement shape, required fields, field meanings, `statement_metadata.accounts[]`, or extracted-record `account_id` relationships are unclear or inconsistent.
 - `.agents/skills/shared/memory-access-rules.md` MUST be read before using, rejecting, correcting, or proposing governed memory hints for category, account, transfer, duplicate, naming, clarification, or import-source behavior.
-- `.agents/skills/shared/question-handling-contract.md` MUST be read before recording, returning, resuming, or marking resolved any pending user question.
 - `.agents/skills/auto-bean-categorize/references/categorize-artifact-rules.md` MUST be read before creating or updating a user-facing categorize artifact.
 
 Workflow:
@@ -65,7 +64,7 @@ Workflow:
    - apply the shared fail-closed invariant with `categorize_blocked` when a finding cannot be safely classified or resolved; do not guess, auto-net, auto-merge, silently drop, or rewrite candidate transactions
 6. Handle clarification needs:
    - set `user_input_required: true` when account/category choice, transfer intent, duplicate suspicion, source-specific meaning, or categorization remains materially ambiguous
-   - follow the shared question-handling contract; when invoked by `$auto-bean-import`, never ask the user directly, and return only persisted question ids, the categorize artifact path, and operational blocker flags so `$auto-bean-import` can broker the question in the main thread
+   - follow the shared question-handling rules; when invoked by `$auto-bean-import`, never ask the user directly, and return only persisted question ids, the categorize artifact path, and operational blocker flags so `$auto-bean-import` can broker the question in the main thread
 7. Update only this statement's status:
    - require the assigned statement to be at `categorize_ready` before categorization work starts
    - set `categorize_blocked` when required categorization, reconciliation, duplicate, transfer, or source-interpretation input is unresolved

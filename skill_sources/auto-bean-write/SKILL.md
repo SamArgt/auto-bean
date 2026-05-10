@@ -12,7 +12,6 @@ Always read before acting:
 Read when needed:
 
 - `.agents/skills/shared/memory-access-rules.md` MUST be read when transaction evidence includes memory-derived account, category, transfer, duplicate, source, or posting suggestions; when current evidence contradicts a memory-derived suggestion; or when an approved transaction-writing result reveals reusable memory. Workflow-specific JSON persistence is handed to `$auto-bean-memory`.
-- `.agents/skills/shared/question-handling-contract.md` MUST be read before asking, returning, resuming, or resolving transaction-specific clarification questions.
 - `.agents/skills/shared/parsed-statement-jq-reading.md` MUST be read before inspecting any parsed statement JSON from an import handoff, before selecting transaction rows from a large parsed file, and before troubleshooting mismatches between parsed `account_id` values and posting evidence.
 
 
@@ -40,7 +39,7 @@ Follow this workflow:
    - memory-derived suggestions handed off by `$auto-bean-import` from `$auto-bean-categorize`, with current evidence and attribution already attached
    - follow the shared memory access rules before using memory-derived suggestions
    - use `.auto-bean/memory/MEMORY.md` for relevant user profile, main-account, preference, and correction context, but do not let it override transaction evidence
-4. If the evidence does not establish the core transaction facts, follow the shared question-handling contract for the missing fields:
+4. If the evidence does not establish the core transaction facts, follow the shared question-handling rules for the missing fields:
    - date
    - payee or narration shape
    - posting accounts
@@ -59,7 +58,7 @@ Follow this workflow:
    - do not reshuffle the include graph just to insert one transaction
 7. Draft the transaction directly in the working tree using explicit, inspectable postings.
    - keep the transaction minimal but never group entries, write the postings at the vendor-level.
-8. Ask a bounded clarification question instead of guessing whenever the evidence leaves any material ambiguity, following the shared question-handling contract:
+8. Ask a bounded clarification question instead of guessing whenever the evidence leaves any material ambiguity, following the shared question-handling rules:
    - when invoked by `$auto-bean-import`, follow the shared import-invoked broker rule and return the pending-question id, artifact path, blocker flags, and safe work completed
    - otherwise wait for the user answer, then resume the same transaction-writing task rather than returning a terminal blocked state
 9. Validate after drafting the mutation.
