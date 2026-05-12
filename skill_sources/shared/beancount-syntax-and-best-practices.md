@@ -40,7 +40,7 @@ YYYY-MM-DD custom "import_marker" Assets:Checking "statement-2026-01"
 ```
 
 - Commodity symbols are Beancount units such as `USD`, `EUR`, `BTC`, `HOOL`, or other ledger-defined assets; use uppercase commodity names and follow the ledger's existing naming style.
-- Common currencies and currency-like commodities such as `USD`, `EUR`, and `BTC` do not need explicit `commodity` declarations unless the ledger already declares them or needs metadata.
+- Common currencies and currency-like commodities such as `USD`, `EUR`, and `GBP` do not need explicit `commodity` declarations unless the ledger already declares them or needs metadata.
 - Commodities other than common currencies MUST be declared with a `commodity` directive and accompanied by a relevant `price` directive.
 - Use `commodity` directives as the canonical place for commodity metadata such as human-readable names, asset class, issuer, region, or other fields the ledger already tracks.
 - Reuse existing commodity declarations and metadata keys before adding a new declaration.
