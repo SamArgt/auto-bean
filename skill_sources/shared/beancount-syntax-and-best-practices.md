@@ -29,6 +29,24 @@ YYYY-MM-DD custom "import_marker" Assets:Checking "statement-2026-01"
 - Use `note`, `document`, and metadata for audit context without changing balances.
 - Avoid adding `custom`, `event`, `query`, `price`, `pad`, or plugins unless the ledger already uses them or the change clearly requires them.
 
+## Commodities
+
+```beancount
+2026-01-01 commodity HOOL
+  name: "Hooli Inc."
+  asset_class: "Stock"
+
+2026-01-15 price HOOL 510.00 USD
+```
+
+- Commodity symbols are Beancount units such as `USD`, `EUR`, `BTC`, `HOOL`, or other ledger-defined assets; use uppercase commodity names and follow the ledger's existing naming style.
+- Common currencies and currency-like commodities such as `USD`, `EUR`, and `BTC` do not need explicit `commodity` declarations unless the ledger already declares them or needs metadata.
+- Commodities other than common currencies MUST be declared with a `commodity` directive and accompanied by a relevant `price` directive.
+- Use `commodity` directives as the canonical place for commodity metadata such as human-readable names, asset class, issuer, region, or other fields the ledger already tracks.
+- Reuse existing commodity declarations and metadata keys before adding a new declaration.
+- Choose declaration dates that match the ledger's convention; if there is no local convention, use the earliest date the commodity is needed or a stable opening date for the ledger.
+- When a non-common commodity is needed, SHOULD suggest the exact `commodity` and `price` directives in the agent conversation, but MUST ask for explicit user approval before writing them.
+
 ## Transactions and postings
 
 ```beancount
