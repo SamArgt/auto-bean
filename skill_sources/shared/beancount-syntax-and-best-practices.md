@@ -17,7 +17,7 @@ YYYY-MM-DD close Assets:Checking
 YYYY-MM-DD commodity USD
 YYYY-MM-DD balance Assets:Checking 100.00 USD
 YYYY-MM-DD note Assets:Checking "Reconciled against bank portal"
-YYYY-MM-DD document Assets:Checking "statements/2026-01.pdf"
+YYYY-MM-DD document Assets:Checking "statements/raw/checking/jan-2026.pdf"
 YYYY-MM-DD price HOOL 510.00 USD
 YYYY-MM-DD event "location" "Paris"
 YYYY-MM-DD query "cash_balances" "SELECT account, sum(position) WHERE account ~ 'Assets'"
@@ -27,6 +27,8 @@ YYYY-MM-DD custom "import_marker" Assets:Checking "statement-2026-01"
 - Treat currencies on `open` directives as hard posting constraints.
 - Use `balance` for assertions, not to replace missing transactions.
 - Use `note`, `document`, and metadata for audit context without changing balances.
+- Use `document` directives to reference raw imported statements from the ledger so Fava can expose them in the UI. For import workflows, prefer one statement-level directive per matched ledger account, dated to the statement period end date, pointing to the raw file under `statements/raw/`.
+- Do not duplicate an existing exact document directive with the same date, account, and filename.
 - Avoid adding `custom`, `event`, `query`, `price`, `pad`, or plugins unless the ledger already uses them or the change clearly requires them.
 
 ## Commodities

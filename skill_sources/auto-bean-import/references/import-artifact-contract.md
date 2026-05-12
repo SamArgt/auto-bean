@@ -33,6 +33,7 @@ Record these sections before the workflow can be considered ready for final revi
 - `## Artifact References`: source path, parsed artifact path, process artifact path, categorize artifact path, write/validation references, and any memory handoff references
 - `## Questions`: import-owned unresolved and answered first-seen-account, write-stage, final-approval, and import-brokered questions with stable ids, answers, owning stage, source artifact paths, and resolution notes; for process and categorize questions, store only ids, source artifact paths, and import-level resume decisions while the full question and answer payloads remain in the owning process or categorize artifact
 - `## First-Seen Account Decisions`: proposed, approved, rejected, or written account-opening decisions with target files, evidence references, validation references, and user approval context
+- `## Document Reference Decisions`: proposed, approved, reused, rejected, or written raw-statement `document` directives, with statement-account evidence, matched ledger account, statement period end date, raw source path, target file, duplicate-check result, validation reference, and user approval context
 - `## Memory Attribution`: governed memory records considered or used by `$auto-bean-import`, including `import_source_behavior` hints used for processing handoff or first-seen account inspection, current-evidence checks, and rejection reasons for skipped memory
 - `## Cross-Statement Review`: import-batch transfer or duplicate candidates spanning multiple categorize artifacts, with paired artifact paths, stable transaction references, matched facts, user question ids, decision state, and posting-decision impact
 - `## Posting Decisions`: transaction-writing inputs or decisions handed to `$auto-bean-write`, write result references, validation references, and user approval context
@@ -47,7 +48,7 @@ Do not include workflow counts, current status, highest status reached, retry co
 - For `$auto-bean-categorize`, record only categorize artifact paths, finding summaries that require an import-owned decision, cross-statement review summaries, unresolved or answered question ids, memory-suggestion provenance, and import-brokered answer ids or resume decisions. Do not copy categorize warning text, question text, answer text, categorization status, posting-readiness state, the full categorization analysis, rewrite statement-local reconciliation or deduplication findings, or make category decisions that belong to `$auto-bean-categorize`.
 - `$auto-bean-import` may append or update clearly labeled `Import Batch Cross-Statement Review` notes in categorize artifacts when a transfer or duplicate candidate spans multiple statements. Keep those notes limited to paired artifact paths, stable transaction references, matched facts, confidence, suggested action, and question ids; resume `$auto-bean-categorize` instead when statement-local categorization must be recomputed.
 - If the human-readable import summary needs detail from a stage-owned artifact, link to that artifact and summarize only the import decision or blocker that affects orchestration.
-- Import-owned first-seen account decisions, write handoffs, user approval decisions, and governed memory handoff decisions may be recorded in detail because those belong to `$auto-bean-import`.
+- Import-owned first-seen account decisions, raw-statement document reference decisions, write handoffs, user approval decisions, and governed memory handoff decisions may be recorded in detail because those belong to `$auto-bean-import`.
 - For `import_source_behavior` memory, record only the memory path, stable summary, matched current evidence, decision influenced, and limits on reuse. Do not copy entire memory files into the import artifact.
 
 Allowed compact detail examples:
@@ -55,6 +56,7 @@ Allowed compact detail examples:
 - `question_id: cat-q-014`, `source_artifact: .auto-bean/artifacts/categorize/checking-jan-2026--categorize.md`, `decision: pending`.
 - `finding: possible duplicate`, `paired_artifact: .auto-bean/artifacts/categorize/card-jan-2026--categorize.md`, `matched_facts: date, amount, external_id`, `action: broker user decision`.
 - `memory_candidate: category_mapping`, `origin: cat-q-014`, `source_artifact: ...--categorize.md`, `eligibility: ready_for_memory_handoff`.
+- `document_reference: dr-001`, `account_id: everyday-checking-7890`, `ledger_account: Assets:Bank:Checking`, `directive: 2026-01-31 document Assets:Bank:Checking "statements/raw/checking/jan-2026.pdf"`, `decision: approved`.
 
 Forbidden copied detail examples:
 
@@ -64,7 +66,7 @@ Forbidden copied detail examples:
 
 ## Update Rules
 
-- Update the artifact whenever `$auto-bean-import` records or resolves an import-owned user question, makes a first-seen account decision, records a cross-statement transfer or duplicate review candidate, invokes `$auto-bean-write`, receives validation output that informs a decision, asks for final user approval, or prepares the governed memory handoff. If the question belongs to a stage-owned artifact, update that individual artifact with the full answer and keep only ids, paths, and import-level decisions here.
+- Update the artifact whenever `$auto-bean-import` records or resolves an import-owned user question, makes a first-seen account decision, proposes or resolves a raw-statement document reference, records a cross-statement transfer or duplicate review candidate, invokes `$auto-bean-write`, receives validation output that informs a decision, asks for final user approval, or prepares the governed memory handoff. If the question belongs to a stage-owned artifact, update that individual artifact with the full answer and keep only ids, paths, and import-level decisions here.
 - Treat `statements/import-status.yml` as the only orchestration status index. The import artifact may reference the matching status entry path or key, but it must not duplicate current status or progress fields.
 - When artifact references conflict with `statements/import-status.yml`, use the shared status/artifact reconciliation hierarchy: source-file reality, status operational pointers, artifact references, then fail closed with a brokered repair question when unresolved.
 - Persist every import-owned decision here before asking the user for approval, handing work to another stage, invoking `$auto-bean-memory`, or marking the matching status entry `done`.

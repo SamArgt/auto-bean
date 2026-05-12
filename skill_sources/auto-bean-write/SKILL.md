@@ -15,10 +15,10 @@ Read when needed:
 - `.agents/skills/shared/parsed-statement-jq-reading.md` MUST be read before inspecting any parsed statement JSON from an import handoff, before selecting transaction rows from a large parsed file, and before troubleshooting mismatches between parsed `account_id` values and posting evidence.
 
 
-If the transaction-writing task is part of an import workflow, make sure to:
+If the transaction-writing task is part of an import workflow, you MUST:
 
 - read `.agents/skills/shared/parsed-statement-jq-reading.md` before inspecting large parsed statement JSON files
-- have the path to the relevant parsed statement in `statements/parsed/` with its process artifact under `.auto-bean/artifacts/process/`
+- have the path to the relevant parsed statement in `statements/parsed/`
 - have the path to the relevant categorize artifact under `.auto-bean/artifacts/categorize/`
 - have the path to the relevant import-owned artifact under `.auto-bean/artifacts/import/`
 
@@ -58,6 +58,7 @@ Follow this workflow:
    - do not reshuffle the include graph just to insert one transaction
    - default-allowed supporting directives are limited to transaction entries, minimal `open` directives required for the target accounts, and narrowly scoped `balance` directives required for integrity or validation of the written transaction
    - ask for explicit user approval before writing anything beyond that allowlist, including include-graph reorganization, new include files, broad account-tree moves, commodity declarations, price directives, plugin/options changes, or unrelated cleanup
+   - document directives referencing raw statements SHOULD already have been written during account inspection, but you MUST confirm the presence and validity of those directives.
 7. Draft the transaction directly in the working tree using explicit, inspectable postings.
    - keep the transaction minimal but never group entries, write the postings at the vendor-level.
 8. Ask a bounded clarification question instead of guessing whenever the evidence leaves any material ambiguity, following the shared question-handling rules:
