@@ -44,6 +44,7 @@ Take initiative only inside the shared evidence-first posture: persist reusable 
    - `import_source_behavior`: `.agents/skills/auto-bean-memory/references/import-source-behavior.example.md`
    - `transfer_detection`: `.agents/skills/auto-bean-memory/references/transfer-detection.example.md`
    - `deduplication_decision`: `.agents/skills/auto-bean-memory/references/deduplication-decision.example.md`
+   - `commodity_price_source`: `.agents/skills/auto-bean-memory/references/commodity-price-source.example.md`
    - `global_memory`: `.auto-bean/memory/MEMORY.md`
 2. For workflow-specific JSON memory, build or update one versioned record with `snake_case` keys:
    - `schema_version`
@@ -60,6 +61,7 @@ Take initiative only inside the shared evidence-first posture: persist reusable 
    - `category_mapping` -> `.auto-bean/memory/category_mappings.json`
    - `transfer_detection` -> `.auto-bean/memory/transfer_detection.json`
    - `deduplication_decision` -> `.auto-bean/memory/deduplication_decisions.json`
+   - `commodity_price_source` -> `.auto-bean/memory/commodity_price_sources.json`
    - `import_source_behavior` -> `.auto-bean/memory/import_sources/<source_slug>.json`
    - `global_memory` -> `.auto-bean/memory/MEMORY.md`
 4. For workflow-specific JSON categories, keep the top-level shape as `schema_version`, `memory_type`, and `records`; append or update only the relevant record.

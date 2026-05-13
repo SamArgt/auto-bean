@@ -3,3 +3,4 @@ option "operating_currency" "EUR"
 
 include "beancount/accounts.beancount"
 include "beancount/opening-balances.beancount"
+include "beancount/prices.beancount"

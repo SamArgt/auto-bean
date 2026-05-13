@@ -28,7 +28,8 @@ Follow this ordered reference map; the stage mechanics live there. For each step
 | 2 account inspection | [import-2-account-inspection.md](references/import-2-account-inspection.md) | account identity, currency, mutation target, duplicate risk, and approved account-opening needs are resolved or blocked | import artifact account decisions, status transitions, validation references |
 | 3 categorization review | [import-3-categorization-review.md](references/import-3-categorization-review.md) | statements are at `categorize_review` or intentionally blocked; cross-statement transfer and duplicate review is resolved before writing, categorize subagents are closed | categorize artifact paths, compact question ids, posting handoff inputs |
 | 4 write and final review | [import-4-write-final-review.md](references/import-4-write-final-review.md) | write sub-agents are closed; validation passes or blockers are recorded; final approval is explicit before `done` | ledger changes, validation results, final approval decisions, status updates |
-| 5 memory handoff | [import-5-memory-handoff.md](references/import-5-memory-handoff.md) | memory example references selected by `$auto-bean-memory` | eligible reusable learning has provenance and review state; memory handoff is separate from statement advancement | governed memory result, `MEMORY.md` updates or skips, final summary |
+| 5 price update epilogue | [import-5-price-update.md](references/import-5-price-update.md) | price-update sub-agent is closed or serial work is complete | active commodities with known sources are priced; unknown source mappings are blocked for review | price artifact, validation result, price memory suggestions |
+| 6 memory handoff | [import-6-memory-handoff.md](references/import-6-memory-handoff.md) | memory example references selected by `$auto-bean-memory` | eligible reusable learning has provenance and review state; memory handoff is separate from statement advancement | governed memory result, `MEMORY.md` updates or skips, final summary |
 
 Completion checklist:
   - every in-scope statement has a current status entry and matching import-owned artifact
@@ -36,8 +37,9 @@ Completion checklist:
   - no statement advanced past a blocked or unresolved review status
   - ledger mutations, validation results, and final approval state are reflected in import-owned artifacts
   - governed JSON memory candidates were routed through the memory handoff stage
+  - commodity price updates were attempted after import-owned ledger writes, with blockers surfaced rather than guessed
   - durable and global `MEMORY.md` suggestions were reviewed and applied or skipped by the main thread
-  - final response includes statement outcomes, artifact links, ledger/status changes, validation result, memory result, and remaining blockers or approvals
+  - final response includes statement outcomes, artifact links, ledger/status changes, validation result, memory result, price-update result, and remaining blockers or approvals
 
 Use supporting references only at their trigger point:
 
