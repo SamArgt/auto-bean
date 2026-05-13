@@ -3,7 +3,7 @@ name: auto-bean-prices
 description: Update Beancount commodity price directives from external sources using bean-price first and web search when a beanprice source needs to be discovered. Use after imports or direct price-update requests when Codex needs to fetch current prices for held ledger commodities, maintain `.auto-bean/memory/commodity_price_sources.json` source mappings, draft price directives, validate the ledger, and surface reviewable price-update results.
 ---
 
-Use this for commodity price updates. It owns price-update artifacts and drafted `price` directives, while `$auto-bean-memory` owns durable commodity-source memory.
+Use this for commodity price updates. It owns drafted `price` directives, while `$auto-bean-memory` owns durable commodity-source memory.
 
 MUST read before acting:
 
@@ -50,6 +50,8 @@ MUST read before acting:
    - a clear statement that price directives are ledger changes requiring review before final acceptance
 
 When invoked by `$auto-bean-import`, return using the shared compact return schema with `blockers`, `pending_questions`, `memory_suggestions`, `mutation.changed_files`, and `validation`.
+
+When this is a direct price update request, wait for user review and approval before finalizing the price updates. After approval, persist any reviewed `$auto-bean-memory` suggestions for commodity sources.
 
 ## Guardrails
 

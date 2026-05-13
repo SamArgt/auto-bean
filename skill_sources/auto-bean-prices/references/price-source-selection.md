@@ -17,7 +17,7 @@ Beanprice advertises sources for Alphavantage, Coinbase, Coincap, Coinmarketcap,
 ## Beanprice Availability Search
 
 1. Build candidate source strings from the commodity, quote currency, exchange, ISIN, fund provider, and asset class.
-2. Probe candidates with `./.venv/bin/bean-price -e '<QUOTE>:<SOURCE>/<SYMBOL>'`, for example `./.venv/bin/bean-price -e 'USD:yahoo/AAPL'`.
+2. Probe candidates with `./.venv/bin/bean-price -e '<QUOTE>:<SOURCE>/<SYMBOL>'`, for example `./.venv/bin/bean-price -e 'USD:yahoo/AAPL'`. Web-search bean-price source syntax when needed to build working candidates, for example by searching for `beanprice source string for <name> <ticker>` or checking the beanprice documentation and source code.
 3. Treat a successful Beancount `price` line as source evidence; record the exact source string in the price artifact and memory suggestion.
 4. If candidates fail, web-search the commodity with terms such as `<name> <ticker> yahoo finance`, `<ISIN> Financial Times`, `<fund name> NAV`, or `<currency pair> ECB rate`.
 5. Ask for review before persisting a new source mapping, especially for ticker collisions, local listings, share classes, accumulating/distributing funds, or non-public assets.
