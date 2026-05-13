@@ -87,6 +87,7 @@ Ownership still applies during repair.
 | Raw-to-parsed processing, parsed statement evidence, process artifacts | `$auto-bean-process` |
 | Statement categorization, reconciliation, deduplication, pending questions, posting inputs, categorize artifacts | `$auto-bean-categorize` |
 | Transaction drafting and minimal transaction-supporting ledger directives | `$auto-bean-write` |
+| Commodity price update artifacts and drafted `price` directives | `$auto-bean-prices` |
 | Workflow-specific JSON memory and import-source memory files | `$auto-bean-memory` |
 | Global profile memory (`MEMORY.md`) | Main-thread orchestrator or direct session; sub-agents return suggestions only |
 | Ledger reads and analysis | `$auto-bean-query` |

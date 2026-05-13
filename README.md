@@ -16,7 +16,7 @@ The current scope is intentionally local-first and Codex-first. There is no publ
 - Git
 - Codex as the coding agent for the generated workspace
 
-`auto-bean init` installs a workspace-local runtime with Beancount, Fava, and Docling. It fails closed if the platform, tools, template assets, skill assets, generated ledger, Fava runtime, or Docling runtime are not ready.
+`auto-bean init` installs a workspace-local runtime with Beancount, Fava, Docling, and Beanprice. It fails closed if the platform, tools, template assets, skill assets, generated ledger, Fava runtime, Docling runtime, or Beanprice runtime are not ready.
 
 ### Install
 
@@ -114,15 +114,19 @@ Users normally should not call this directly. `auto-bean-import` delegates to it
 
 ### `auto-bean-memory`
 
-Governed memory persistence for eligible reusable decisions. Workflow-specific memory keeps account mappings, categorization patterns, transfer detection behavior, import-source behavior, and deduplication decisions in stage-owned JSON files. Cross-workflow user profile details, preferences, corrections, naming preferences, and clarification outcomes live in `.auto-bean/memory/MEMORY.md`.
+Governed memory persistence for eligible reusable decisions. Workflow-specific memory keeps account mappings, categorization patterns, transfer detection behavior, import-source behavior, commodity price source mappings, and deduplication decisions in stage-owned JSON files. Cross-workflow user profile details, preferences, corrections, naming preferences, and clarification outcomes live in `.auto-bean/memory/MEMORY.md`.
 
 Workflows may suggest memory. Only this skill should write `.auto-bean/memory/**`.
+
+### `auto-bean-prices`
+
+Commodity price updates for Beancount valuation context. It uses `bean-price` by default and web search to discover or verify source mappings when a commodity needs one. The import workflow invokes it at the end of a session so active commodities can receive reviewable `price` directives.
 
 ## CLI Commands
 
 ### `auto-bean init <PROJECT-NAME>`
 
-Creates a new ledger workspace. It copies the workspace template, installs managed skills, prompts for an optional Context7 API key, initializes Git, creates a workspace-local `.venv`, validates `ledger.beancount`, verifies Fava and Docling, and creates an initial commit.
+Creates a new ledger workspace. It copies the workspace template, installs managed skills, prompts for an optional Context7 API key, initializes Git, creates a workspace-local `.venv`, validates `ledger.beancount`, verifies Fava, Docling, and Beanprice, and creates an initial commit.
 
 Context7 MCP is configured in the generated gitignored `.codex/config.toml`. If you enter an API key during init, auto-bean stores it directly in that local config file so Codex can use it without an extra wrapper script.
 
@@ -188,7 +192,7 @@ Use this after cloning a generated workspace from a remote GitHub repository, wh
 ./scripts/install-dependencies.sh
 ```
 
-This creates the workspace-local `.venv` and installs Beancount, Fava, and Docling.
+This creates the workspace-local `.venv` and installs Beancount, Fava, Docling, and Beanprice.
 
 ### Beancount Validation
 
@@ -320,6 +324,7 @@ Runtime and development tools:
 - Beancount for ledger validation and query mechanics
 - Fava for ledger inspection
 - Docling for statement extraction support
+- Beanprice for Beancount commodity price fetching
 - Context7 MCP for current external-library documentation in Codex workflows
 - Ruff for linting and formatting
 - mypy for strict type checks

@@ -11,6 +11,6 @@ if ! command -v uv >/dev/null 2>&1; then
 fi
 
 uv venv .venv
-uv pip install --python ./.venv/bin/python beancount fava docling
+uv pip install --python ./.venv/bin/python beancount fava docling beanprice
 
 echo "Workspace dependencies installed in ./.venv"

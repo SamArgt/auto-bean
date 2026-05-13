@@ -17,6 +17,7 @@ Use these fixed files for MVP memory:
 - `.auto-bean/memory/category_mappings.json`
 - `.auto-bean/memory/transfer_detection.json`
 - `.auto-bean/memory/deduplication_decisions.json`
+- `.auto-bean/memory/commodity_price_sources.json`
 - `.auto-bean/memory/import_sources/index.json`
 - `.auto-bean/memory/import_sources/<source_slug>.json`
 
@@ -27,6 +28,7 @@ Eligible memory categories:
 - `import_source_behavior`
 - `transfer_detection`
 - `deduplication_decision`
+- `commodity_price_source`
 - `global_memory`
 
 Every durable workflow-specific JSON record must include `schema_version`, `memory_type`, `source`, `decision`, `scope`, `confidence` or `review_state`, `created_at`, `updated_at`, and `audit`.
@@ -40,6 +42,7 @@ Use workflow-specific files only at their relevant workflow stages:
 - `.auto-bean/memory/category_mappings.json`: categorization and posting handoffs.
 - `.auto-bean/memory/transfer_detection.json`: reconciliation, transfer detection, and posting-risk review.
 - `.auto-bean/memory/deduplication_decisions.json`: deduplication and posting-risk review.
+- `.auto-bean/memory/commodity_price_sources.json`: commodity price lookup source selection and price-update workflows.
 - `.auto-bean/memory/MEMORY.md`: every new session and every sub-agent handoff, plus main-thread end-of-session review and memory inspection/correction/persistence work.
 
 ## Reading memory

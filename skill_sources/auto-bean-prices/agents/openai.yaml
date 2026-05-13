@@ -1,0 +1,7 @@
+interface:
+  display_name: "Update Prices"
+  short_description: "Fetch and draft Beancount commodity prices"
+  default_prompt: "Use $auto-bean-prices to inspect my Beancount ledger commodities, fetch current prices with approved sources, draft price directives, validate the ledger, and summarize any blockers or memory suggestions."
+
+policy:
+  allow_implicit_invocation: true
