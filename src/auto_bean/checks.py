@@ -148,6 +148,10 @@ class WorkspaceChecks:
                 template_directory / "README.md",
                 template_directory / "AGENTS.md",
                 template_directory / ".auto-bean" / "memory" / "MEMORY.md",
+                template_directory
+                / ".auto-bean"
+                / "memory"
+                / "commodity_price_sources.json",
                 template_directory / "scripts" / "install-dependencies.sh",
                 template_directory / "scripts" / "open-fava.sh",
                 template_directory / "scripts" / "validate-ledger.sh",
@@ -157,6 +161,7 @@ class WorkspaceChecks:
                 skill_sources_directory / "auto-bean-import" / "SKILL.md",
                 skill_sources_directory / "auto-bean-process" / "SKILL.md",
                 skill_sources_directory / "auto-bean-memory" / "SKILL.md",
+                skill_sources_directory / "auto-bean-prices" / "SKILL.md",
                 skill_sources_directory / "shared" / "workflow-rules.md",
             )
             if not path.exists()
@@ -265,7 +270,7 @@ class WorkspaceChecks:
                 details={
                     "remediation": (
                         "Install uv, then rerun 'auto-bean init <PROJECT-NAME>' so the workspace "
-                        "can install Beancount, Fava, and Docling locally."
+                        "can install Beancount, Fava, Docling, and Beanprice locally."
                     ),
                 },
             )
@@ -282,8 +287,8 @@ class WorkspaceChecks:
                     "stdout": install_result.stdout,
                     "stderr": install_result.stderr,
                     "remediation": (
-                        "Docling must be available in the workspace-local runtime before statement "
-                        "intake is ready. Resolve the installation failure, then rerun "
+                        "Beancount, Fava, Docling, and Beanprice must be available in the "
+                        "workspace-local runtime before the workspace is ready. Resolve the installation failure, then rerun "
                         "'auto-bean init <PROJECT-NAME>'."
                     ),
                 },
@@ -291,7 +296,7 @@ class WorkspaceChecks:
         return DiagnosticCheck(
             name="workspace_runtime_bootstrapped",
             status=CheckStatus.PASS,
-            message="Workspace runtime bootstrapped with Beancount, Fava, and Docling.",
+            message="Workspace runtime bootstrapped with Beancount, Fava, Docling, and Beanprice.",
             details={
                 "bootstrap_commands": [" ".join(install_command)],
                 "uv_path": uv_path,
@@ -382,6 +387,27 @@ class WorkspaceChecks:
                 "remediation": (
                     "Statement intake is not ready until the workspace-local Docling CLI is "
                     "available. Fix the Docling installation, then rerun 'auto-bean init "
+                    "<PROJECT-NAME>'."
+                )
+            },
+        )
+
+    def check_workspace_beanprice_available(
+        self, target_directory: Path
+    ) -> DiagnosticCheck:
+        command = [str(target_directory / ".venv" / "bin" / "bean-price"), "--version"]
+        return self.run_workspace_command_check(
+            command=command,
+            cwd=target_directory,
+            name="workspace_beanprice_available",
+            success_message="Beanprice is runnable from the workspace runtime.",
+            error_code="workspace_beanprice_unavailable",
+            failure_message="Beanprice is not runnable from the workspace runtime.",
+            detail_key="beanprice_command",
+            failure_details={
+                "remediation": (
+                    "Price updates are not ready until the workspace-local bean-price CLI is "
+                    "available. Fix the Beanprice installation, then rerun 'auto-bean init "
                     "<PROJECT-NAME>'."
                 )
             },

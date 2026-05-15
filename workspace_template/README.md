@@ -20,7 +20,7 @@ Fresh `auto-bean init` workspaces are installed before the initial commit. After
 ./scripts/install-dependencies.sh
 ```
 
-This creates `./.venv` and installs Beancount, Fava, and Docling into the workspace-local environment.
+This creates `./.venv` and installs Beancount, Fava, Docling, and Beanprice into the workspace-local environment.
 
 ### Validate The Ledger
 
@@ -48,4 +48,4 @@ Then ask Codex from inside this workspace:
 $auto-bean-import
 ```
 
-The import workflow parses supported raw files into `statements/parsed/`, proposes ledger updates, validates the ledger, surfaces review details, records eligible reusable memory, and stops for user approval before finalized ledger history is committed.
+The import workflow parses supported raw files into `statements/parsed/`, proposes ledger updates, validates the ledger, updates commodity prices when sources are known, surfaces review details, records eligible reusable memory, and stops for user approval before finalized ledger history is committed.

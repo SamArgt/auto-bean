@@ -10,6 +10,7 @@ Context7 MCP is configured for Codex in the gitignored `.codex/config.toml` so s
 - Use `$auto-bean-import` for statement imports from `statements/raw/`.
 - Use `$auto-bean-query` for read-only ledger analysis through Beancount and `bean-query`.
 - Use `$auto-bean-write` for transaction drafting, correction, and transaction-specific validation.
+- Use `$auto-bean-prices` for commodity price updates and valuation-source review.
 - Use `$auto-bean-memory` for governed persistence of eligible reusable decisions.
 
 High-frequency paths:
@@ -34,7 +35,7 @@ Use `$auto-bean-memory` to persist any eligible reusable decisions from the sess
 
 Users should start imports with `$auto-bean-import`.
 
-`$auto-bean-import` discovers unprocessed raw statements, skips already-current statements, delegates raw-to-parsed work to `$auto-bean-process`, resolves process artifacts, derives first-seen account structure, delegates categorization/reconciliation/deduplication to `$auto-bean-categorize`, brokers user input, posts transactions with `$auto-bean-write`, and hands governed memory suggestions to `$auto-bean-memory`.
+`$auto-bean-import` discovers unprocessed raw statements, skips already-current statements, delegates raw-to-parsed work to `$auto-bean-process`, resolves process artifacts, derives first-seen account structure, delegates categorization/reconciliation/deduplication to `$auto-bean-categorize`, brokers user input, posts transactions with `$auto-bean-write`, hands governed memory suggestions to `$auto-bean-memory`, and invokes `$auto-bean-prices` as an end-of-import price-update epilogue.
 
 For import workflows, `$auto-bean-import` is the sole broker for final user approval and commit/push readiness.
 
@@ -68,6 +69,7 @@ Only mark a statement `done` after user approval of the final import result.
 - `.auto-bean/artifacts/`: diagnostics and audit artifacts
 - `.auto-bean/artifacts/categorize/`: optional categorization, reconciliation, deduplication, and user-input artifacts
 - `.auto-bean/artifacts/import/`: statement-scoped import provenance and import-brokered answers
+- `.auto-bean/artifacts/prices/`: commodity price update review artifacts
 - `.auto-bean/artifacts/process/`: raw-to-parsed processing notes, warnings, and process questions
 - `.auto-bean/memory/MEMORY.md`: always-loaded user profile, preference, correction, and general workspace memory
 - `.auto-bean/memory/`: governed workflow-specific memory
@@ -80,6 +82,7 @@ MUST:
 
 - route ledger reads through `$auto-bean-query` when Beancount can answer them
 - route transaction writing through `$auto-bean-write`
+- route commodity price updates through `$auto-bean-prices`
 - validate ledger mutations before final review
 - keep working-tree changes separate from accepted history until the user approves finalization
 - respect the boundaries between each workflow

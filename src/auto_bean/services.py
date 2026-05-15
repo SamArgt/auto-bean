@@ -169,6 +169,7 @@ class _WorkspaceWorkflowService:
             "invalid_generated_ledger",
             "workspace_fava_unavailable",
             "workspace_docling_unavailable",
+            "workspace_beanprice_unavailable",
         }:
             return ErrorCategory.VALIDATION_FAILURE
         return ErrorCategory.EXECUTION_ERROR
@@ -250,11 +251,14 @@ class WorkspaceInitService(_WorkspaceWorkflowService):
                     "scripts/open-fava.sh",
                     "scripts/validate-ledger.sh",
                     ".auto-bean/memory/MEMORY.md",
+                    ".auto-bean/memory/commodity_price_sources.json",
                     "beancount/accounts.beancount",
                     "beancount/opening-balances.beancount",
+                    "beancount/prices.beancount",
                     ".auto-bean/memory/import_sources/.gitkeep",
                     ".auto-bean/artifacts/categorize/.gitkeep",
                     ".auto-bean/artifacts/import/.gitkeep",
+                    ".auto-bean/artifacts/prices/.gitkeep",
                     "statements/parsed/.gitkeep",
                     "statements/import-status.yml",
                 ),
@@ -281,6 +285,7 @@ class WorkspaceInitService(_WorkspaceWorkflowService):
                     "auto-bean-import/SKILL.md",
                     "auto-bean-process/SKILL.md",
                     "auto-bean-memory/SKILL.md",
+                    "auto-bean-prices/SKILL.md",
                 ),
             ),
         )
@@ -333,8 +338,11 @@ class WorkspaceInitService(_WorkspaceWorkflowService):
                 ".agents/skills/auto-bean-import/SKILL.md",
                 ".agents/skills/auto-bean-process/SKILL.md",
                 ".agents/skills/auto-bean-memory/SKILL.md",
+                ".agents/skills/auto-bean-prices/SKILL.md",
                 ".auto-bean/memory/MEMORY.md",
+                ".auto-bean/memory/commodity_price_sources.json",
                 ".auto-bean/memory/import_sources/.gitkeep",
+                ".auto-bean/artifacts/prices/.gitkeep",
                 "statements/import-status.yml",
             ],
         }
@@ -454,6 +462,20 @@ class WorkspaceInitService(_WorkspaceWorkflowService):
             checks=checks,
             context=context,
             started=started,
+            current_message="Checking Beanprice availability",
+            action=lambda: self.checks.check_workspace_beanprice_available(
+                target_directory
+            ),
+            cleanup_target=target_directory,
+            preserve_root=target_preexisted,
+            extra_details=blocked_details,
+        )
+        if failure is not None:
+            return failure
+        failure = self._run_check(
+            checks=checks,
+            context=context,
+            started=started,
             current_message="Creating initial git commit",
             action=lambda: self.checks.create_initial_git_commit(
                 target_directory, git_path
@@ -481,6 +503,9 @@ class WorkspaceInitService(_WorkspaceWorkflowService):
                 "workspace_docling": str(
                     target_directory / ".venv" / "bin" / "docling"
                 ),
+                "workspace_beanprice": str(
+                    target_directory / ".venv" / "bin" / "bean-price"
+                ),
                 "context7_mcp": "configured",
                 "context7_api_key_status": (
                     "stored" if normalized_context7_api_key else "not_provided"
@@ -488,6 +513,7 @@ class WorkspaceInitService(_WorkspaceWorkflowService):
                 "validation_status": "passed",
                 "fava_status": "passed",
                 "docling_status": "passed",
+                "beanprice_status": "passed",
                 "next_steps": [
                     f"cd {target_directory}",
                     "Review AGENTS.md for the Codex-first workspace workflow and path guide.",
