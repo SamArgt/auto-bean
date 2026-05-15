@@ -15,6 +15,7 @@ Mark one choice or fill the blank. Leave blank if unknown.
 `2026-03-04` `SQ *BLUE BOTTLE COFFEE` `-6.25 USD`
 
 Suggestion: `Expenses:Food:Coffee` (medium)
+Evidence: web search for `Blue Bottle Coffee San Francisco`; nearby transactions support San Francisco. Source: official merchant site.
 
 - [ ] use suggestion
 - [ ] use: `____________________________`
