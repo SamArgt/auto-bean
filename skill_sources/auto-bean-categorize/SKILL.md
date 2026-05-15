@@ -1,6 +1,6 @@
 ---
 name: auto-bean-categorize
-description: Categorize transactions and identify reconciliation or deduplication decisions for exactly one assigned parsed statement JSON file or explicit import-provided Markdown handoff artifact. Use as the `$auto-bean-import` parsed-evidence-to-categorization sub-agent stage. It owns statement-scoped categorization, reconciliation findings, pending questions, and posting inputs; `$auto-bean-import` owns batching, ledger writing handoff, final review, commit, and push decisions.
+description: Categorize one assigned parsed statement or import handoff artifact. Suggest categories, using memory, ledger context, and web search for unknown merchants; identify reconciliation/deduplication findings, questions, and posting inputs for `$auto-bean-import`.
 ---
 
 Use this only for the parsed-evidence-to-categorization stage assigned by `$auto-bean-import`.
@@ -46,7 +46,12 @@ Workflow:
    - treat parsed `account_owner` and `account_names` as statement evidence for selecting account mappings, transfer context, and memory applicability; do not treat them as ledger account names unless a current ledger check or approved mapping supports that
    - if a memory-derived suggestion materially affects a posting account, category, transfer classification, duplicate decision, or user question, read `.agents/skills/shared/memory-access-rules.md` even when the suggestion was supplied by `$auto-bean-import`
    - if memory matches under the shared strong-evidence threshold, record the matched memory path, record identity or stable summary, matched transaction facts, and resulting category/account suggestion
-   - if no reliable memory matches, provide evidence-based suggestions: likely category/account, supporting statement facts, relevant ledger conventions, confidence, and plausible alternatives
+   - if no reliable memory matches, suggest likely category/account with evidence, confidence, and alternatives
+   - use web search when an unknown merchant, processor label, local business, charity, school, subscription, agency, healthcare provider, travel vendor, or venue needs public evidence to identify its business type
+   - build searches from cleaned payee text plus likely location inferred from surrounding same-statement transactions, currencies, addresses, station/airport codes, language, or account-owner context; start local and broaden only if needed
+   - prefer official, directory, map, regulator, charity, school, healthcare, app-store, or reputable local sources; separate the merchant from processors, marketplaces, venues, platforms, or parent companies
+   - never use web search alone for transfers, duplicates, account ownership, or ledger account existence; never browse account portals or expose private financial context
+   - record web-assisted suggestions with compact query/location/source rationale; require user input when results are weak, conflicting, stale, generic, or location-mismatched
    - when categorization materially affects future postings and evidence does not support one safe choice, record a pending question and continue with any remaining safe work before returning control to `$auto-bean-import`
 5. Reconcile and deduplicate only this statement's parsed transactions:
    - explicitly load `.auto-bean/memory/transfer_detection.json` before transfer detection and `.auto-bean/memory/deduplication_decisions.json` before duplicate decisions
