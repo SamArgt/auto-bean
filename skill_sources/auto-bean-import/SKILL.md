@@ -14,9 +14,9 @@ MUST read before acting:
 
 ## Execution Model
 
-- When a stage reference says to spawn a sub-agent, do that for independent statements when the runtime permits it.
+- When a stage reference says to spawn a sub-agent, spawn one sub-agent per eligible statement even when there is only one eligible statement.
 - Include relevant `.auto-bean/memory/MEMORY.md` context in every sub-agent handoff.
-- If sub-agents are unavailable, run the same stage serially and preserve all artifact, status, and return contracts.
+- Run a stage serially only when sub-agents are unavailable, and preserve all artifact, status, and return contracts.
 
 ## Workflow
 

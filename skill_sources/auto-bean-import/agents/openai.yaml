@@ -1,7 +1,7 @@
 interface:
   display_name: "Import Statements"
   short_description: "Run the full statement import workflow"
-  default_prompt: "Orchestrate statement imports from raw statement discovery through delegated processing, delegated categorization, user-input surfacing, ledger posting, validation review, and final summary. Use when the user asks to import statements, process new raw statements, run the import workflow, or continue work from `statements/raw/` and `statements/import-status.yml`"
+  default_prompt: "Orchestrate statement imports from raw statement discovery through delegated processing, delegated categorization, user-input surfacing, ledger posting, validation review, and final summary. Spawn one sub-agent per eligible statement for delegated stages even when only one statement is eligible. Use when the user asks to import statements, process new raw statements, run the import workflow, or continue work from `statements/raw/` and `statements/import-status.yml`"
 
 policy:
   allow_implicit_invocation: true

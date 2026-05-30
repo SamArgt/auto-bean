@@ -4,7 +4,7 @@ Use for categorization sub-agent handoff, cross-statement review, and user revie
 
 ## 1. Categorization Handoff
 
-- For each statement at `categorize_ready`, spawn a sub-agent for that parsed statement and instruct it to use `$auto-bean-categorize`.
+- For each statement at `categorize_ready`, spawn a sub-agent for that parsed statement and instruct it to use `$auto-bean-categorize`; do this even when exactly one statement is ready.
 - Require the categorize return schema.
 - Keep statements with clarification, repair, or manual source blockers at `categorize_blocked` and out of posting and final approval.
 - Gate: continue to cross-statement review only after ALL categorize sub-agents have returned `categorize_review` or `categorize_blocked` and close categorize sub-agents.
