@@ -40,6 +40,51 @@ Completion checklist:
   - commodity price updates were attempted after import-owned ledger writes, with blockers surfaced rather than guessed
   - durable and global `MEMORY.md` suggestions were reviewed and applied or skipped by the main thread
   - final response includes statement outcomes, artifact links, ledger/status changes, validation result, memory result, price-update result, and remaining blockers or approvals
+  - final response ends with the required final status block below
+
+## Final Status Block
+
+User-facing import responses may include normal details first: list of clarifying questions, statement outcomes, artifact links, ledger/status changes, validation results, memory results, price-update results, blockers, and approval notes. After those details, every user-facing import response must end with this exact block shape. The block must be the last visible content in the response; do not add any text after it.
+
+Use one batch-level status label, chosen from the most important remaining user action:
+
+- `Needs Your Input`: any statement has unresolved account, balance, categorization, write, validation, or source-interpretation questions.
+- `Ready For Review`: statements are in `process_review`, `account_review`, `balance_review`, `categorize_review`, or `final_review` and need user review or approval.
+- `Ready To Apply`: all required input is resolved and the next action is applying/writing approved changes.
+- `Validation Failed`: ledger validation or required tooling failed and the next action is fixing the reported failure.
+- `Complete`: every in-scope statement is `done` and no import follow-up remains.
+- `No Changes Made`: no eligible statements were found or the requested import produced no ledger/status changes.
+
+The `Summary` line must be one concise sentence with counts or named statement paths when useful. The `Next Step` line must be one concrete user action, or `None.` when the status is `Complete`.
+
+```markdown
+---
+
+## Import Status: <Needs Your Input | Ready For Review | Ready To Apply | Validation Failed | Complete | No Changes Made>
+
+**Summary:** <one concise sentence describing what changed, what is ready, or what is blocked.>
+**Next Step:** <one concrete action for the user, or "None.">
+```
+
+Examples:
+
+```markdown
+---
+
+## Import Status: Needs Your Input
+
+**Summary:** 12 transactions are drafted; 2 need category choices before writing can continue.
+**Next Step:** Reply with accounts for the 2 listed transactions.
+```
+
+```markdown
+---
+
+## Import Status: Complete
+
+**Summary:** 3 statements were imported, validated, priced, and marked `done`.
+**Next Step:** None.
+```
 
 Use supporting references only at their trigger point:
 
