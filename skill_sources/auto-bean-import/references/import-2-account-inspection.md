@@ -28,7 +28,7 @@ Use for first-seen account derivation and opening-balance checks.
 - Validate with `./scripts/validate-ledger.sh` or `./.venv/bin/bean-check ledger.beancount`.
 - Record proposed, approved, rejected, or written first-seen decisions in the import-owned artifact.
 - Move resolved `account_review` or `account_blocked` statements to `balance_review`.
-- Gate: continue to opening-balance checks only if ALL statements are at `balance_review`. Wait for user answers for `account_blocked` or `account_review` statements before advancing to opening-balance checks.
+- Gate: only resolved statements at `balance_review` enter opening-balance checks; retain unresolved account entries while continuing other eligible work.
 
 ## 2. Opening Balance Checks
 
@@ -38,4 +38,4 @@ Use for first-seen account derivation and opening-balance checks.
 - Record the decision in the import-owned artifact.
 - Move resolved `balance_review` or `balance_blocked` statements to `categorize_ready`.
 - Keep unresolved balance discrepancies out of categorization.
-- Gate: continue to categorization only if ALL statements are at `categorize_ready`. Wait for user answers for `balance_blocked` or `balance_review` statements before advancing to categorization.
+- Gate: only resolved statements at `categorize_ready` enter categorization; retain unresolved balance entries while continuing other eligible work.

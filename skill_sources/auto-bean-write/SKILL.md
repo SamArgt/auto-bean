@@ -49,7 +49,7 @@ Follow this workflow:
    - transactions must balance
    - header data must contain the payee and narration and avoid generic payees such as "April shopping online" when the statement provides clearer details, but do not guess when the statement is ambiguous
    - metadata belongs on indented `key: value` lines under the entry or posting it describes
-   - include `source` and `record_id` in the metadata
+   - include `source` and `record_id` in the metadata: preserve imported provenance for imports and existing provenance for corrections; for direct user-provided facts without external ids, use `source: "user-provided"` and a unique locally generated `record_id` prefixed `manual-`, disclosed as a local identifier rather than a statement id
    - prefer explicit posting amounts even though Beancount can infer one omitted amount
    - respect currency constraints declared on `open` directives
    - when syntax, balancing behavior, metadata placement, or `open` directive constraints are unclear, consult Beancount documentation through Context7 before encoding an authoritative assumption
@@ -58,7 +58,7 @@ Follow this workflow:
    - do not reshuffle the include graph just to insert one transaction
    - default-allowed supporting directives are limited to transaction entries, minimal `open` directives required for the target accounts, and narrowly scoped `balance` directives required for integrity or validation of the written transaction
    - ask for explicit user approval before writing anything beyond that allowlist, including include-graph reorganization, new include files, broad account-tree moves, commodity declarations, price directives, plugin/options changes, or unrelated cleanup
-   - document directives referencing raw statements SHOULD already have been written during account inspection, but you MUST confirm the presence and validity of those directives.
+   - for import-invoked writes, confirm the presence and validity of raw-statement document directives from account inspection; direct user-provided transactions do not require a raw statement or document directive
 7. Draft the transaction directly in the working tree using explicit, inspectable postings.
    - keep the transaction minimal but never group entries, write the postings at the vendor-level.
 8. Ask a bounded clarification question instead of guessing whenever the evidence leaves any material ambiguity, following the shared question-handling rules:

@@ -35,7 +35,7 @@ Use `$auto-bean-memory` to persist any eligible reusable decisions from the sess
 
 Users should start imports with `$auto-bean-import`.
 
-`$auto-bean-import` discovers unprocessed raw statements, skips already-current statements, delegates raw-to-parsed work to `$auto-bean-process`, resolves process artifacts, derives first-seen account structure, delegates categorization/reconciliation/deduplication to `$auto-bean-categorize`, brokers user input, posts transactions with `$auto-bean-write`, hands governed memory suggestions to `$auto-bean-memory`, and invokes `$auto-bean-prices` as an end-of-import price-update epilogue.
+`$auto-bean-import` discovers unprocessed raw statements, skips already-current statements, delegates raw-to-parsed work to `$auto-bean-process`, resolves process artifacts, derives first-seen account structure, delegates categorization/reconciliation/deduplication to `$auto-bean-categorize`, brokers user input, posts transactions with `$auto-bean-write`, invokes `$auto-bean-prices` after import-owned ledger writes, and then hands eligible governed memory suggestions, including price-source results, to `$auto-bean-memory` once.
 
 For import workflows, `$auto-bean-import` is the sole broker for final user approval and commit/push readiness.
 

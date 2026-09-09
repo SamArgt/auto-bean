@@ -1,6 +1,6 @@
 # Import Price Update
 
-Use after import write/final-review decisions and memory handoff. This is an import epilogue that updates valuation context without advancing statement status.
+Use after import-owned ledger writes and their current final-review decisions, before the consolidated memory handoff. On resume, also handle pending price follow-ups recorded in prior artifacts. Skip fetching when this invocation made no import-owned ledger writes and has no pending price follow-up. This epilogue updates valuation context without advancing statement status; pass its results and source-memory suggestions to stage 6 even when fetching is blocked.
 
 1. Invoke `$auto-bean-prices` once:
    - pass import context, changed ledger files, imported account/commodity hints, validation status, and relevant import artifact paths
