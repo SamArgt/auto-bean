@@ -20,7 +20,7 @@ MUST read before acting:
 
 ## Workflow
 
-Follow this ordered reference map; the stage mechanics live there. For each step, read its reference fully before acting, and wait to open the next reference until the current step is complete.
+Use persisted per-statement status to enter or resume the appropriate stage in this reference map. Read that stage’s reference fully before acting; skip stages with no eligible work. Complete safe work for eligible statements while retaining blocked and review-pending statements at their current stage. Never reset later-stage or `done` statements merely to align a batch. Before writing, complete cross-statement review for the proposed posting cohort, holding any candidate whose transfer or duplicate risk depends on unresolved evidence from another statement.
 
 | stage | file to read | gate conditions | outputs |
 | --- | --- | --- | --- |
@@ -28,8 +28,8 @@ Follow this ordered reference map; the stage mechanics live there. For each step
 | 2 account inspection | [import-2-account-inspection.md](references/import-2-account-inspection.md) | account identity, currency, mutation target, duplicate risk, and approved account-opening needs are resolved or blocked | import artifact account decisions, status transitions, validation references |
 | 3 categorization review | [import-3-categorization-review.md](references/import-3-categorization-review.md) | statements are at `categorize_review` or intentionally blocked; cross-statement transfer and duplicate review is resolved before writing, categorize subagents are closed | categorize artifact paths, compact question ids, posting handoff inputs |
 | 4 write and final review | [import-4-write-final-review.md](references/import-4-write-final-review.md) | write sub-agents are closed; validation passes or blockers are recorded; final approval is explicit before `done` | ledger changes, validation results, final approval decisions, status updates |
-| 5 price update epilogue | [import-5-price-update.md](references/import-5-price-update.md) | price-update sub-agent is closed or serial work is complete | active commodities with known sources are priced; unknown source mappings are blocked for review | price artifact, validation result, price memory suggestions |
-| 6 memory handoff | [import-6-memory-handoff.md](references/import-6-memory-handoff.md) | memory example references selected by `$auto-bean-memory` | eligible reusable learning has provenance and review state; memory handoff is separate from statement advancement | governed memory result, `MEMORY.md` updates or skips, final summary |
+| 5 price update epilogue | [import-5-price-update.md](references/import-5-price-update.md) | import-owned ledger writes or a pending price follow-up require work; price update has a terminal result or recorded blocker | price artifact, validation result, price memory suggestions |
+| 6 memory handoff | [import-6-memory-handoff.md](references/import-6-memory-handoff.md) | safe import work and any price epilogue have returned; memory stays separate from statement advancement | governed memory result, `MEMORY.md` updates or skips, final summary |
 
 Completion checklist:
   - every in-scope statement has a current status entry and matching import-owned artifact

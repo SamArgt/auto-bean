@@ -7,6 +7,8 @@ Apply this contract to every Beanprice fetch.
 - `snapshot`: Use for import epilogues and normal updates. Choose one explicit target date and run `./.venv/bin/bean-price --date <target-date> ledger.beancount` without `--update`.
 - `historical_backfill`: Use only when the user explicitly requests historical coverage. Dry-run the exact `--update` command first and record its target date range and job count before executing it live.
 
+Before every live fetch, including snapshots and exact-source probes, run the same command with `--dry-run` and record its terminal result and listed job count. Keep the date, sources, and selection flags identical for the live command; stop if preflight fails. For a snapshot, use `./.venv/bin/bean-price --dry-run --date <target-date> ledger.beancount`, then remove `--dry-run` and add `-v` for the live fetch. For a probe, apply the same sequence to `-e '<QUOTE>:<SOURCE>/<SYMBOL>'` with an explicit target date. Count listed jobs, not stderr log lines.
+
 Use Beanprice's default worker count unless the user explicitly requests a concurrency change.
 
 ## Completion and reconciliation

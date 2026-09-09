@@ -32,7 +32,8 @@ MUST read before acting:
    - if the source is still ambiguous, record a blocker instead of guessing
 5. Choose and execute one fetch mode using the price-run contract:
    - for an import epilogue or normal price update, fetch one explicit snapshot with `./.venv/bin/bean-price --date <target-date> ledger.beancount`; do not add `--update`
-   - use `--update` only for an explicitly requested historical backfill, and dry-run the exact backfill command first to record its target range and job count
+   - preflight every fetch, including snapshots and probes, with the same arguments plus `--dry-run`; record the job count before executing live with verbose logging as specified in the price-run contract
+   - use `--update` only for an explicitly requested historical backfill
    - if the command yields a running session, keep polling that same session until it returns a terminal exit code; an empty or partial output chunk is never completion
    - reconcile the completed live run against its dry-run job count before drafting directives or claiming success
    - probe exact source expressions with `./.venv/bin/bean-price -e '<QUOTE>:<SOURCE>/<SYMBOL>'` when metadata or memory provides a candidate source

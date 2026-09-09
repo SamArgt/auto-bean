@@ -11,7 +11,8 @@ Use for discovery, process sub-agent assignment, and process-question resolution
    - Fingerprint supported raw files: `.pdf`, `.csv`, `.xlsx`, `.xls`.
    - Inspect `.auto-bean/memory/import_sources/index.json` and select only narrow matching `import_source_behavior` records by source identity, institution, account owner, account names, account hints, statement shape, filename pattern, or fingerprint.
    - Keep matched memory use consistent with the shared memory rules and record reuse attribution in the import-owned artifact.
-   - Gate: continue to process sub-agent assignment only after all raw statements are at `raw_ready` and import-owned artifacts are created or updated.
+   - Preserve unchanged statements at their persisted statuses, including `done` and pending review; route resumed work to its owning stage instead of reprocessing it.
+   - Gate: assign processing only for eligible `raw_ready` entries with current import-owned artifacts. If none are eligible, skip processing and continue other resumable work.
 2. Spawn process sub-agents with `$auto-bean-process`:
    - Spawn a sub-agent for each process-eligible statement, including when exactly one statement is process-eligible.
    - Give each sub-agent relevant `.auto-bean/memory/MEMORY.md` context, the source path, current status entry, retry metadata, expected parsed-output path or naming rule, shared artifact prefix, selected `import_source_behavior` memory path or summary, and the instruction to use `$auto-bean-process`.
@@ -26,4 +27,4 @@ Use for discovery, process sub-agent assignment, and process-question resolution
    - Resume `$auto-bean-process` only when parser-specific regeneration or normalization is required.
    - Move resolved `process_review` statements to `account_review`.
    - Keep unresolved statements at `process_review` or `process_blocked`; do not advance them to account inspection.
-   - Gate: continue to account inspection only if ALL statements are at `account_review`. Wait for user answers for `process_blocked` or `process_review` statements before advancing to account inspection.
+   - Gate: only `account_review` statements enter account inspection. Retain unresolved process entries and continue safe work for other eligible statements.

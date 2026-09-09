@@ -12,5 +12,5 @@ Use the shared conservative default here: the memory handoff is proactive only f
 2. Invoke `$auto-bean-memory` once:
    - pass eligible memory suggestions with provenance and current review state
    - do not call `$auto-bean-memory` separately for each artifact
-   - invoke memory only after import-stage statements are either `done`, `final_review`, or intentionally blocked
+   - invoke memory after safe work for the current invocation and any price epilogue have returned; statements awaiting input or approval retain their existing statuses
    - keep memory handoff separate from statement status advancement
