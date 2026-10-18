@@ -1,0 +1,6 @@
+interface:
+  display_name: "Initialize Ledger"
+  short_description: "Create and validate a local ledger workspace"
+  default_prompt: "Use $auto-bean:auto-bean-init to create a new local ledger."
+policy:
+  allow_implicit_invocation: true

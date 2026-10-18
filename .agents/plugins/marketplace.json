@@ -1,0 +1,12 @@
+{
+  "name": "auto-bean",
+  "interface": {"displayName": "Auto Bean"},
+  "plugins": [
+    {
+      "name": "auto-bean",
+      "source": {"source": "local", "path": "./plugins/auto-bean"},
+      "policy": {"installation": "AVAILABLE", "authentication": "ON_INSTALL"},
+      "category": "Productivity"
+    }
+  ]
+}

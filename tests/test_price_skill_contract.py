@@ -1,17 +1,13 @@
 from pathlib import Path
 
 
-ROOT = Path(__file__).resolve().parents[1]
-PRICE_SKILL = ROOT / "skill_sources" / "auto-bean-prices" / "SKILL.md"
+ROOT = Path(__file__).resolve().parents[1] / "plugins" / "auto-bean"
+PRICE_SKILL = ROOT / "skills" / "auto-bean-prices" / "SKILL.md"
 RUN_CONTRACT = (
-    ROOT / "skill_sources" / "auto-bean-prices" / "references" / "price-run-contract.md"
+    ROOT / "skills" / "auto-bean-prices" / "references" / "price-run-contract.md"
 )
 IMPORT_EPILOGUE = (
-    ROOT
-    / "skill_sources"
-    / "auto-bean-import"
-    / "references"
-    / "import-5-price-update.md"
+    ROOT / "skills" / "auto-bean-import" / "references" / "import-5-price-update.md"
 )
 
 

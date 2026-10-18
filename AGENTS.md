@@ -14,28 +14,28 @@ This repository authors the product, not a live user ledger workspace.
 
 ## Development Boundaries
 
-- Author skill behavior in `skill_sources/` first.
+- Author skill behavior in `plugins/auto-bean/skills/` first.
 - Use the `skill-creator` system skill when creating or materially editing a skill.
-- Treat `skill_sources/` as the source of truth for runtime skill content.
+- Treat `plugins/auto-bean/skills/` as the source of truth for runtime skill content.
 - Treat `auto-bean-query` and `auto-bean-write` as foundation skills that higher-level workflows may rely on for read-only ledger analysis and transaction writing.
 - Do not add live installed runtime skills under product-repo `.agents/skills/`.
-- Keep `workspace_template/` focused on workspace skeleton, placeholders, and docs.
-- Materialize authored skills into the user workspace during `auto-bean init`, not by hardcoding them into the template.
+- Keep `plugins/auto-bean/assets/workspace_template/` focused on workspace skeleton, placeholders, and docs.
+- Distribute the plugin directory directly. Never copy product skills or helpers into ledger workspaces.
 
 ## Skills redaction guidelines
 - Rely on the beancount online doc with the context7 MCP when redacting skills about beancount ledgers management.
 
 ## Repo Structure
 
-- Keep the Python package flat while the product only exposes the `init` workflow.
-- Put the CLI entrypoint in `src/auto_bean/cli.py`.
-- Keep the end-to-end workspace bootstrap workflow in `src/auto_bean/init.py`.
+- Keep bundled Python helpers under `plugins/auto-bean/runtime/auto_bean/`.
+- Use the noninteractive plugin launcher for initialization, migration, and runtime tools.
+- Keep the root Python environment limited to development tools; lock released ledger dependencies in the plugin runtime project.
 - Add new modules only when they clearly improve readability or separate a real independent concern.
 
 ## Code Boundaries
 
 - Keep CLI surfaces thin and support-oriented.
-- Keep orchestration, filesystem setup, and command execution together when they all serve the single `init` workflow.
+- Separate initialization, migration, and runtime preparation where they own independent concerns.
 - Prefer changing markdown workflow behavior before adding new Python surfaces.
 - For direct ledger-mutation workflows, present review details directly in the agent conversation; do not add separate mutation artifact requirements in the product repo.
 
@@ -49,6 +49,7 @@ This repository authors the product, not a live user ledger workspace.
 
 ## Workspace Expectations
 
-- User workspaces keep installed skills under `.agents/skills/`.
+- User workspaces use installed plugin skills; they do not contain copied product skills.
+- Treat legacy skill retirement as a reviewed migration with backups, not broad stale-file deletion.
 - User workspaces keep governed runtime state under `.auto-bean/`.
 - Canonical ledger files remain in `ledger.beancount` and `beancount/`.

@@ -1,0 +1,7 @@
+interface:
+  display_name: "Categorize Statement"
+  short_description: "Categorize, reconcile, and deduplicate one parsed statement"
+  default_prompt: "Use $auto-bean:auto-bean-categorize for one assigned categorize_ready parsed statement or handoff artifact. Create/update its review artifact, categorize with memory, $auto-bean:auto-bean-query, and local-context web search for unknown merchants, flag reconciliation/deduplication issues, set categorize_blocked or categorize_review, and return posting inputs, blockers, questions, artifact paths, and memory suggestions to $auto-bean:auto-bean-import."
+
+policy:
+  allow_implicit_invocation: false
