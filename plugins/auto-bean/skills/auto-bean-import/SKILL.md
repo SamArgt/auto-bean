@@ -1,101 +1,106 @@
 ---
 name: auto-bean-import
-description: Orchestrate statement imports from raw statement discovery through delegated processing, delegated categorization, user-input surfacing, ledger posting, validation review, and final summary. Use when the user asks to import statements, process new raw statements, run the import workflow, or continue work from `statements/raw/` and `statements/import-status.yml`.
+description: Import statements from discovery through processing, account inspection, categorization, ledger writing, validation, and final user review. Use for new statements or resumed imports tracked in statements/raw/ and statements/import-status.yml.
 ---
 
-Read [plugin execution](../../references/plugin-execution.md) before acting. Resolve resource paths relative to the file containing them; resolve financial-data paths against the selected workspace.
+Read [plugin execution](../../references/plugin-execution.md), [workflow rules](../../references/workflow-rules.md), [status reading](../../references/import-status-reading.md), and workspace `.auto-bean/memory/MEMORY.md` before acting. Resolve packaged resources relative to this file and financial-data paths against the selected workspace.
 
+Read [memory access rules](../../references/memory-access-rules.md) before selecting, using, reviewing, or persisting memory suggestions. Read the [status example](../../references/import-status.example.yml) when adding status fields, auditing schema, or reconciling unexpected entries.
 
-Use this as the user-facing import entrypoint. Delegate mechanics to narrower skills instead of duplicating their procedures.
+## Orchestration
 
-MUST read before acting:
+Use this as the user-facing entrypoint; narrower skills own processing, categorization, ledger queries, and transaction writing. Resume each statement from persisted status; skip stages without eligible work. Preserve unchanged review states and `done`; reprocess completed statements only for explicit rework. Continue unrelated safe work while other statements await input or review.
 
-- `.auto-bean/memory/MEMORY.md`
-- `../../references/workflow-rules.md`
-- `../../references/import-status-reading.md`
-- `references/import-artifact-contract.md`
+For processing, categorization, and writing, spawn one sub-agent per eligible statement, even for a single statement. Run serially only when sub-agents are unavailable, preserving the same contracts. Supply the selected workspace, actual packaged skill locations, relevant `MEMORY.md` context, source/parsed paths, status and retry metadata, shared artifact prefix, stage artifacts, selected memory with attribution, and expected compact return schema. Sub-agents persist questions and return ids, artifact paths, blockers, safe progress, validation, and memory suggestions; only the main thread asks the user or edits `MEMORY.md`.
 
-## Execution Model
+Persist deterministic progress before questions or handoffs. Batch compatible questions, record answers in their owning artifacts, and resume the owning skill when regeneration or unfinished work is required. Never advance unresolved statements. Before writing a cohort, hold candidates whose transfer or duplicate decision depends on unresolved evidence from another in-scope statement.
 
-- When a stage reference says to spawn a sub-agent, spawn one sub-agent per eligible statement even when there is only one eligible statement.
-- Include relevant `.auto-bean/memory/MEMORY.md` context in every sub-agent handoff.
-- Run a stage serially only when sub-agents are unavailable, and preserve all artifact, status, and return contracts.
+## Import artifact
 
-## Workflow
+Own one Markdown artifact per raw statement at `.auto-bean/artifacts/import/<artifact_prefix>--import.md`; never combine statements into a batch artifact unless explicitly required. Derive the prefix from a safe raw-filename stem slug, adding the smallest parent-directory slug or fingerprint suffix needed for uniqueness. Share it with process and categorize artifacts. Create or refresh the artifact before leaving `raw_ready`.
 
-Use persisted per-statement status to enter or resume the appropriate stage in this reference map. Read that stage’s reference fully before acting; skip stages with no eligible work. Complete safe work for eligible statements while retaining blocked and review-pending statements at their current stage. Never reset later-stage or `done` statements merely to align a batch. Before writing, complete cross-statement review for the proposed posting cohort, holding any candidate whose transfer or duplicate risk depends on unresolved evidence from another statement.
+Use stable ids for statements, questions, decisions, document references, posting handoffs, and memory candidates. Keep these sections when relevant:
 
-| stage | file to read | gate conditions | outputs |
-| --- | --- | --- | --- |
-| 1 discovery and processing | [import-1-discovery.md](references/import-1-discovery.md) | raw statements have current status entries and import artifacts; process sub-agents are closed or serial work is complete | status entries, process artifacts, parsed statements, compact process returns |
-| 2 account inspection | [import-2-account-inspection.md](references/import-2-account-inspection.md) | account identity, currency, mutation target, duplicate risk, and approved account-opening needs are resolved or blocked | import artifact account decisions, status transitions, validation references |
-| 3 categorization review | [import-3-categorization-review.md](references/import-3-categorization-review.md) | statements are at `categorize_review` or intentionally blocked; cross-statement transfer and duplicate review is resolved before writing, categorize subagents are closed | categorize artifact paths, compact question ids, posting handoff inputs |
-| 4 write and final review | [import-4-write-final-review.md](references/import-4-write-final-review.md) | write sub-agents are closed; validation passes or blockers are recorded; final approval is explicit before `done` | ledger changes, validation results, final approval decisions, status updates |
-| 5 price update epilogue | [import-5-price-update.md](references/import-5-price-update.md) | import-owned ledger writes or a pending price follow-up require work; price update has a terminal result or recorded blocker | price artifact, validation result, price memory suggestions |
-| 6 memory handoff | [import-6-memory-handoff.md](references/import-6-memory-handoff.md) | safe import work and any price epilogue have returned; memory stays separate from statement advancement | governed memory result, `MEMORY.md` updates or skips, final summary |
+| Section | Content |
+| --- | --- |
+| `# Import Decisions <artifact_prefix>` | `schema_version`, raw path, source fingerprint, `artifact_prefix`, `created_at`, `updated_at` |
+| `## Artifact References` | Source, parsed, process, categorize, write/validation, memory references, matching status key |
+| `## Questions` | Import-owned questions in full; stage-owned question ids, artifact paths, resume decisions |
+| `## First-Seen Account Decisions` | Proposals, evidence, targets, approval/rejection/write state, validation |
+| `## Document Reference Decisions` | Account, date, raw path, target, duplicate check, proposal/approval/reuse/rejection/block/write state, validation |
+| `## Cross-Statement Review` | Paired artifacts and transaction refs, matched facts, decision state, posting impact |
+| `## Posting Decisions` | Write inputs/results, validation, blockers, user approval context |
+| `## Memory Attribution` | Records considered/used, current-evidence checks, influenced decisions, rejection reasons |
+| `## Memory Candidates` | Provenance, originating artifact, review state, eligibility, deduplication |
+| `## Ignored Or Rejected Inputs` | Unsafe paths, stale references, invalid suggestions, unresolved blockers, rejected candidates |
 
-Completion checklist:
-  - every in-scope statement has a current status entry and matching import-owned artifact
-  - each completed stage recorded artifact paths, question ids, decisions, and gate result
-  - no statement advanced past a blocked or unresolved review status
-  - ledger mutations, validation results, and final approval state are reflected in import-owned artifacts
-  - governed JSON memory candidates were routed through the memory handoff stage
-  - commodity price updates were attempted after import-owned ledger writes, with blockers surfaced rather than guessed
-  - durable and global `MEMORY.md` suggestions were reviewed and applied or skipped by the main thread
-  - final response includes statement outcomes, artifact links, ledger/status changes, validation result, memory result, price-update result, and remaining blockers or approvals
-  - final response ends with the required final status block below
+Persist import decisions before asking approval, handing off, invoking memory, or marking `done`; update `updated_at` on changes. Link stage-owned detail instead of copying it. Prefer compact tables, bullets, and short exact directive/validation blocks. Keep status, progress counts, queue position, retries, and transition history in the status index, not this artifact. Exclude raw dumps, full parsed JSON, ledgers, parser output, full memory files, and unrelated financial data.
 
-## Final Status Block
+Fail closed on unsafe artifact paths, conflicting prefixes, unreadable/unwritable artifacts, or conflicts with `statements/import-status.yml`.
 
-User-facing import responses may include normal details first: list of clarifying questions, statement outcomes, artifact links, ledger/status changes, validation results, memory results, price-update results, blockers, and approval notes. After those details, every user-facing import response must end with this exact block shape. The block must be the last visible content in the response; do not add any text after it.
+## 1. Discovery and processing
 
-Use one batch-level status label, chosen from the most important remaining user action:
+- Inspect `git status --short` and `statements/import-status.yml`. Create/update `raw_ready` entries and import artifacts for new, changed, missing-status, or explicitly reprocessable statements, respecting persisted review/completion state. Fingerprint `.pdf`, `.csv`, `.xlsx`, and `.xls` sources.
+- Inspect `.auto-bean/memory/import_sources/index.json`; select only narrowly matching `import_source_behavior` records using source identity, institution, owner/account hints, statement shape, filename pattern, or fingerprint. Record reuse attribution and current-evidence checks.
+- Dispatch eligible `raw_ready` statements with current import artifacts to `$auto-bean:auto-bean-process`. Include expected parsed-output paths/naming, retry context, and selected source behavior. Require its process return schema; wait for all assigned agents to return `process_blocked`, `process_review`, or `account_review`, then close them before downstream handoff.
+- Inspect process artifacts and broker warnings or questions for `process_review` and resolvable `process_blocked`. Record answers that change parsed evidence in the process artifact; record question ids, artifact/affected paths, and resume decisions in the import artifact. Resume processing only for parser regeneration/normalization. Move resolved review entries to `account_review`; retain unresolved process states.
 
-- `Needs Your Input`: any statement has unresolved account, balance, categorization, write, validation, or source-interpretation questions.
-- `Ready For Review`: statements are in `process_review`, `account_review`, `balance_review`, `categorize_review`, or `final_review` and need user review or approval.
-- `Ready To Apply`: all required input is resolved and the next action is applying/writing approved changes.
-- `Validation Failed`: ledger validation or required tooling failed and the next action is fixing the reported failure.
-- `Complete`: every in-scope statement is `done` and no import follow-up remains.
-- `No Changes Made`: no eligible statements were found or the requested import produced no ledger/status changes.
+## 2. Accounts and opening balances
 
-The `Summary` line must be one concise sentence with counts or named statement paths when useful. The `Next Step` line must be one concrete user action, or `None.` when the status is `Complete`.
+- For `account_review` (or resumed `account_blocked`), use `$auto-bean:auto-bean-query` to inspect ledger accounts. Check selected source behavior and `.auto-bean/memory/account_mappings.json` against the shared strong-evidence threshold. Classify each account as `existing_account`, `first_seen_candidate`, or `blocked_inference`; record existing matches.
+- Limit first-seen inference to institution-owned balance-sheet accounts and opening balances for banking, credit cards, loans, cash, and investments. Propose Beancount-safe names and minimal supporting directives only from strong current evidence. Present exact directives, target files, evidence, and why the account appears first-seen; obtain approval or correction before writing.
+- For each parsed `statement_metadata.accounts[]` item, propose `YYYY-MM-DD document <ledger-account> "<raw-statement-path>"` using the statement period end, confidently matched ledger account, and parsed `source_file` under `statements/raw/`. Multi-account statements need one per matched account. Missing/uncertain account, date, or safe source path blocks the statement at `account_blocked`.
+- Deduplicate documents by date, account, and raw-file path against the ledger. Follow existing directive placement or the narrowest file owning that account/date; ensure the encoded path resolves to the raw file from the target ledger file. Include document proposals in the import approval package; the same approval covers them unless the user rejects/changes them. Record decisions in `## Document Reference Decisions`.
+- Keep `account_blocked` while identity, currency, target, duplicate risk, or approval is unresolved. Write only approved opening structure, document references, and minimal supporting directives; prefer `beancount/accounts.beancount` and `beancount/opening-balances.beancount` for account structure. Validate with `auto_bean bean-check ledger.beancount`, record decisions/results, then move resolved statements to `balance_review`.
+- At `balance_review` (or resumed `balance_blocked`), query ledger balances at the statement opening boundary, respecting Beancount date semantics, and compare parsed opening balances. For mismatches or untrustworthy checks, show account, ledger/statement balances, and remediation choices; keep `balance_blocked` until resolved and any approved edits validate. Record the decision; only resolved statements reach `categorize_ready`.
+
+## 3. Categorization and batch review
+
+- Dispatch each `categorize_ready` parsed statement to `$auto-bean:auto-bean-categorize`, requiring its return schema. Wait for all categorize agents to return `categorize_review` or `categorize_blocked`, then close them. Keep clarification, repair, reconciliation, and manual-source blockers out of posting.
+- Before presenting findings, inspect batch categorize artifacts and posting inputs, including blocked statements. Compare transfer/duplicate candidates using amounts, nearby dates, currencies, descriptions, references, fees, FX legs, and account pairs; query existing ledger activity through `$auto-bean:auto-bean-query` as needed. Do not silently drop, net, or mark duplicates without strong current evidence or approved input.
+- For spanning candidates, add `Import Batch Cross-Statement Review` to each categorize artifact and record paired links, ids, summaries, and posting impact in import artifacts. Inspect other in-scope evidence/blockers before releasing a cohort; hold dependent candidates while unrelated resolved statements proceed.
+- Broker categorize questions in the main thread, using provided fillable artifacts when useful. Record answers in categorize/import artifacts and update status. Resume categorization for unfinished work; move blocked statements to `categorize_review` only after resolved work is persisted. Only reviewed statements with resolved batch checks reach `write_ready`.
+
+## 4. Writing and final approval
+
+- Dispatch each `write_ready` statement to `$auto-bean:auto-bean-write` with parsed, process, categorize, and import artifact context. Record each return's changed files, validation, blocker/question ids, and artifact references. Broker questions and resume writing after answers; retain `write_blocked` during unresolved clarification, repair, or validation failure.
+- Set `final_review` only after import transactions are written and validated. Query closing balances against parsed statement balances and reconcile status/artifact pointers; surface discrepancies before approval.
+- Present per-statement review directly in the conversation: ledger changes, evidence/provenance, links/ids, decisions, risks, validation, and closing-balance results. Mark `done` only after explicit approval of that statement's final result; otherwise retain `final_review`. Close write agents after their completed statements reach `done`. Import owns finalization and commit/push readiness under shared rules.
+
+## 5. Price epilogue
+
+After import-owned ledger writes and current final-review decisions, invoke `$auto-bean:auto-bean-prices` once before memory handoff. Also resume pending price follow-ups from prior artifacts; skip fetching when there are neither new import-owned writes nor pending follow-ups.
+
+Pass changed files, account/commodity hints, validation, and import artifact paths. Update active held and import-touched commodities using one explicit dated snapshot without `--update`; historical backfill needs a separate request. Broker source questions in the main thread. Require a terminal fetch state and reconciled job telemetry; running sessions or initially empty output are incomplete.
+
+Keep price blockers separate from statement status; never move `done` backward for missing price sources. Report the price artifact, fetch mode, terminal state, exit code, duration, dry-run job count, directive and redundant/ignored counts, sanitized stderr, changed/skipped files, priced/skipped commodities, and post-price validation. Pass results (including blockers) and eligible `commodity_price_source` suggestions to memory handoff.
+
+## 6. Memory and completion
+
+After safe work and the price epilogue return, collect eligible suggestions from process, categorize, import, price, and supporting evidence. Invoke `$auto-bean:auto-bean-memory` once for the consolidated set, with provenance and current review state. Proactive writes are limited to eligible, governed, reversible advisory memory; unresolved blockers must not become durable learning. Memory never advances statement status or bypasses approval.
+
+The main thread reviews durable/global `MEMORY.md` suggestions and applies or skips them. Before reporting, verify current status entries and import artifacts match, stage decisions/questions/results are persisted, and no unresolved gate was crossed. Summarize statement outcomes, artifact links, ledger/status changes, validation, price/memory outcomes, and remaining blockers or approvals.
+
+## Final status block
+
+End every user-facing import response with this block, with no text after it:
 
 ```markdown
 ---
 
-## Import Status: <Needs Your Input | Ready For Review | Ready To Apply | Validation Failed | Complete | No Changes Made>
+## Import Status: <label>
 
-**Summary:** <one concise sentence describing what changed, what is ready, or what is blocked.>
-**Next Step:** <one concrete action for the user, or "None.">
+**Summary:** <one concise sentence; include counts or statement paths when useful.>
+**Next Step:** <one concrete user action, or "None." when Complete.>
 ```
 
-Examples:
+Choose one label based on the most important remaining action:
 
-```markdown
----
-
-## Import Status: Needs Your Input
-
-**Summary:** 12 transactions are drafted; 2 need category choices before writing can continue.
-**Next Step:** Reply with accounts for the 2 listed transactions.
-```
-
-```markdown
----
-
-## Import Status: Complete
-
-**Summary:** 3 statements were imported, validated, priced, and marked `done`.
-**Next Step:** None.
-```
-
-Use supporting references only at their trigger point:
-
-- Read `../../references/memory-access-rules.md` before selecting governed memory hints for a stage handoff, using memory-derived suggestions in review, accepting or rejecting memory suggestions from sub-agents, persisting reusable learning, or handling memory conflicts.
-- Read `../../references/import-status.example.yml` only when creating new status fields, auditing schema shape, or reconciling an unexpected status entry before updating it.
-
-## Guardrails
-
-- Follow the shared workflow rules for ownership boundaries, status management, question handling, sub-agent handoff, compact returns, and memory use.
-- Follow the import artifact contract for import-owned artifact paths, contents, and update rules.
-- Avoid reading all references files at once, read them in order and only when their trigger points are reached.
+| Label | Condition |
+| --- | --- |
+| `Needs Your Input` | Unresolved account, balance, category, write, validation, or source questions |
+| `Ready For Review` | Process, account, balance, categorize, or final review needs approval |
+| `Ready To Apply` | Required input resolved; approved changes ready to write |
+| `Validation Failed` | Validation/tooling failed; next action is fixing it |
+| `Complete` | Every in-scope statement is `done` and no import follow-up remains |
+| `No Changes Made` | No eligible statements or no ledger/status changes |

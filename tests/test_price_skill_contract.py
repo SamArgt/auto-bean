@@ -6,14 +6,12 @@ PRICE_SKILL = ROOT / "skills" / "auto-bean-prices" / "SKILL.md"
 RUN_CONTRACT = (
     ROOT / "skills" / "auto-bean-prices" / "references" / "price-run-contract.md"
 )
-IMPORT_EPILOGUE = (
-    ROOT / "skills" / "auto-bean-import" / "references" / "import-5-price-update.md"
-)
+IMPORT_SKILL = ROOT / "skills" / "auto-bean-import" / "SKILL.md"
 
 
 def test_import_epilogue_requires_a_single_dated_snapshot() -> None:
     skill = PRICE_SKILL.read_text(encoding="utf-8")
-    epilogue = IMPORT_EPILOGUE.read_text(encoding="utf-8")
+    epilogue = IMPORT_SKILL.read_text(encoding="utf-8")
 
     assert "--date <target-date> ledger.beancount" in skill
     assert "do not add `--update`" in skill
