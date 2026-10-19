@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import shutil
+import re
 import subprocess
 from pathlib import Path
 
@@ -19,7 +20,9 @@ from auto_bean.common import (
 from auto_bean.runtime import ensure_runtime, validate
 
 
-def initialize(target: Path) -> dict[str, object]:
+def initialize(target: Path, *, currency: str = "EUR") -> dict[str, object]:
+    if not re.fullmatch(r"[A-Z][A-Z0-9]{1,23}", currency):
+        raise WorkflowError("invalid_currency", "Use an uppercase commodity symbol.")
     prerequisites(git=True)
     # Inspect the supplied path before resolving it so an existing symlink is rejected.
     target = target.expanduser().absolute()
@@ -48,6 +51,15 @@ def initialize(target: Path) -> dict[str, object]:
         root.chmod(root.stat().st_mode | 0o700)
         for path in root.rglob("*"):
             path.chmod(0o700 if path.is_dir() else 0o600)
+        if currency != "EUR":
+            ledger = root / "ledger.beancount"
+            ledger.write_text(
+                ledger.read_text().replace(
+                    '"operating_currency" "EUR"', f'"operating_currency" "{currency}"'
+                )
+            )
+            accounts = root / "beancount/accounts.beancount"
+            accounts.write_text(accounts.read_text().replace(" EUR", f" {currency}"))
         for relative in ("statements/raw", "statements/parsed"):
             (root / relative).mkdir(parents=True, exist_ok=True)
             (root / relative / ".gitkeep").touch()

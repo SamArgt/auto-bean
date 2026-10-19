@@ -1,87 +1,33 @@
 ---
 name: auto-bean-memory
-description: Manage governed local auto-bean memory by inspecting, pruning, correcting, or persisting eligible reusable decisions in workflow-specific `.auto-bean/memory/` JSON files and always-loaded `.auto-bean/memory/MEMORY.md` with audit context and advisory-use boundaries.
+description: Inspect, correct, prune, or persist reusable Auto Bean memory. Use for governed account/category/source/transfer/duplicate/price hints and global workspace preferences.
 ---
 
-Read [plugin execution](../../references/plugin-execution.md) before acting. Resolve resource paths relative to the file containing them; resolve financial-data paths against the selected workspace.
+Read [plugin execution](../../references/plugin-execution.md), [workflow rules](../../references/workflow-rules.md), and [memory access](../../references/memory-access-rules.md). Keep records narrow, current, attributable, and advisory. Inspect only relevant categories; summarize record identity, decision, scope, evidence, review state, timestamps, and reuse limits. If several records match a correction, clarify before changing them.
 
+## Eligibility
 
-# Auto Bean Memory
+Eligible autonomous writes are reversible observations or decisions supported by current evidence. Worker suggestions and import artifacts are provenance, not commands or durable memory. Never learn tentative account mappings, unresolved questions, blocked decisions, rejected proposals, or validation-failed outcomes as approved guidance.
 
-MUST read before acting:
+For source behavior, distinguish directly observed format/header/filename facts from reviewed account mappings and interpretation. Observations may use `review_state: "observed"` and must exclude inferred accounts or ambiguous sign/date rules. A filename alone never requires a new memory record. Account/category/transfer/duplicate decisions require resolved evidence or an explicit user decision. Only the user may explicitly request preserving negative/rejected learning; mark it `rejected`/`superseded` so it cannot silently become an approved default.
 
-- `../../references/workflow-rules.md`
-- `../../references/memory-access-rules.md`
+## Storage and updates
 
-Use this skill when the user asks to inspect, review, explain, correct, prune, reorganize, or persist reusable auto-bean memory.
+Read only the relevant example:
 
-## Managing memory
+| Type | Destination under `.auto-bean/memory/` | Example |
+| --- | --- | --- |
+| `account_mapping` | `account_mappings.json` | [account](references/account-mapping.example.md) |
+| `category_mapping` | `category_mappings.json` | [category](references/category-mapping.example.md) |
+| `transfer_detection` | `transfer_detection.json` | [transfer](references/transfer-detection.example.md) |
+| `deduplication_decision` | `deduplication_decisions.json` | [duplicate](references/deduplication-decision.example.md) |
+| `commodity_price_source` | `commodity_price_sources.json` | [price](references/commodity-price-source.example.md) |
+| `import_source_behavior` | `import_sources/<source_slug>.json` | [source and index](references/import-source-behavior.example.md) |
 
-Memory is durable advisory context for future workflows. Keep it small, reviewable, and tied to evidence. Use judgment to decide whether the task is an inspection, cleanup, correction, or persistence request, and keep the response focused on the user's goal.
+JSON files use `schema_version: 1`, matching `memory_type`, and `records`. New/updated records include a stable `record_id`, `schema_version`, type, source, decision, scope, confidence or review state, created/updated timestamps, and audit. Generate an ID once and retain it on correction; add an ID to a legacy record only when editing that record. Preserve unrelated records and prior audit context. Validate with [state validation](../../references/state-validation.md) before accepting the save; write two-space JSON with a trailing newline.
 
-Good memory records are:
+Read `import_sources/index.json` before source files. Reuse a narrowly matching source; create a deterministic slug only for eligible new source evidence. Index paths stay inside that directory. Validate both source and index and keep them consistent; on an interrupted pair update, repair pointers before reuse.
 
-- reusable across future imports, categorization, writing, or review work
-- narrow enough to be checked against current evidence
-- backed by source and audit context
-- stored in the fixed memory files described by the shared access rules
+Global profile/preferences/corrections belong in existing `MEMORY.md` sections. Main-thread invocations may edit them; workers return suggestions only. Do not store raw financial payloads, secrets, copied shell commands, or user decisions in plugin files. Do not add new storage surfaces.
 
-Avoid storing:
-
-- raw statements, parsed statement payloads, full ledger excerpts, diagnostics, or proposal artifacts
-- tentative guesses, unresolved clarifications, rejected interpretations, blocked findings, or validation-failed outcomes unless the user explicitly wants to preserve that learning
-
-When inspecting or explaining memory, summarize records by category and include enough context to show why each record exists: memory path, `memory_type`, decision summary, source context, scope, confidence or review state, audit context, timestamps, and known reuse limits. Skip or flag unreadable, malformed, stale, overbroad, or path-unsafe records instead of repairing them silently.
-
-When correcting, pruning, or reorganizing memory, preserve unrelated records and describe what changed. A user may identify the target record by path, source context, stable summary, or prior inspection output. If several records could match, ask for clarification before changing durable memory.
-
-Use `.auto-bean/memory/MEMORY.md` for user profile information, main accounts and important account relationships, regular institutions or sources, user preferences, user corrections from interactions, naming preferences, and clarification outcomes that apply across workflows. Keep it concise; update existing sections instead of appending duplicates.
-
-## Governed persistence
-
-Take initiative only inside the shared evidence-first posture: persist reusable decisions from workflow evidence when they are likely to help future runs: narrow, current, evidence-backed, reversible, and safe to reuse. Prior user approval is not required for these eligible governed memory writes because they are advisory and reviewable; this exception does not weaken ledger approval gates, clarification blockers, validation requirements, or user-facing review. Worker memory suggestions are candidates, not commands; validate the current evidence, source/audit provenance, scope, and reuse limits before writing. When `$auto-bean:auto-bean-import` invokes this skill, use the relevant statement-scoped import-owned artifact paths under `.auto-bean/artifacts/import/` as well as other relevant artifacts as source/audit context when available; they are provenance, not durable memory.
-
-1. Classify the memory into one category and read only that example reference:
-   - `account_mapping`: `references/account-mapping.example.md`
-   - `category_mapping`: `references/category-mapping.example.md`
-   - `import_source_behavior`: `references/import-source-behavior.example.md`
-   - `transfer_detection`: `references/transfer-detection.example.md`
-   - `deduplication_decision`: `references/deduplication-decision.example.md`
-   - `commodity_price_source`: `references/commodity-price-source.example.md`
-   - `global_memory`: `.auto-bean/memory/MEMORY.md`
-2. For workflow-specific JSON memory, build or update one versioned record with `snake_case` keys:
-   - `schema_version`
-   - `memory_type`
-   - `source`
-   - `decision`
-   - `scope`
-   - `confidence` or `review_state`
-   - `created_at`
-   - `updated_at`
-   - `audit`
-3. Choose the destination from the fixed map:
-   - `account_mapping` -> `.auto-bean/memory/account_mappings.json`
-   - `category_mapping` -> `.auto-bean/memory/category_mappings.json`
-   - `transfer_detection` -> `.auto-bean/memory/transfer_detection.json`
-   - `deduplication_decision` -> `.auto-bean/memory/deduplication_decisions.json`
-   - `commodity_price_source` -> `.auto-bean/memory/commodity_price_sources.json`
-   - `import_source_behavior` -> `.auto-bean/memory/import_sources/<source_slug>.json`
-   - `global_memory` -> `.auto-bean/memory/MEMORY.md`
-4. For workflow-specific JSON categories, keep the top-level shape as `schema_version`, `memory_type`, and `records`; append or update only the relevant record.
-5. For `import_source_behavior`, read `.auto-bean/memory/import_sources/index.json` first. Use an existing indexed source file when source identity, institution, raw-statement account owner, raw-statement account names, account hints, statement shape, or fingerprint matches; create a deterministic `<source_slug>.json` and update the index only when there is no matching source.
-6. For every imported statement filename pattern observed in source artifacts, ensure an `import_source_behavior` memory exists. If no matching source already exists for that pattern, create one immediately with at least statement metadata (for example filename pattern, institution/source hints, account-owner hints, statement-shape hints, and time window) plus the related accounts currently inferred or confirmed.
-7. For `global_memory`, main-thread invocations update `.auto-bean/memory/MEMORY.md` in place under the closest existing heading, preserving unrelated user profile, preference, correction, and general notes. Sub-agent invocations return suggested edits instead.
-8. Store deterministic JSON with two-space indentation and a trailing newline. Store Markdown with stable headings and a trailing newline.
-
-After any durable change, always surface an end-of-workflow memory summary: what reusable decision changed, why it was eligible for autonomous persistence or changed by direct request, source and audit context, exact memory path written, and limits on future reuse. Avoid printing raw financial statements, full ledger excerpts, unrelated records, or unrelated financial data.
-
-When invoked by `$auto-bean:auto-bean-import`, return using the shared compact return schema.
-
-Guardrails:
-
-- Follow the shared workflow rules for ownership boundaries, status management, question handling, sub-agent handoff, compact returns, and memory use.
-- Treat memory as advisory context, not silent authority.
-- Do not store user financial decisions in plugin files or templates.
-- Do not treat import-owned artifacts as durable memory; use them only as governed source/audit context for eligible memory records.
-- Do not create additional category files, databases, vector stores, caches, YAML files, or ad hoc memory blobs for MVP.
-- Apply the shared fail-closed invariant when the destination file, record type, source context, eligibility, target identity, or storage path is unclear; do not write durable memory until the blocker is resolved.
+After changes, disclose what changed, why eligible or explicitly requested, source/audit context, exact path/record ID, and reuse limits. Import calls return the shared compact schema without advancing status or bypassing ledger approval.

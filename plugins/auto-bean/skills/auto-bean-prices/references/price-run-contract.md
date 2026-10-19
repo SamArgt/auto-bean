@@ -13,6 +13,8 @@ Use Beanprice's default worker count unless the user explicitly requests a concu
 
 ## Completion and reconciliation
 
+Use a 180-second execution budget for each fetch, separate from runtime preparation. On timeout, terminate the same process/session, collect its terminal result, and mark the run failed; do not start competing retries. Retry only a clearly transient failure once after the original has terminated.
+
 Run the live command with verbose logging so redundant directives and provider failures are observable. If the command returns a running session identifier, poll the same session until it exits. A running session, an initial empty chunk, or partial stdout is not a completed command.
 
 Classify the run only after receiving its terminal exit code:
@@ -25,7 +27,7 @@ Zero emitted directives alone is not success or failure. It is a valid `no_op` o
 
 ## Price artifact
 
-Create or update the price artifact before returning. Record:
+Create `.auto-bean/artifacts/prices/<run-id>--prices.md` before fetching and update that same artifact on resume. Import links it from the affected statement artifacts. Record required commodities separately from jobs: a zero-job run does not mean all held commodities have source coverage. Treat any required commodity without a source as an explicit skipped/blocking follow-up. Before returning record: Record:
 
 - fetch mode and target date or historical date range
 - dry-run job count
@@ -35,5 +37,7 @@ Create or update the price artifact before returning. Record:
 - sanitized stderr summary, including provider warnings or errors
 - reconciled job count and any unaccounted jobs
 - changed price files or explicit skipped mutation
+- provider quote dates versus requested dates, source coverage, stale/mismatched quotes
+- candidate before/after hashes, review state (`pending`, `approved`, or `rejected`), and remaining follow-ups
 
 Keep credentials, account identifiers, and copied shell snippets out of the artifact. A failed fetch is a price-stage blocker; it does not roll an already completed imported statement back from `done`.

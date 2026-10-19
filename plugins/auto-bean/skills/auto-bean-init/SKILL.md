@@ -3,18 +3,16 @@ name: auto-bean-init
 description: Initialize a new local Beancount ledger with the auto-bean Codex plugin, including its workspace, managed runtime, validation, and initial Git history. Use after plugin installation or when the user asks to create a ledger.
 ---
 
-Read [plugin execution](../../references/plugin-execution.md). Resolve bundled resources from this installed skill's location.
+Read [plugin execution](../../references/plugin-execution.md) for resource/workspace resolution and launcher setup.
 
-1. Identify the intended absolute destination. Use the user's selected empty directory when clear; otherwise ask for the destination. Do not initialize the product repository or overwrite a nonempty directory. For an existing auto-bean ledger, use `$auto-bean:auto-bean-migrate`.
-2. Explain any missing uv or Git prerequisite with its official installation instructions. Let uv manage Python 3.13 and the ledger dependencies. Do not install machine prerequisites or change global Git identity without the user's request.
-3. Run the bundled helper with the resolved plugin and workspace paths:
+1. Select an unambiguous absolute, empty destination; ask if unclear. Exclude the product repository; route existing ledgers to `$auto-bean:auto-bean-migrate`.
+2. Report missing uv/Git with official installation guidance; uv manages Python 3.13/dependencies. Prerequisite installation, global Git identity, MCP configuration, and pushing require explicit requests.
+3. Keep EUR/account defaults unless requested otherwise; append `--currency <SYMBOL>` for a requested operating currency:
 
    ```sh
    sh "$AUTO_BEAN_PLUGIN/runtime/launch.sh" init --workspace "$AUTO_BEAN_WORKSPACE"
    ```
 
-4. Inspect the structured result and terminal exit status. `ok` means runtime preparation and ledger validation passed and the initial commit succeeded. `needs_input` means the validated workspace is preserved but Git finalization needs attention; explain the returned step. A failed command is not successful setup.
-5. Preserve the template's EUR and account defaults unless the user requested others. Route requested ledger changes through `$auto-bean:auto-bean-write`, validate, and review them in conversation. Do not invent opening balances or personal account identities.
-6. Tell the user where the ledger was created and how to operate it: `$auto-bean:auto-bean-import` for statements, `$auto-bean:auto-bean-query` for reads, `$auto-bean:auto-bean-write` for entries, and the runtime launcher for Fava. Ask the user to open the new directory as their Codex project if this chat still targets another directory. Never push automatically.
-
-The plugin remains the execution surface. Do not copy skills, helpers, or maintenance scripts into the new ledger, or configure a Context7 connection during setup.
+4. Check JSON result and terminal exit: `ok` means validated and initially committed; `needs_input` preserves a validated workspace needing Git attention. Report its next step; failure is not successful setup.
+5. Own other explicitly requested scaffold options/account-name changes under [candidate review](../../references/candidate-review.md); apply them before claiming those preferences are configured. Route transactions to `$auto-bean:auto-bean-write`. Never invent opening balances, personal accounts, or preferences.
+6. Return the destination and routes for statements (`$auto-bean:auto-bean-import`), reads (`$auto-bean:auto-bean-query`), transactions, and launcher-based Fava. Have the user open the new project if this chat targets another directory. Installed plugin resources stay in the plugin.

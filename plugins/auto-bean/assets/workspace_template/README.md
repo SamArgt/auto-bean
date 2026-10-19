@@ -9,6 +9,6 @@ Operate this workspace in Codex with the Auto Bean plugin enabled.
 
 The ledger entrypoint is `ledger.beancount`. Included ledger files live in `beancount/`; evidence and import state live in `statements/`; governed memory and artifacts live in `.auto-bean/`.
 
-The plugin prepares its runtime on demand, including after cloning this workspace onto another supported machine. Install uv and Git, enable the plugin, and open this directory in Codex. Context7 is optional.
+The plugin prepares its base runtime on demand; statement processing adds a separate extraction runtime. Cloned workspaces recreate these environments on another supported machine. Install uv and Git, enable the plugin, and open this directory in Codex. Context7 is optional.
 
 Refresh the Auto Bean plugin through Codex to receive product changes. This workspace does not need a standalone auto-bean installation or an update command. Keep runtime caches and migration backups out of Git; retain migration backups locally until you have reviewed preserved customizations.

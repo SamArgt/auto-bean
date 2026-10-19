@@ -13,7 +13,7 @@ Read [plugin execution](../../references/plugin-execution.md). Resolve bundled r
    sh "$AUTO_BEAN_PLUGIN/runtime/launch.sh" migrate --workspace "$AUTO_BEAN_WORKSPACE"
    ```
 
-4. Present the concrete removals and documentation diffs directly in conversation. Distinguish known legacy files from customized or unknown files. Explain that all retired files are backed up outside skill discovery and custom instructions are not merged automatically. Review preserved customizations with the user and port eligible workspace preferences into the stable workspace instructions only when requested. Do not reactivate stale auto-bean skills.
+4. Present the concrete removals and documentation diffs directly in conversation. Distinguish manifest-owned legacy paths (including customized contents) from unknown files. Unknown files in legacy/shared folders are preserved in place; do not infer product ownership from a directory name. Explain that all retired files are backed up outside skill discovery and custom instructions are not merged automatically. Review preserved customizations with the user and port eligible workspace preferences into the stable workspace instructions only when requested. Do not reactivate stale auto-bean skills.
 5. Obtain explicit approval of this plan before applying. Then run:
 
    ```sh

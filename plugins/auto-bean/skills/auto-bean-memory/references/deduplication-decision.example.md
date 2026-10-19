@@ -8,6 +8,7 @@ Example record:
 
 ```json
 {
+  "record_id": "example-deduplication-decision.example",
   "schema_version": 1,
   "memory_type": "deduplication_decision",
   "source": {

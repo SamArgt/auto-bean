@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import shutil
 import platform
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
@@ -33,7 +34,9 @@ def prepared(monkeypatch: pytest.MonkeyPatch) -> list[Path]:
 
     monkeypatch.setattr(runtime, "run_checked", sync)
     monkeypatch.setattr(
-        runtime, "healthy", lambda environment: (environment / "healthy").is_file()
+        runtime,
+        "healthy",
+        lambda environment, **kwargs: (environment / "healthy").is_file(),
     )
     return built
 
@@ -139,3 +142,37 @@ def test_missing_tools_and_unsupported_platform(
     monkeypatch.setattr(shutil, "which", lambda tool: None)
     with pytest.raises(WorkflowError, match="Install uv"):
         common.prerequisites()
+
+
+def test_base_and_extraction_generations_are_isolated(
+    current: Path, plugin: Path, prepared: list[Path], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    sync: Callable[..., str] = getattr(runtime, "run_checked")
+    commands: list[list[str]] = []
+
+    def record(args: list[str], *, cwd: Path, env: dict[str, str]) -> str:
+        commands.append(args)
+        return sync(args, cwd=cwd, env=env)
+
+    monkeypatch.setattr(runtime, "run_checked", record)
+    base = runtime.ensure_runtime(current, plugin=plugin)
+    extraction = runtime.ensure_runtime(current, plugin=plugin, extraction=True)
+    assert base != extraction
+    assert "--extra" not in commands[0]
+    assert commands[1][-2:] == ["--extra", "extraction"]
+    assert runtime.ensure_runtime(current, plugin=plugin) == base
+    assert prepared == [base, extraction]
+
+
+def test_failed_extraction_preserves_usable_base(
+    current: Path, plugin: Path, prepared: list[Path], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    base = runtime.ensure_runtime(current, plugin=plugin)
+
+    def fail(args: list[str], *, cwd: Path, env: dict[str, str]) -> str:
+        raise WorkflowError("download_failed", "Extraction offline")
+
+    monkeypatch.setattr(runtime, "run_checked", fail)
+    with pytest.raises(WorkflowError, match="offline"):
+        runtime.ensure_runtime(current, plugin=plugin, extraction=True)
+    assert runtime.ensure_runtime(current, plugin=plugin) == base

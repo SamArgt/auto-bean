@@ -17,11 +17,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     commands = parser.add_subparsers(dest="action", required=True)
     init = commands.add_parser("init")
     init.add_argument("--workspace", type=Path, required=True)
+    init.add_argument("--currency", default="EUR")
     migrate = commands.add_parser("migrate")
     migrate.add_argument("--workspace", type=Path, required=True)
     migrate.add_argument("--apply", metavar="REVIEWED_PLAN_ID")
     ensure = commands.add_parser("ensure-runtime")
     ensure.add_argument("--workspace", type=Path, required=True)
+    ensure.add_argument("--extraction", action="store_true")
     tool = commands.add_parser("run")
     tool.add_argument("--workspace", type=Path, required=True)
     tool.add_argument("tool", choices=TOOLS)
@@ -29,7 +31,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     arguments = parser.parse_args(argv)
     try:
         if arguments.action == "init":
-            result = initialize(arguments.workspace)
+            result = initialize(arguments.workspace, currency=arguments.currency)
         elif arguments.action == "migrate":
             result = (
                 apply_migration(arguments.workspace, arguments.apply)
@@ -40,7 +42,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             root = workspace(arguments.workspace)
             if arguments.action == "run":
                 return run_tool(root, arguments.tool, arguments.args)
-            result = {"status": "ok", "runtime": str(ensure_runtime(root))}
+            result = {
+                "status": "ok",
+                "runtime": str(ensure_runtime(root, extraction=arguments.extraction)),
+            }
     except (WorkflowError, OSError, ValueError) as error:
         print(
             json.dumps(

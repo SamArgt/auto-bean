@@ -10,6 +10,7 @@ import zipfile
 from pathlib import Path
 
 import yaml
+from jsonschema import Draft202012Validator
 
 ROOT = Path(__file__).resolve().parents[1]
 PLUGIN = ROOT / "plugins/auto-bean"
@@ -47,6 +48,9 @@ def validate_plugin(plugin: Path = PLUGIN) -> str:
     ):
         raise ValueError("Expected stable auto-bean identity and SemVer version")
     version: str = manifest["version"]
+    subtitle = manifest["extensions"]["com.openai"]["interface"]["shortDescription"]
+    if not isinstance(subtitle, str) or not 1 <= len(subtitle) <= 30:
+        raise ValueError("Plugin subtitle must contain 1-30 characters")
     runtime = tomllib.loads((plugin / "runtime/pyproject.toml").read_text())
     lock = tomllib.loads((plugin / "runtime/uv.lock").read_text())
     if runtime["project"]["version"] != version:
@@ -61,6 +65,8 @@ def validate_plugin(plugin: Path = PLUGIN) -> str:
         raise ValueError("Onboarding skill is missing")
     names = set()
     for path in files(plugin):
+        if path.name.endswith(".schema.json"):
+            Draft202012Validator.check_schema(json.loads(path.read_text()))
         if path.name == "SKILL.md":
             header = yaml.safe_load(path.read_text().split("---", 2)[1])
             name = header["name"]

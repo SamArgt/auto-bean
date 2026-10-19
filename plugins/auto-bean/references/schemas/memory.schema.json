@@ -1,0 +1,146 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://auto-bean.local/schemas/v1/memory",
+  "oneOf": [
+    {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "memory_type",
+        "records"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": 1
+        },
+        "memory_type": {
+          "enum": [
+            "account_mapping",
+            "category_mapping",
+            "import_source_behavior",
+            "transfer_detection",
+            "deduplication_decision",
+            "commodity_price_source"
+          ]
+        },
+        "records": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "schema_version",
+              "memory_type",
+              "source",
+              "decision",
+              "scope",
+              "created_at",
+              "updated_at",
+              "audit"
+            ],
+            "properties": {
+              "schema_version": {
+                "const": 1
+              },
+              "record_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "memory_type": {
+                "enum": [
+                  "account_mapping",
+                  "category_mapping",
+                  "import_source_behavior",
+                  "transfer_detection",
+                  "deduplication_decision",
+                  "commodity_price_source"
+                ]
+              },
+              "source": {
+                "type": "object"
+              },
+              "decision": {
+                "type": "object"
+              },
+              "scope": {
+                "type": "object"
+              },
+              "confidence": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "review_state": {
+                "enum": [
+                  "observed",
+                  "confirmed",
+                  "approved",
+                  "superseded",
+                  "rejected"
+                ]
+              },
+              "created_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "updated_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "audit": {
+                "type": "object"
+              }
+            },
+            "anyOf": [
+              {
+                "required": [
+                  "confidence"
+                ]
+              },
+              {
+                "required": [
+                  "review_state"
+                ]
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "memory_type",
+        "sources"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": 1
+        },
+        "memory_type": {
+          "const": "import_source_behavior_index"
+        },
+        "sources": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "source_slug",
+              "path"
+            ],
+            "properties": {
+              "source_slug": {
+                "type": "string",
+                "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+              },
+              "path": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

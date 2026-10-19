@@ -47,6 +47,7 @@ Example source file:
   },
   "records": [
     {
+      "record_id": "example-source-columns",
       "schema_version": 1,
       "memory_type": "import_source_behavior",
       "source": {

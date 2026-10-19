@@ -25,7 +25,7 @@ Statuses describe one statement's next owner action. A batch import may contain 
 | `final_review` | `$auto-bean:auto-bean-import` asks the user to approve final import result | `done` | Stay in final review until the user approves that statement's final import result. |
 | `done` | no action unless the user requests rework | `raw_ready` only for explicit rework/reprocess | No automatic transition. |
 
-Allowed sub-agent status updates:
+Allowed worker status proposals (only import writes the index):
 
 - `$auto-bean:auto-bean-process`: `process_blocked`, `process_review`, or `account_review`.
 - `$auto-bean:auto-bean-categorize`: `categorize_blocked` or `categorize_review`.
@@ -36,7 +36,7 @@ When the file is large:
 
 - Search by exact raw path first, then read only that entry.
 - Use `rg -n "statements/raw/...|current_status:|parsed_statement:|artifacts:" statements/import-status.yml` to find nearby lines quickly.
-- Use a YAML parser for edits or audits; avoid broad text rewrites that could move unrelated statement entries.
+- Only import edits the index. Validate serialized transitions with [state validation](state-validation.md). Use a YAML parser for edits or audits; avoid broad text rewrites that could move unrelated statement entries.
 - Treat `parsed_statement` as evidence under `statements/parsed/`, not a workflow artifact.
 - Treat `artifacts.process`, `artifacts.categorize`, and `artifacts.import` as pointers to stage-owned review/provenance files under `.auto-bean/artifacts/`.
 - Keep detailed warnings, questions, answers, and decision rationale in the referenced artifacts; status stores only pointers and compact operational flags.

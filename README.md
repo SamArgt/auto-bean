@@ -4,7 +4,7 @@ Auto Bean is a local-first Codex plugin for initializing and operating Git-backe
 
 ## Install
 
-Requirements: macOS or Linux, [uv](https://docs.astral.sh/uv/getting-started/installation/), Git, and Codex with plugin support. The plugin manages Python 3.13 and the locked Beancount, Beanquery, Fava, Docling, and Beanprice runtime. Initial runtime preparation needs network access and may download substantial dependencies. Context7 is optional.
+Requirements: macOS or Linux, [uv](https://docs.astral.sh/uv/getting-started/installation/), Git, and Codex with plugin support. The plugin manages Python 3.13 and a locked base runtime for Beancount, Beanquery, Fava, Beanprice, and state validation. Statement processing prepares a separate extraction runtime with Docling and CPU dependencies on first use. Initial preparation needs network access; extraction may download substantial dependencies and PDF model files. Context7 is optional.
 
 Register the GitHub marketplace:
 
@@ -38,7 +38,7 @@ Open the ledger directory in Codex with Auto Bean enabled:
 | Update commodity prices | `$auto-bean:auto-bean-prices` |
 | Persist eligible reusable decisions | `$auto-bean:auto-bean-memory` |
 
-The process and categorize skills support import stages. Ledger edits remain working-tree candidates until reviewed and approved; import owns its final approval and statement completion. Nothing is pushed automatically.
+The process and categorize skills support import stages. Workers return proposed status updates; import alone writes the status index. Parsing and categorization can run in parallel, while all ledger writes are serialized. Ledger edits remain working-tree candidates until reviewed and approved; import owns its final approval and statement completion. Nothing is pushed automatically.
 
 Ask Codex to validate the ledger or open Fava through the plugin launcher. All runtime tools use the selected ledger as their working directory. The plugin location is discovered from its installed skills and is never saved in ledger files.
 
@@ -50,7 +50,7 @@ Enable the plugin in your existing workspace and ask:
 Use $auto-bean:auto-bean-migrate to review and migrate this ledger.
 ```
 
-Migration inventories changes before requesting approval. It backs up retired auto-bean skills, known helper scripts, and replaced documentation outside skill discovery. Customized files are identified for review. Financial files, statement evidence, import state, memory, Git history, Codex configuration, unrelated skills/scripts, and the old `.venv` are preserved.
+Migration inventories changes before requesting approval. It backs up retired auto-bean skills, known helper scripts, and replaced documentation outside skill discovery. Customized files are identified for review. Financial files, statement evidence, import state, memory, Git history, Codex configuration, unrelated skills/scripts, unknown files inside legacy/shared folders, and the old `.venv` are preserved. Only manifest-owned skill/reference paths are retired; customized contents at those paths are reviewed and backed up.
 
 Backups and a resumable journal live under `.auto-bean/migrations/`. Migration does not commit or push. Review customizations before deciding how to carry them forward. Do not run the retired updater after migration.
 
@@ -64,7 +64,7 @@ codex plugin marketplace upgrade auto-bean
 
 Use a fresh chat after refresh if the current chat still exposes an older plugin release; reload or reinstall through Codex if needed. Host refresh behavior varies by supported client, so marketplace refresh alone is not a claim that an already-running chat has switched versions.
 
-Each ledger automatically prepares the runtime required by the loaded plugin. Dependency generations live in gitignored `.auto-bean/runtime/<fingerprint>/` environments; failed preparation of a new generation preserves previous ones. Cloned ledgers recreate their runtime on demand. Ordinary releases do not overwrite ledger data, memory, or workspace documentation. Unsupported workspace formats stop with a compatibility diagnostic.
+Each ledger automatically prepares the runtime required by the loaded plugin. Base and extraction dependency generations live separately in gitignored `.auto-bean/runtime/<fingerprint>/` environments; failed preparation of a new generation preserves previous ones. Cloned ledgers recreate their runtime on demand. Ordinary releases do not overwrite ledger data, memory, or workspace documentation. Unsupported workspace formats stop with a compatibility diagnostic.
 
 ## Repository layout
 
@@ -87,6 +87,20 @@ uv run mypy
 uv run pytest
 uv run python scripts/package_plugin.py --check
 ```
+
+Prepare synthetic agent workflow evaluations:
+
+```sh
+uv run python scripts/workflow_scenarios.py prepare /tmp/auto-bean-workflow-evaluations
+```
+
+Run each generated `request.txt` in its sibling `ledger/` using the installed-source skill it names. The six scenarios cover paired transfers, overlapping exports, interrupted writes, rejection with staged/unstaged user work, malformed account references, and a partial provider failure. They contain synthetic data and intentionally withhold final approval. Verify each resulting workspace with:
+
+```sh
+uv run python scripts/workflow_scenarios.py verify /tmp/auto-bean-workflow-evaluations/paired-transfer/ledger
+```
+
+The verifier checks actual transaction counts/balances, review status, preserved user changes, and unchanged Git history. The partial-provider scenario also needs review of the price artifact's failed terminal classification; prose checks alone do not prove it. Preparing fixtures or running unit tests is not a live agent benchmark.
 
 Run the real runtime smoke check (downloads runtime dependencies on first use):
 

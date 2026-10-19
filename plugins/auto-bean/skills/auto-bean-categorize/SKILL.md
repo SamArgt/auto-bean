@@ -5,13 +5,13 @@ description: Categorize one parsed statement assigned by auto-bean-import. Sugge
 
 Read [plugin execution](../../references/plugin-execution.md), [workflow rules](../../references/workflow-rules.md), and workspace `.auto-bean/memory/MEMORY.md` before acting. Resolve packaged resources relative to this file and financial-data paths against the selected workspace.
 
-Read [parsed-statement reading](../../references/parsed-statement-jq-reading.md) before inspecting large parsed JSON and [status reading](../../references/import-status-reading.md) before reading/updating a large status index. Consult the [parsed schema](../../references/parsed-statement-output.example.json) when fields or `statement_metadata.accounts[]`/record `account_id` relationships are unclear. Read [memory access rules](../../references/memory-access-rules.md) before using, rejecting, correcting, or proposing governed hints, including hints supplied by import.
+Read [parsed-statement reading](../../references/parsed-statement-jq-reading.md) before inspecting large parsed JSON and [status reading](../../references/import-status-reading.md) before interpreting a large status index. Use [state validation](../../references/state-validation.md) before consuming parsed evidence; consult the [parsed example](../../references/parsed-statement-output.example.json) when fields or `statement_metadata.accounts[]`/record `account_id` relationships are unclear. Read [memory access rules](../../references/memory-access-rules.md) before using, rejecting, correcting, or proposing governed hints, including hints supplied by import.
 
 ## Scope and inputs
 
 Handle only the statement assigned by `$auto-bean:auto-bean-import`: one parsed JSON file (or explicit Markdown handoff pointing to it), its `statements/import-status.yml` entry, shared raw-statement artifact prefix, and supplied memory, reconciliation context, or approved answers. Start categorization at `categorize_ready`; on an import-directed resume, preserve the existing artifact and answers.
 
-Do not discover other statements, mutate ledger files, ask users directly, request final approval/commit/push, or edit `MEMORY.md`. Import brokers questions and owns batch review and later status advancement. Use `$auto-bean:auto-bean-query` for ledger accounts, constraints, registers, balances, date-bounded activity, and transaction/duplicate checks rather than approximating queryable facts by grepping transactions.
+Do not discover other statements, edit the shared status index, mutate ledger files, ask users directly, request final approval/commit/push, or edit `MEMORY.md`. Import brokers questions and owns batch review and later status advancement. Use `$auto-bean:auto-bean-query` for ledger accounts, constraints, registers, balances, date-bounded activity, and transaction/duplicate checks rather than approximating queryable facts by grepping transactions.
 
 ## Working artifact
 
@@ -60,14 +60,14 @@ Use only these finding types, each with `finding_type`, `candidate_scope` (trans
 | `unbalanced` | Explicit evidence cannot support balanced posting inputs |
 | `currency_risk` | Suggested account conflicts with allowed currencies, usually declared by `open` |
 
-Transactions must balance when posted. Produce explicit posting inputs for import to pass to `$auto-bean:auto-bean-write`, even where Beancount could infer an omitted amount. Use account constraints and nearby `balance` assertions as supporting evidence for currency, missing-entry, or duplicate risks.
+Give each record a proposed disposition (`post`, `existing_duplicate`, `paired_transfer`, or `hold`) with evidence and referenced transaction/paired record. Import resolves spanning candidates and assigns one transfer posting owner; this skill never posts both sides independently. Transactions must balance when posted. Produce explicit posting inputs for import to pass to `$auto-bean:auto-bean-write`, even where Beancount could infer an omitted amount. Use account constraints and nearby `balance` assertions as supporting evidence for currency, missing-entry, or duplicate risks.
 
-When a finding cannot be safely classified/resolved, apply the shared fail-closed rule and retain `categorize_blocked`. Never auto-net, merge, silently drop, or rewrite candidate transactions to resolve ambiguity.
+When a finding cannot be safely classified/resolved, apply the shared fail-closed rule and propose `categorize_blocked`. Never auto-net, merge, silently drop, or rewrite candidate transactions to resolve ambiguity.
 
 ## Questions, status, and return
 
-Persist full questions and deterministic progress in the categorize artifact. Set `user_input_required: true` for unresolved material account/category, transfer, duplicate, or source-interpretation choices. Return question ids, artifact path, and compact blockers to import; it records answers and resumes this stage when needed.
+Persist full questions and deterministic progress in the categorize artifact. Return `user_input_required: true` for unresolved material account/category, transfer, duplicate, or source-interpretation choices. Return question ids, artifact path, and compact blockers to import; it records answers and resumes this stage when needed.
 
-Update only the assigned status entry: `categorize_blocked` for unresolved required input/repair; `categorize_review` once categorization, reconciliation, and deduplication are persisted and required blockers are resolved. Preserve question/answer history in the artifact. These are the only statuses this skill may set; status stores pointers and compact flags, not detailed warnings/questions/answers. Do not create another tracking file.
+Return a proposed update for only the assigned status entry; import alone applies it: `categorize_blocked` for unresolved required input/repair; `categorize_review` once categorization, reconciliation, and deduplication are persisted and required blockers are resolved. Preserve question/answer history in the artifact. These are the only statuses this skill may propose; status stores pointers and compact flags, not detailed warnings/questions/answers. Do not create another tracking file.
 
 Return the shared compact schema with assigned parsed/handoff path, categorize artifact path and completion needs, short work summary, status changes, categorization results and memory attribution, findings/suggested actions, and explicit posting inputs. Include every pending question id and its owning artifact path, eligible governed-memory suggestions, and `memory_md_suggestions` for main-thread review (or `[]`). Detailed review payloads stay in the artifact; import releases posting inputs only after required input and batch review are resolved.

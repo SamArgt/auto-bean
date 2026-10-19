@@ -1,0 +1,276 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://auto-bean.local/schemas/v1/parsed",
+  "type": "object",
+  "required": [
+    "parse_run_id",
+    "source_file",
+    "source_fingerprint",
+    "source_format",
+    "parser",
+    "parsed_at",
+    "process_artifact",
+    "statement_metadata",
+    "extracted_records"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "document_kind": {
+      "enum": [
+        "statement",
+        "transaction_export"
+      ]
+    },
+    "parse_run_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source_file": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source_fingerprint": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "source_format": {
+      "enum": [
+        "pdf",
+        "csv",
+        "xlsx",
+        "xls"
+      ]
+    },
+    "parser": {
+      "type": "object",
+      "required": [
+        "name"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "parsed_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "process_artifact": {
+      "type": "string",
+      "minLength": 1
+    },
+    "statement_metadata": {
+      "type": "object",
+      "required": [
+        "accounts"
+      ],
+      "properties": {
+        "accounts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "account_id"
+            ],
+            "properties": {
+              "account_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "account_name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "primary_currency": {
+                "type": "string",
+                "minLength": 1
+              },
+              "opening_balance": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "required": [
+                      "date",
+                      "amount",
+                      "currency"
+                    ],
+                    "properties": {
+                      "date": {
+                        "type": "string",
+                        "format": "date"
+                      },
+                      "amount": {
+                        "type": "string",
+                        "pattern": "^[+-]?(?:[0-9]+(?:\\.[0-9]+)?|\\.[0-9]+)$"
+                      },
+                      "currency": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "source_reference": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    }
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "closing_balance": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "required": [
+                      "date",
+                      "amount",
+                      "currency"
+                    ],
+                    "properties": {
+                      "date": {
+                        "type": "string",
+                        "format": "date"
+                      },
+                      "amount": {
+                        "type": "string",
+                        "pattern": "^[+-]?(?:[0-9]+(?:\\.[0-9]+)?|\\.[0-9]+)$"
+                      },
+                      "currency": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "source_reference": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    }
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "available_balance": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "required": [
+                      "date",
+                      "amount",
+                      "currency"
+                    ],
+                    "properties": {
+                      "date": {
+                        "type": "string",
+                        "format": "date"
+                      },
+                      "amount": {
+                        "type": "string",
+                        "pattern": "^[+-]?(?:[0-9]+(?:\\.[0-9]+)?|\\.[0-9]+)$"
+                      },
+                      "currency": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "source_reference": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    }
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "reported_record_count": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          }
+        },
+        "statement_period": {
+          "type": "object",
+          "required": [
+            "start_date",
+            "end_date"
+          ],
+          "properties": {
+            "start_date": {
+              "type": "string",
+              "format": "date"
+            },
+            "end_date": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        }
+      }
+    },
+    "extracted_records": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "record_id",
+          "source_reference",
+          "account_id",
+          "transaction_date",
+          "description",
+          "amount",
+          "currency"
+        ],
+        "properties": {
+          "record_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "source_reference": {
+            "type": "string",
+            "minLength": 1
+          },
+          "account_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "transaction_date": {
+            "type": "string",
+            "format": "date"
+          },
+          "value_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "description": {
+            "type": "string"
+          },
+          "amount": {
+            "type": "string",
+            "pattern": "^[+-]?(?:[0-9]+(?:\\.[0-9]+)?|\\.[0-9]+)$"
+          },
+          "currency": {
+            "type": "string",
+            "minLength": 1
+          },
+          "raw_fields": {
+            "type": "object"
+          }
+        }
+      }
+    }
+  }
+}

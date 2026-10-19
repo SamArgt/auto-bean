@@ -8,6 +8,7 @@ Example record:
 
 ```json
 {
+  "record_id": "example-transfer-detection.example",
   "schema_version": 1,
   "memory_type": "transfer_detection",
   "source": {

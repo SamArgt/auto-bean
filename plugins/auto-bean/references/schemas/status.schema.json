@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://auto-bean.local/schemas/v1/status",
+  "type": "object",
+  "required": [
+    "version",
+    "statements"
+  ],
+  "properties": {
+    "version": {
+      "const": 1
+    },
+    "statements": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": [
+          "current_status",
+          "source_fingerprint"
+        ],
+        "properties": {
+          "current_status": {
+            "enum": [
+              "raw_ready",
+              "process_blocked",
+              "process_review",
+              "account_review",
+              "account_blocked",
+              "balance_review",
+              "balance_blocked",
+              "categorize_ready",
+              "categorize_blocked",
+              "categorize_review",
+              "write_ready",
+              "write_blocked",
+              "final_review",
+              "done"
+            ]
+          },
+          "source_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "source_fingerprint": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "parsed_statement": {
+            "type": "string",
+            "minLength": 1
+          },
+          "artifacts": {
+            "type": "object",
+            "required": [],
+            "properties": {
+              "process": {
+                "type": "string",
+                "minLength": 1
+              },
+              "categorize": {
+                "type": "string",
+                "minLength": 1
+              },
+              "import": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "additionalProperties": false
+          },
+          "process_attempts": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "user_input_required": {
+            "type": "boolean"
+          },
+          "manual_resolution_required": {
+            "type": "boolean"
+          },
+          "last_process_failure_reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      }
+    }
+  }
+}

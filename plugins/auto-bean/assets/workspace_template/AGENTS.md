@@ -9,4 +9,5 @@ This directory contains a user-owned Beancount ledger. Use the installed Auto Be
 - Keep the stable ledger entrypoint in `ledger.beancount`, included fragments in `beancount/`, raw statements in `statements/raw/`, normalized evidence in `statements/parsed/`, and workflow status in `statements/import-status.yml`.
 - Keep governed state and artifacts under `.auto-bean/`. Reuse memory as advice supported by current evidence. Route eligible learning through the memory skill; do not write user financial decisions into plugin files.
 - Validate ledger edits, explain reconciliation findings, and show the changed files and relevant diff before final review. Working-tree edits become accepted history only after explicit user approval. The import skill owns import approval and statement finalization.
+- Import alone writes shared status; workers return proposed changes. Serialize ledger edits and keep approval tied to the exact validated candidate.
 - Preserve unresolved work and user changes. Do not commit or push without authorization.

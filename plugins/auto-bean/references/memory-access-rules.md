@@ -31,7 +31,7 @@ Eligible memory categories:
 - `commodity_price_source`
 - `global_memory`
 
-Every durable workflow-specific JSON record must include `schema_version`, `memory_type`, `source`, `decision`, `scope`, `confidence` or `review_state`, `created_at`, `updated_at`, and `audit`.
+Every new or updated durable workflow-specific JSON record must include a stable `record_id`, `schema_version`, `memory_type`, `source`, `decision`, `scope`, `confidence` or `review_state`, `created_at`, `updated_at`, and `audit`.
 
 Workflow-specific JSON files must use the top-level shape `schema_version`, `memory_type`, and `records`. Import-source behavior must read `.auto-bean/memory/import_sources/index.json` first; source files are valid only when referenced by an index entry whose path stays under `.auto-bean/memory/import_sources/`.
 
@@ -44,6 +44,8 @@ Use workflow-specific files only at their relevant workflow stages:
 - `.auto-bean/memory/deduplication_decisions.json`: deduplication and posting-risk review.
 - `.auto-bean/memory/commodity_price_sources.json`: commodity price lookup source selection and price-update workflows.
 - `.auto-bean/memory/MEMORY.md`: every new session and every sub-agent handoff, plus main-thread end-of-session review and memory inspection/correction/persistence work.
+
+Observed source facts may be persisted as `observed`; uncertain account/category/transfer/duplicate decisions remain proposals until resolved. Never create memory solely because a filename was encountered. IDs persist across corrections; legacy records without IDs remain readable until the memory skill edits them. Validate governed JSON using [state validation](state-validation.md).
 
 ## Reading memory
 

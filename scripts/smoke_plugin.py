@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import tempfile
 import time
@@ -55,6 +56,19 @@ def main() -> None:
         run(*command, "bean-check", "ledger.beancount")
         run(
             *command,
+            "python",
+            "-c",
+            "import importlib.util; assert importlib.util.find_spec('docling') is None; assert importlib.util.find_spec('torch') is None",
+        )
+        run(
+            *command,
+            "python",
+            str(installed / "runtime/validate_state.py"),
+            "memory",
+            ".auto-bean/memory/category_mappings.json",
+        )
+        run(
+            *command,
             "bean-query",
             "ledger.beancount",
             "SELECT account, sum(position) GROUP BY account;",
@@ -71,6 +85,23 @@ def main() -> None:
             "SELECT account, sum(position) GROUP BY account;",
         )
         assert "10 EUR" in answer, answer
+        boundary = root / "period-boundaries.beancount"
+        boundary.write_bytes(
+            (
+                Path(__file__).resolve().parents[1]
+                / "tests/fixtures/period-boundaries.beancount"
+            ).read_bytes()
+        )
+        run(*command, "bean-check", boundary.name)
+        patterns = (
+            installed / "skills/auto-bean-query/references/bean-query-patterns.md"
+        ).read_text()
+        queries = re.findall(r"```sql\n(.*?)```", patterns, re.DOTALL)
+        assert queries
+        for query in queries:
+            result = run(*command, "bean-query", boundary.name, query)
+            if "FROM OPEN ON" in query:
+                assert "31 EUR" in result and "1031 EUR" not in result, result
         # No prices are configured in this fixture: a dry run must terminate without a live fetch.
         run(
             *command,

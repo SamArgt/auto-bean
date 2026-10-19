@@ -93,7 +93,10 @@ def changes_for(root: Path) -> list[dict[str, Any]]:
                 # Arbitrarily named ledger fragments are financial data, even in a skill folder.
                 if path.suffix == ".beancount":
                     continue
-                change(relative, None)
+                # A shared folder can contain unrelated user resources. Retire only
+                # manifest-owned paths; their customized contents are still reviewed.
+                if relative in baseline:
+                    change(relative, None)
     for name in LEGACY_SCRIPTS:
         change(f"scripts/{name}", None)
     change(STATE, json_bytes({"format_version": FORMAT_VERSION}))

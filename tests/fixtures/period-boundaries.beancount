@@ -1,0 +1,21 @@
+1970-01-01 open Assets:Bank:Checking EUR
+1970-01-01 open Expenses:Food EUR
+1970-01-01 open Income:Salary EUR
+
+2025-12-31 * "Before quarter" "Excluded expense"
+  Assets:Bank:Checking -100 EUR
+  Expenses:Food 100 EUR
+
+2026-01-01 * "Quarter start" "Included expense"
+  Assets:Bank:Checking -1 EUR
+  Expenses:Food 1 EUR
+
+2026-03-31 * "Quarter end" "Included expense"
+  Assets:Bank:Checking -30 EUR
+  Expenses:Food 30 EUR
+
+2026-04-01 balance Assets:Bank:Checking -131 EUR
+
+2026-04-01 * "After quarter" "Excluded expense"
+  Assets:Bank:Checking -1000 EUR
+  Expenses:Food 1000 EUR

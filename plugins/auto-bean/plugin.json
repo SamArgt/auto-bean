@@ -3,20 +3,31 @@
   "name": "auto-bean",
   "version": "0.2.0",
   "description": "Initialize and operate local Beancount ledgers through Codex.",
-  "author": {"name": "SamArgt"},
+  "author": {
+    "name": "SamArgt"
+  },
   "repository": "https://github.com/SamArgt/auto-bean",
   "license": "MIT",
-  "keywords": ["beancount", "accounting", "local-first"],
+  "keywords": [
+    "beancount",
+    "accounting",
+    "local-first"
+  ],
   "extensions": {
     "com.openai": {
       "onboardingSkill": "./skills/auto-bean-init/SKILL.md",
       "interface": {
         "displayName": "Auto Bean",
-        "shortDescription": "Initialize and operate local Beancount ledgers",
+        "shortDescription": "Local Beancount ledgers",
         "developerName": "SamArgt",
         "category": "Productivity",
-        "capabilities": ["Read", "Write"],
-        "defaultPrompt": ["Initialize a new ledger with Auto Bean."]
+        "capabilities": [
+          "Read",
+          "Write"
+        ],
+        "defaultPrompt": [
+          "Initialize a new ledger with Auto Bean."
+        ]
       }
     }
   }

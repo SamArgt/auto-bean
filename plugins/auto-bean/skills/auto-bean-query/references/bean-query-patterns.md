@@ -58,13 +58,13 @@ Use regex matching for families of accounts when the workspace naming is stable.
 
 ```sql
 SELECT account, sum(position)
-FROM OPEN ON 2026-01-01 CLOSE ON 2026-03-31
+FROM OPEN ON 2026-01-01 CLOSE ON 2026-04-01
 WHERE account ~ "Income|Expenses"
 GROUP BY account
 ORDER BY account;
 ```
 
-Use reporting windows when the user asks for a period statement, not just postings whose transaction dates fall in a range.
+This reports January 1 through March 31 inclusive: `OPEN ON` includes its date and `CLOSE ON` excludes its date. A closing balance at end of March 31 therefore uses April 1. Beancount `balance` directives assert the balance before transactions on their date, separately for each commodity. Use explicit posting-date filters for activity-only reports.
 
 ### Monthly breakdown
 

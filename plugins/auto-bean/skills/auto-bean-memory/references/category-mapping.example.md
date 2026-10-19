@@ -8,6 +8,7 @@ Example record:
 
 ```json
 {
+  "record_id": "example-category-mapping.example",
   "schema_version": 1,
   "memory_type": "category_mapping",
   "source": {

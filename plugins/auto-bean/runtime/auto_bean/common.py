@@ -18,6 +18,7 @@ STATE = ".auto-bean/workspace.json"
 IGNORE_LINES = (
     ".auto-bean/runtime/",
     ".auto-bean/migrations/",
+    ".auto-bean/tmp/",
     ".venv/",
     ".codex/config.toml",
     "__pycache__/",

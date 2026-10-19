@@ -17,35 +17,41 @@ from auto_bean.common import (
 )
 
 TOOLS = ("bean-check", "bean-query", "fava", "docling", "bean-price", "python")
+BASE_TOOLS = tuple(tool for tool in TOOLS if tool != "docling")
 
 
-def fingerprint(plugin: Path = PLUGIN) -> str:
+def fingerprint(plugin: Path = PLUGIN, *, extraction: bool = False) -> str:
     runtime = plugin / "runtime"
     return digest(
         (runtime / "pyproject.toml").read_bytes()
         + b"\0"
         + (runtime / "uv.lock").read_bytes()
+        + (b"\0extraction" if extraction else b"")
     )[:24]
 
 
-def healthy(environment: Path) -> bool:
-    if not all((environment / "bin" / tool).is_file() for tool in TOOLS):
+def healthy(environment: Path, *, extraction: bool = False) -> bool:
+    tools = TOOLS if extraction else BASE_TOOLS
+    if not all((environment / "bin" / tool).is_file() for tool in tools):
         return False
     result = subprocess.run(
         [
             str(environment / "bin/python"),
             "-c",
-            "import beancount, beanquery, fava, docling, beanprice",
+            "import beancount, beanquery, fava, beanprice, jsonschema, yaml"
+            + (", docling" if extraction else ""),
         ],
         capture_output=True,
     )
     return result.returncode == 0
 
 
-def ensure_runtime(root: Path, *, plugin: Path = PLUGIN) -> Path:
+def ensure_runtime(
+    root: Path, *, plugin: Path = PLUGIN, extraction: bool = False
+) -> Path:
     """Build each dependency generation in place, never relocate a venv's shebangs."""
     prerequisites()
-    key = fingerprint(plugin)
+    key = fingerprint(plugin, extraction=extraction)
     directory = checked_path(root, f".auto-bean/runtime/{key}")
     directory.mkdir(parents=True, exist_ok=True)
     environment = checked_path(root, f".auto-bean/runtime/{key}/.venv")
@@ -53,7 +59,11 @@ def ensure_runtime(root: Path, *, plugin: Path = PLUGIN) -> Path:
     lock = checked_path(root, f".auto-bean/runtime/{key}/prepare.lock")
     with lock.open("a") as stream:
         fcntl.flock(stream, fcntl.LOCK_EX)
-        if marker.is_file() and marker.read_text() == key and healthy(environment):
+        if (
+            marker.is_file()
+            and marker.read_text() == key
+            and healthy(environment, extraction=extraction)
+        ):
             return environment
         # This generation is either unprepared or broken. Other hashes remain untouched.
         marker.unlink(missing_ok=True)
@@ -73,11 +83,12 @@ def ensure_runtime(root: Path, *, plugin: Path = PLUGIN) -> Path:
                     str(plugin / "runtime"),
                     "--frozen",
                     "--no-dev",
+                    *(["--extra", "extraction"] if extraction else []),
                 ],
                 cwd=root,
                 env=env,
             )
-            if not healthy(environment):
+            if not healthy(environment, extraction=extraction):
                 raise WorkflowError(
                     "runtime_unhealthy",
                     "Installed runtime failed its tool/import checks.",
@@ -96,7 +107,7 @@ def validate(root: Path, environment: Path) -> None:
 def run_tool(root: Path, tool: str, args: list[str]) -> int:
     if tool not in TOOLS:
         raise WorkflowError("unsupported_tool", f"Unsupported runtime tool: {tool}")
-    environment = ensure_runtime(root)
+    environment = ensure_runtime(root, extraction=tool == "docling")
     env = dict(os.environ, VIRTUAL_ENV=str(environment), PYTHONDONTWRITEBYTECODE="1")
     env["PATH"] = str(environment / "bin") + os.pathsep + env.get("PATH", "")
     # exec retains streaming output, signals, exit status, and background-session behavior.

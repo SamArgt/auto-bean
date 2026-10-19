@@ -8,6 +8,7 @@ Example record:
 
 ```json
 {
+  "record_id": "example-account-mapping.example",
   "schema_version": 1,
   "memory_type": "account_mapping",
   "source": {

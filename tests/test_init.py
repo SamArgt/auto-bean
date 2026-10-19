@@ -101,3 +101,20 @@ def test_symlink_and_file_destinations_are_rejected(tmp_path: Path) -> None:
     file.touch()
     with pytest.raises(WorkflowError):
         init.initialize(file)
+
+
+def test_requested_currency_is_applied_before_initial_commit(tmp_path: Path) -> None:
+    root = tmp_path / "usd ledger"
+    assert init.initialize(root, currency="USD")["status"] == "ok"
+    assert '"operating_currency" "USD"' in (root / "ledger.beancount").read_text()
+    accounts = subprocess.check_output(
+        ["git", "show", "HEAD:beancount/accounts.beancount"], cwd=root, text=True
+    )
+    assert "Assets:Checking USD" in accounts and " EUR" not in accounts
+
+
+def test_unsafe_currency_fails_before_creating_workspace(tmp_path: Path) -> None:
+    root = tmp_path / "ledger"
+    with pytest.raises(WorkflowError, match="uppercase"):
+        init.initialize(root, currency='USD"\ninclude "private')
+    assert not root.exists()

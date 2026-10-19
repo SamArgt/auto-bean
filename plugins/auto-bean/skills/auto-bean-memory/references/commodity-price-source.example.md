@@ -8,6 +8,7 @@ Example record:
 
 ```json
 {
+  "record_id": "example-commodity-price-source.example",
   "schema_version": 1,
   "memory_type": "commodity_price_source",
   "source": {

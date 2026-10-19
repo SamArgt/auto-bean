@@ -157,3 +157,26 @@ def test_journal_contents_cannot_change_after_review(legacy: Path) -> None:
     atomic_write(journal_path, json_bytes(journal))
     with pytest.raises(WorkflowError, match="contents changed"):
         migrate.apply_migration(legacy, plan["plan_id"])
+
+
+def test_unknown_files_in_legacy_and_shared_folders_survive_migration(
+    legacy: Path,
+) -> None:
+    paths = [
+        ".agents/skills/shared/my-unrelated-helper.md",
+        ".agents/skills/auto-bean-query/references/my-notes.txt",
+        ".agents/skills/shared/personal.beancount",
+    ]
+    for relative in paths:
+        path = legacy / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("Preserve unrelated content")
+    plan = migrate.plan_migration(legacy)
+    retired = {change["path"] for change in plan["changes"]}
+    assert not retired.intersection(paths)
+    migrate.apply_migration(legacy, plan["plan_id"])
+    assert all(
+        (legacy / relative).read_text() == "Preserve unrelated content"
+        for relative in paths
+    )
+    assert not (legacy / ".agents/skills/auto-bean-query/SKILL.md").exists()

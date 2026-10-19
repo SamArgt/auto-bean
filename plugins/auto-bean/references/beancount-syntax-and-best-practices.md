@@ -25,7 +25,7 @@ YYYY-MM-DD custom "import_marker" Assets:Checking "statement-2026-01"
 ```
 
 - Treat currencies on `open` directives as hard posting constraints.
-- Use `balance` for assertions, not to replace missing transactions.
+- Use `balance` for assertions, not to replace missing transactions. Assertions apply at the beginning of the date; an end-of-day statement balance uses the next calendar day, separately for each commodity.
 - Use `note`, `document`, and metadata for audit context without changing balances.
 - Use `document` directives to reference raw imported statements from the ledger so Fava can expose them in the UI. For import workflows, prefer one statement-level directive per matched ledger account, dated to the statement period end date, pointing to the raw file under `statements/raw/`.
 - Do not duplicate an existing exact document directive with the same date, account, and filename.
@@ -41,12 +41,12 @@ YYYY-MM-DD custom "import_marker" Assets:Checking "statement-2026-01"
 2026-01-15 price HOOL 510.00 USD
 
 2000-01-01 commodity AAPL
-  price: "USD:yahoo/AAPL" # Use price metadata for bean-price integration when possible
+  price: "USD:yahoo/AAPL" ; Beanprice source metadata
 ```
 
 - Commodity symbols are Beancount units such as `USD`, `EUR`, `BTC`, `HOOL`, or other ledger-defined assets; use uppercase commodity names and follow the ledger's existing naming style.
 - Common currencies and currency-like commodities such as `USD`, `EUR`, and `GBP` do not need explicit `commodity` declarations unless the ledger already declares them or needs metadata.
-- Commodities other than common currencies MUST be declared with a `commodity` directive and accompanied by a relevant `price` directive.
+- Declare non-common commodities when the ledger convention or metadata requires them. A market `price` directive is needed for valuation, not for the validity of every transaction; unavailable external prices must not prevent recording evidenced holdings at supported cost.
 - Use `commodity` directives as the canonical place for commodity metadata such as human-readable names, asset class, issuer, region, or other fields the ledger already tracks.
 - When declaring a new commodity, use the price metadata field to link to an exact beanprice source when possible. Probe candidate source strings with `auto_bean bean-price -e 'USD:yahoo/AAPL'`, and use web search only to discover or verify the correct beanprice source string when the commodity is ambiguous.
 - Reuse existing commodity declarations and metadata keys before adding a new declaration.
