@@ -1,0 +1,8 @@
+services:
+  main:
+    build:
+      context: ${CONTEXT_DIR}/../../../../..
+      dockerfile: evals/harbor/environment/Dockerfile
+      target: verifier
+      args:
+        HARBOR_TEST_SCRIPT: evals/harbor/tasks/init-ledger/tests/test.sh

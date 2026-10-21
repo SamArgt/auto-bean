@@ -1,0 +1,6 @@
+services:
+  main:
+    build:
+      context: ${CONTEXT_DIR}/../../../../..
+      dockerfile: evals/harbor/environment/Dockerfile
+      target: init-ledger

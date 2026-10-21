@@ -102,6 +102,10 @@ uv run python scripts/workflow_scenarios.py verify /tmp/auto-bean-workflow-evalu
 
 The verifier checks actual transaction counts/balances, review status, preserved user changes, and unchanged Git history. The partial-provider scenario also needs review of the price artifact's failed terminal classification; prose checks alone do not prove it. Preparing fixtures or running unit tests is not a live agent benchmark.
 
+For containerized Codex evaluations of initialization and approved CSV/PDF imports,
+see the [Harbor evaluation suite](evals/harbor/README.md). Runs are manual and use
+synthetic financial data.
+
 Run the real runtime smoke check (downloads runtime dependencies on first use):
 
 ```sh

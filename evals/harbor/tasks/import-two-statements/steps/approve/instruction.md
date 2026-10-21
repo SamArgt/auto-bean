@@ -1,0 +1,3 @@
+I approve the exact validated transaction candidates you presented for checking.csv and savings.pdf in the preceding review, including the single shared transfer. Recheck their recorded hashes and rerun ledger validation before accepting that result. If anything changed, stop and request renewed review instead of treating this message as approval of a new candidate.
+
+Record this approval for both statements and finish their import workflow, including the EUR-only price outcome and governed memory handoff. Do not add transactions again. Do not commit or push. Preserve source evidence and existing history. End with the plugin's required Import Status block; use Complete only when both statements are done and no follow-up remains.

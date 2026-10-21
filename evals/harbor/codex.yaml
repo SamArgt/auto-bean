@@ -1,0 +1,15 @@
+# From the repo root, after exporting PYTHONPATH and CODEX_FORCE_AUTH_JSON:
+# uv run --group eval harbor run -c evals/harbor/codex.yaml --jobs-dir "$PWD/.cache/harbor/jobs"
+n_attempts: 1
+n_concurrent_trials: 1
+environment:
+  type: docker
+agents:
+  - name: auto-bean-codex
+    import_path: evals.harbor.adapter:AutoBeanCodex
+    model_name: gpt-6.1-sol
+    resume_trajectory: true
+    kwargs:
+      version: 0.163.0
+datasets:
+  - path: evals/harbor/tasks

@@ -1,0 +1,39 @@
+schema_version = "1.4"
+multi_step_reward_strategy = "final"
+artifacts = [
+  { source = "/app/ledger", exclude = [".auto-bean/runtime", ".auto-bean/tmp"] },
+  "/logs/agent",
+  "/opt/eval-evidence",
+]
+
+[task]
+name = "auto-bean/import-two-statements"
+version = "1.0.0"
+
+[metadata]
+category = "financial-workflow"
+description = "Import a CSV and PDF with a paired transfer, review, then approve."
+
+[agent]
+timeout_sec = 1200
+
+[verifier]
+timeout_sec = 120
+environment_mode = "separate"
+
+[environment]
+cpus = 2
+memory_mb = 8192
+storage_mb = 20480
+build_timeout_sec = 1800
+workdir = "/app/ledger"
+
+[[steps]]
+name = "review"
+min_reward = 1.0
+
+[[steps]]
+name = "approve"
+
+[steps.agent]
+timeout_sec = 600
