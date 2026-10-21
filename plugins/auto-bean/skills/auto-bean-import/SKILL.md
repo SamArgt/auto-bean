@@ -7,6 +7,8 @@ Read [plugin execution](../../references/plugin-execution.md), [workflow rules](
 
 ## Orchestration
 
+See the [import process flow](../../references/import-process-flow.md) for a visual overview of human-input gates, parallel workers, and main-agent coordination bottlenecks.
+
 Resume each statement from persisted status; completed statements require explicit rework, even if the source changed. Continue independent safe work while others wait, but hold a posting cohort when unresolved cross-statement evidence affects its transfer/duplicate decisions.
 
 You alone merge worker status proposals into the latest index, preserve unrelated entries, and validate transitions against the previous snapshot. Processing/categorization may use parallel statement-scoped workers; serialize all ledger edits, including accounts, documents, and prices. Coordinate with other chats sharing the workspace. Use the shared handoff, question-brokering, compact-return, and candidate-recovery contracts; keep before/after hashes and approval evidence in existing import artifacts. Await dependent worker results; close process/categorize workers before downstream handoff.
