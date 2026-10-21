@@ -1,11 +1,37 @@
 # Harbor workflow evaluations
 
-Four runnable Harbor tasks live directly in `evals/harbor/tasks/`:
-`init-ledger`, `import-two-statements`, `human-input-correction`, and `stale-review`. Run commands from the repository root.
-Requirements: Docker with Compose and uv; each task requests 2 CPUs, 8 GiB
-memory, and 20 GiB storage. Runs are manual and use synthetic data only.
+These four tasks test the installed Auto Bean plugin with synthetic data.
+Each task README explains its setup, fixture, steps, and grader.
+
+| Task | What it tests | Steps | Successful end state |
+| --- | --- | --- | --- |
+| [Initialize a ledger](tasks/init-ledger/README.md) | Create the default EUR workspace | Init | Valid empty ledger; one clean commit |
+| [Import two statements](tasks/import-two-statements/README.md) | Review, then approve a CSV and PDF import | Review → approve | Four new transactions; both imports complete |
+| [Resolve missing input](tasks/human-input-correction/README.md) | Keep answers separate from approval | Needs input → correct → approve | Corrected decisions; approved import complete |
+| [Reject stale approval](tasks/stale-review/README.md) | Detect a decision changed after review | Review → stale | Renewed review; no financial writes |
+
+```mermaid
+flowchart TD
+    A[Current local plugin and frontend] --> B[Build agent image]
+    A --> C[Build separate verifier image]
+    B --> D[Run task in Codex]
+    D --> E[Capture workspace and evidence]
+    E --> F[Grade in separate verifier]
+    C --> F
+    F --> G{Step reward is 1?}
+    G -->|Yes, more steps| H[Resume session with next user turn]
+    H --> D
+    G -->|No, or final step| I[Save results]
+```
 
 ## Run
+
+Run commands from the repository root.
+
+- Install Docker with Compose and uv.
+- Each task requests 2 CPUs, 8 GiB of memory, and 20 GiB of storage.
+- The first image build can take several minutes. Unchanged layers are cached.
+- Runs are manual. Run Harbor, including oracle and no-op controls, only when explicitly requested.
 
 ```sh
 uv sync --group dev --group eval
@@ -14,153 +40,188 @@ export CODEX_FORCE_AUTH_JSON=1
 uv run --group eval harbor run --config evals/harbor/codex.yaml --jobs-dir "$PWD/.cache/harbor/jobs"
 ```
 
-This is Harbor's native CLI and configuration. The config runs all four tasks using
-`gpt-6.1-sol`, one attempt, one concurrent trial, the pinned Codex CLI, and your
-existing Codex sign-in. The thin adapter installs the local plugin and preserves
-it across native session resumption; Harbor owns execution and trajectory capture.
-`PYTHONPATH` makes this local adapter importable by Harbor. No separate prepare
-or build command is needed. The absolute `--jobs-dir` path avoids a Harbor 0.24
-Docker Compose issue that otherwise resolves relative artifact paths against task
-directories.
+[codex.yaml](codex.yaml) selects:
 
-Run one task:
+- All four tasks in `evals/harbor/tasks/`.
+- Model `gpt-6.1-sol` and Codex CLI `0.163.0`.
+- One attempt and one concurrent trial.
+- The local `AutoBeanCodex` adapter and native session resumption.
+
+`PYTHONPATH` lets Harbor import the local adapter. The adapter installs the
+plugin and retains it across resumed steps. Harbor manages execution and
+trajectory capture. No separate prepare or build command is needed.
+
+Use an absolute `--jobs-dir` path. Harbor 0.24 can resolve relative artifact
+paths against task directories during Docker Compose runs.
+
+To run one task, set `-p` to its directory. For example:
 
 ```sh
 uv run --group eval harbor run -c evals/harbor/codex.yaml -p evals/harbor/tasks/init-ledger --jobs-dir "$PWD/.cache/harbor/jobs"
 uv run --group eval harbor run -c evals/harbor/codex.yaml -p evals/harbor/tasks/import-two-statements --jobs-dir "$PWD/.cache/harbor/jobs"
 ```
 
-Use `--model gpt-6-astra` if the default model is unavailable. No fallback model
-is selected automatically. The exported `CODEX_FORCE_AUTH_JSON` opts into
-`~/.codex/auth.json`; no credential values are stored in the repo. Keep this flag
-in the host environment: Harbor 0.24 mistakenly treats it as a secret when placed
-in `agents[].env` and then corrupts artifacts while redacting it. For API-key
-authentication, unset `CODEX_FORCE_AUTH_JSON` and provide `OPENAI_API_KEY` in your
-environment.
+The other task directory names are `human-input-correction` and `stale-review`.
+Use `--model gpt-6-astra` if needed. There is no automatic fallback model.
 
-Validate all tasks without model calls:
+### Authentication
+
+- `CODEX_FORCE_AUTH_JSON=1` selects the existing `~/.codex/auth.json` sign-in.
+- Keep this flag in the host environment. Do not put it in `agents[].env`.
+  Harbor 0.24 treats it as a secret there and corrupts artifacts during redaction.
+- For API-key authentication, unset the flag and set `OPENAI_API_KEY`.
+- Credential values are not stored in the repository.
+
+### Control runs
+
+These commands test the harness without model calls. They still build and run Docker images.
 
 ```sh
 uv run --group eval harbor run -p evals/harbor/tasks -a oracle -n 1 --jobs-dir "$PWD/.cache/harbor/jobs"
 uv run --group eval harbor run -p evals/harbor/tasks -a nop -n 1 --jobs-dir "$PWD/.cache/harbor/jobs"
 ```
 
-All oracle tasks should earn 1. All no-op tasks should earn 0, with later
-steps skipped by the first-step reward gate. Check task rewards and nested step errors in Harbor's results;
-a zero command exit alone does not establish a workflow pass.
+- Every oracle task should earn `1`.
+- Every no-op task should earn `0`.
+- A failed intermediate step blocks later steps through its reward gate.
+- Check rewards and nested step errors. A zero command exit alone does not prove a pass.
 
-The custom Codex adapter appears as `auto-bean-codex` in the viewer. For older
-runs, an overview link may apply an `Agent: codex` filter while the Rollouts list
-uses `evals.harbor.adapter:AutoBeanCodex`. Remove that agent filter (or use
-**Clear all**) to show the saved trials; their results are unaffected.
+## Shared setup
 
-## Current plugin and fixtures
+Each task's Compose file builds from the repository root with the
+[shared Dockerfile](environment/Dockerfile).
 
-Each task's Docker Compose definition builds from this repository root. Docker
-copies `plugins/auto-bean/` and frontend sources directly, including uncommitted edits.
-A pinned Node build with `npm ci` reconstructs the UI and rejects missing or stale
-bundled assets by comparing the HTML and source/lock build evidence. "Latest" means
-the current local checkout, without fetching a published plugin or another Git
-revision. The complete plugin is installed through a container-local marketplace.
-Docker rechecks those build inputs on each run; changed plugin files invalidate
-the corresponding cached layers.
+| Component | Setup |
+| --- | --- |
+| Plugin | Copies `plugins/auto-bean/` from the current checkout, including uncommitted edits |
+| Frontend | Uses pinned Node and `npm ci`; rebuilds and compares the bundle and build evidence |
+| Installation | Installs the complete plugin through a container-local marketplace |
+| Runtime | Preloads dependencies and PDF models; smoke-tests CSV and PDF extraction |
+| Plugin probe | Checks all nine skills, MCP registration, expected tools, the App resource, and an unbound structured call |
+| Init workspace | Leaves `/app/ledger` empty; warms dependencies in a disposable workspace |
+| Import workspace | Generates raw statements and an independent, committed ledger fixture |
+| Verifier | Uses trusted dependencies, a fixed plugin copy, and independently generated expected data |
 
-CSV/PDF inputs and the independent import ledger are generated inside the images.
-Regeneration overwrites previous generated fixtures. New runs create no prepared
-task copies or host fixture snapshots, and require no output directory rotation.
-The initialization
-destination stays empty; dependency warming uses a disposable workspace elsewhere.
+The build uses local files. It does not fetch a published plugin or another Git
+revision. Changed plugin inputs invalidate the relevant Docker cache layers.
+Missing or stale bundled frontend assets cause the build to fail.
 
-Harbor builds the task and separate verifier images automatically. Their shared
-Dockerfile preloads runtime dependencies and PDF models, smoke-tests both raw
-formats, and verifies discovery of all nine plugin skills, local MCP registration,
-all expected tools, the bundled App resource, and an unbound structured call.
-This does not prove desktop rendering or simulate panel button clicks. The first build can
-take several minutes; unchanged layers are cached. Grader code and expected
-answers enter only the verifier image; the reference solution is uploaded only
-for oracle runs. Agent images contain no graders, expected answers, or oracle solutions.
+The probe does not prove desktop rendering or simulate panel button clicks.
+These tasks use conversation turns. MCP and browser integration tests cover
+panel controls separately.
 
-## Contracts and grading
+## Shared fixture
 
-Initialization starts in an empty directory with a synthetic Git identity. It
-requires the default EUR scaffold, governed memory, a working managed runtime,
-one clean initial commit, no invented transactions, and no copied product skills
-or tracked runtime caches.
+[fixtures.py](fixtures.py) generates all inputs inside the images.
+Regeneration replaces earlier generated fixtures. Runs create no prepared task
+copies or fixture snapshots on the host.
 
-Import supplies ownership and category decisions upfront. Checking CSV: EUR 25
-food purchase, EUR 100 transfer out, EUR 5 fee. Savings PDF: EUR 100 transfer in,
-EUR 2 interest. Opening balances are EUR 1,000 checking and EUR 500 savings;
-closing balances must be EUR 870 and EUR 602. Five raw rows must yield four new
-economic transactions, including one shared transfer with both source identities.
+The three import tasks share:
 
-The review step requires both statements at `final_review` with strict parsed
-account mappings and transaction postings. Canonical financial files must still
-match the initial baseline. The separate verifier renders the reviewed postings
-in its own temporary ledger and checks the expected economics independently.
-The conversation ends with `Import Status: Ready For Review`. A full verifier
-pass unlocks the explicit approval instruction in the same Codex session.
+- Synthetic owner: Alex Example.
+- Period: January 2026. Currency: EUR.
+- Checking CSV: a 25 EUR purchase, a 100 EUR transfer out, and a 5 EUR fee.
+- Savings PDF: the matching 100 EUR transfer in and 2 EUR interest.
+- Opening balances: 1,000 EUR checking and 500 EUR savings.
+- Closing balances: 870 EUR checking and 602 EUR savings.
+- Five source rows, but four new economic transactions.
+- Existing accounts, one opening transaction, and an unrelated user file.
 
-The explicit approval turn authorizes direct canonical ledger writes,
-independent transaction coverage and closing-balance validation, both statements
-`done`, and `Import Status: Complete`. Written validation must describe the current parsed decisions and canonical
-ledger; a review-stage report cannot certify completed writes. The verifier compares current material
-review digests with the preserved checkpoint and independently checks actual
-ledger economics and provenance. Neither step may commit or push. The normal
-EUR-only price result must be recorded. Eligible account and merchant decisions
-are saved in governed memory only after approved, validated writes. Their audit
-retains source, review digest and validation provenance. `MEMORY.md` remains
-unchanged because no global preferences were requested.
+See the [full fixture table](tasks/import-two-statements/README.md#fixture).
+The correction task withholds two decisions. The stale-review task changes one
+reviewed rationale. The init task starts with no statements in its workspace.
 
-The correction task first requires unresolved inline mapping/category suggestions.
-A later user turn supplies answers, which update those fields; a separate turn
-supplies approval. The `stale-review` task makes a harness-controlled change to a
-reviewed transaction rationale and then authorizes only the earlier review. The
-agent must preserve the changed decision, refuse the stale digest and present
-renewed review without ledger writes. These headless tasks use conversation
-submissions; MCP/browser integration tests exercise panel controls.
+## Grading and approval boundaries
 
-The session contains statement membership and price runs. Parsed statements
-contain source facts, inline account/transaction decisions and generated
-validation results. Agents edit these documents and status YAML directly; the
-reference uses only the public validation operation after writing. Chat approval
-is established by the harness step and immutable checkpoint, never by an
-agent-authored approval field. Panel receipts are not expected in headless tasks. There are no session write targets, candidates or
-action histories. The host checkpoint captures the reviewed parsed documents,
-material digests and canonical baseline; the verifier derives expectations from
-those documents rather than trusting submitted execution claims. Static HTML
-artifacts render that same lightweight review. Historical baseline runs retain
-their original contract and are not credited to this changed contract.
+The [grader](verify.py) runs in a separate verifier image.
+Grader code and expected answers do not enter agent images. Reference solutions
+are uploaded only for oracle runs. Workspace Python is never imported by the grader.
 
-The adapter reads each native step setup marker before agent execution. It never
-infers approval from session resumption. It downloads the review checkpoint into
-trial-level `review-checkpoints/` outside the agent workspace, refuses overwrite,
-and explicitly restores that copy for later separate-verifier artifact transfer.
+### Before approval
 
-Verifiers run separately with trusted dependencies and an immutable plugin copy.
-They grade Beancount entries, Decimal amounts, accounts, provenance, balances,
-schemas, validation stage, and the authorized phase. They preserve raw hashes, existing transactions,
-unrelated files, and Git history. Workspace Python is never imported. Runtime
-caches and temporary extractions are excluded from transferred artifacts.
+- Agents edit parsed statement decisions and import status directly.
+- Parsed documents contain source facts, inline mappings, and transaction postings.
+- Sessions contain statement membership and price runs.
+- Canonical financial files must match the initial fixture.
+- Reusable learning waits until approved writes pass validation.
+- The verifier renders reviewed postings in its own temporary ledger.
+  It checks the expected economics independently.
 
-Each verifier writes binary `reward.txt` and diagnostic `report.json`. Harbor
-stores trajectories, timing, token usage, configuration, rewards, and transferred
-ledger artifacts in `.cache/harbor/jobs/<job>/`. The transferred
-`opt/eval-evidence/build.json` records the actual plugin tree hash, runtime lock
-hash and dependency versions (including MCP), supported schema versions, frontend
-source/bundle/lock identity, Codex/Python versions, and cached PDF model
-revisions. Runtime caches and credentials are excluded from the artifacts.
-Each import phase also captures a self-contained, read-only `review.html` under
-`opt/eval-evidence/`; the Codex adapter downloads a host copy to
-`review-exports/<phase>.html`. The separate verifier renders a second copy from
-its transferred artifacts into the step's `verifier/review.html`, including a
-clearly labelled unavailable report for no-op or invalid runs. Initialization
-has no import review export. These HTML files are derived inspection artifacts;
-they never replace the strict JSON, approval checkpoint, or independent financial
-checks, and opening them does not submit decisions or approve changes.
+### Approval checkpoint
 
-Native Codex counters are cumulative across resumed steps; use the final session
-counters rather than adding review and approval usage. Inspect nested step errors
-in `result.json` before interpreting a missing reward as a workflow failure.
+A checkpoint preserves the review that the user was shown. It holds parsed
+documents, material decision hashes, and the canonical financial baseline.
+
+- The adapter reads the native step marker before execution.
+- It does not infer approval from session resumption.
+- It saves review checkpoints outside the agent workspace and refuses overwrite.
+- It restores that saved copy for later verifier artifact transfer.
+- Approval comes from the explicit harness turn plus the checkpoint.
+- Agent-authored panel approval fields are rejected in these conversation-only tasks.
+- There are no separate write proposals, session write targets, or action histories.
+
+### After approval
+
+- Current decisions must match the approved review.
+- Written validation must describe the current decisions and canonical ledger.
+- Review-stage validation cannot certify completed writes.
+- The grader checks entries, Decimal amounts, accounts, source provenance, and balances.
+- The EUR-only price stage must record its successful zero-job outcome.
+- Eligible account and merchant memory must retain source and validation provenance.
+- Global `MEMORY.md` preferences remain unchanged.
+- Import tasks preserve raw hashes, existing entries, protected files, and Git history.
+- Import tasks may not commit or push. Init requires one local commit.
+
+A changed material decision requires renewed review. The stale-review task
+passes only when the changed decision is preserved and financial writes are blocked.
+
+## Inspect results
+
+Each verifier writes:
+
+| Artifact | Purpose |
+| --- | --- |
+| `reward.txt` | Binary result: `1` for pass, `0` for fail |
+| `report.json` | Phase, pass state, and the first reported failure |
+| `review.html` | Read-only import review; unavailable report for invalid or no-op states |
+
+Harbor saves trajectories, timing, token usage, configuration, rewards, and
+transferred ledger artifacts under `.cache/harbor/jobs/<job>/`.
+
+- Check nested step errors in `result.json` before interpreting a missing reward.
+- Use final Codex session counters. Counters accumulate across resumed steps;
+  do not add review and approval totals.
+- Runtime caches, temporary extractions, and credentials are excluded from artifacts.
+
+### Build evidence
+
+Transferred `opt/eval-evidence/build.json` records:
+
+- Plugin tree and runtime lock hashes.
+- Dependency versions, including MCP, and supported schema versions.
+- Frontend source, bundle, and lock identity.
+- Codex and Python versions, plus cached PDF model revisions.
+
+### Review exports
+
+- Each import phase captures `/opt/eval-evidence/review.html`.
+- The adapter downloads a host copy to `review-exports/<phase>.html`.
+- The separate verifier renders another copy under the step's `verifier/review.html`.
+- Init has no import review export.
+- HTML files are inspection aids. Opening them does not submit decisions or approve writes.
+- Strict JSON checks, the saved approval checkpoint, and independent ledger checks decide the reward.
+
+### Viewer filters
+
+The adapter appears as `auto-bean-codex` in the viewer. Older runs can use
+`evals.harbor.adapter:AutoBeanCodex` in the Rollouts list while an overview link
+sets `Agent: codex`. Remove that agent filter, or select **Clear all**, to show
+those trials. This display issue does not change their results.
+
+## Local validation
+
+Local verifier and adapter unit tests can run with product checks.
+They do not require a Harbor model run.
 
 ```sh
 uv run --group eval ruff check
@@ -170,21 +231,32 @@ uv run --group eval pytest tests evals/harbor/tests
 uv run --group eval python scripts/package_plugin.py --check
 ```
 
-Host tests corrupt structured proposals, source identities, transfer ownership,
-inline decision and answer references, price results, actual governed-memory
-records and provenance, premature writes/learning, and approval checkpoints.
-They exercise correction and stale-baseline sequences and native step identity. They use synthetic runtime evidence; Docker control runs establish
-actual runtime/extraction behavior. Historical product baseline results are in
-[BASELINE.md](BASELINE.md); its frozen snapshots predate the direct task layout.
+Host tests cover corrupt source identities, postings, transfer ownership,
+inline answers, price results, governed memory, and approval checkpoints.
+They also cover premature writes, correction sequences, stale baselines, and
+native step identity. They use synthetic runtime evidence. Docker control runs
+establish actual runtime and extraction behavior.
 
-References: [task format](https://docs.harborframework.com/tasks/overview),
+[BASELINE.md](BASELINE.md) records historical results. Its frozen snapshots predate
+the direct task layout. The direct-write review contract is a breaking evaluation
+change. Historical runs do not validate this contract. Suggest a fresh Harbor
+run separately; do not start one automatically.
+
+## Source map
+
+| File | Responsibility |
+| --- | --- |
+| [codex.yaml](codex.yaml) | Default run settings |
+| [adapter.py](adapter.py) | Plugin installation, resumed steps, and host checkpoint handling |
+| [fixtures.py](fixtures.py) | Synthetic sources and initial ledger |
+| [environment/setup_import.py](environment/setup_import.py) | Generate an import workspace and optional expected baseline |
+| [environment/Dockerfile](environment/Dockerfile) | Build agent and verifier images |
+| [probe_plugin.py](probe_plugin.py) | Check plugin discovery and MCP integration |
+| [capture.py](capture.py) | Capture runtime, build, review, and response evidence |
+| [verify.py](verify.py) | Grade task phases independently |
+| [tests/test_harbor.py](tests/test_harbor.py) | Test harness and grader behavior locally |
+
+Harbor references: [task format](https://docs.harborframework.com/tasks/overview),
 [multi-step tasks](https://docs.harborframework.com/tasks/multi-step),
 [separate verifiers](https://docs.harborframework.com/tasks/separate-verifier),
-[Codex integration](https://docs.harborframework.com/agents/pre-integrated-agents).
-
-## Evaluation execution policy
-
-Run Harbor, including Docker oracle/no-op controls, only when explicitly requested.
-Local verifier/adapter unit tests can run with product checks. The lightweight
-direct-write review contract is a breaking evaluation change; a fresh Harbor run
-should be suggested separately, never started automatically.
+and [Codex integration](https://docs.harborframework.com/agents/pre-integrated-agents).
