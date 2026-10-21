@@ -73,7 +73,8 @@ The `stale` grader checks:
 - Checking matches the original material review plus the exact rationale change.
 - Checking's digest differs from the original reviewed digest.
 - Savings still matches its original reviewed digest.
-- Neither parsed document has an approval or write-validation field.
+- Neither parsed document has approval or written-stage validation. Any retained
+  review-stage validation must describe the current candidate, not the old review.
 - Both statements remain at `final_review`.
 - Financial files and reusable memory remain unchanged.
 - The response includes `Import Status: Ready For Review` and a next step.

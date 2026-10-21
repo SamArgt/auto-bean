@@ -59,7 +59,8 @@ The `needs-input` grader checks:
 - Source hashes, row dates, amounts, and currencies match the fixture.
 - The savings account mapping has `state: needs_input` and suggestions.
 - The `C-001` category has `state: needs_input`, `disposition: hold`, and suggestions.
-- No approval or write-validation fields are present.
+- No approval or written-stage validation is present. A current failed
+  review-stage report may record unresolved choices; it cannot claim checked writes.
 - Financial files and reusable memory remain unchanged.
 - The response includes `Import Status: Needs Your Input` and a next step.
 

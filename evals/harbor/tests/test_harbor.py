@@ -1094,6 +1094,108 @@ def test_trace_and_state_joint_reward(
     assert report["trace_policy"] == policy
     assert (logs / "reward.txt").read_text().strip() == str(1 - wanted)
     assert (logs / "trace-report.json").is_file()
+    assert (logs / "report.md").is_file()
+    assert report["schema_version"] == 2
+    assert report["check_summary"]["state"]["passed"] > 0
+    assert report["check_summary"]["state"]["failed"] == 0
+    assert report["check_summary"]["state"]["error"] == 0
+    assert report["check_summary"]["trace"]["error"] == (0 if has_trace else 1)
+
+
+@pytest.mark.parametrize("error", [False, True])
+def test_report_preserves_passes_and_marks_unexecuted_checks(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, error: bool
+) -> None:
+    from evals.harbor import verify
+
+    def failing_checks(root: Path, plugin: Path, evidence: Path) -> None:
+        verify.require(True, "First requirement failed")
+        if error:
+            raise ValueError("Invalid schema <value> | detail")
+        verify.require(False, "Second requirement failed")
+        verify.require(True, "Unreachable requirement")
+
+    logs = tmp_path / "logs"
+    monkeypatch.setattr(verify, "init_checks", failing_checks)
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "verify.py",
+            "init",
+            "--ledger",
+            str(tmp_path),
+            "--plugin",
+            str(PLUGIN),
+            "--logs",
+            str(logs),
+            "--agent-logs",
+            str(tmp_path / "missing-trace"),
+        ],
+    )
+    assert verify.main() == 1
+    report = json.loads((logs / "report.json").read_text())
+    checks = [check for check in report["checks"] if check["scope"] == "state"]
+    assert [check["status"] for check in checks] == [
+        "passed",
+        "error" if error else "failed",
+        "skipped",
+    ]
+    assert checks[1]["location"]["function"] == "failing_checks"
+    assert checks[1]["location"]["line"] > 0
+    assert "Unreachable requirement" not in json.dumps(report)
+    assert report["check_summary"]["trace"]["error"] == 1
+    assert (logs / "reward.txt").read_text() == "0\n"
+    text = (logs / "report.md").read_text()
+    assert "First requirement failed" in text
+    assert "Remaining state checks" in text
+    if error:
+        assert "\\| detail" in text
+    # The context-local recorder must not leak into later direct checks.
+    assert verify._STATE_CHECKS.get() is None
+
+
+def test_markdown_report_is_deterministic_and_escapes_input(tmp_path: Path) -> None:
+    from evals.harbor.verify import (
+        finish_report,
+        write_report_markdown,
+    )
+
+    checks = [
+        {"scope": "state", "status": "passed", "failure_message": "Good check"},
+        {
+            "scope": "state",
+            "status": "failed",
+            "failure_message": '<script> & "quoted"',
+        },
+        {
+            "scope": "state",
+            "status": "skipped",
+            "requirement": "Remaining state checks",
+        },
+    ]
+    report: dict[str, Any] = {
+        "phase": "review",
+        "passed": False,
+        "trace_policy": "required",
+    }
+    finish_report(
+        report,
+        checks,
+        {"checks": [{"requirement": f"trace:{i}", "passed": False} for i in range(14)]},
+    )
+    md = tmp_path / "report.md"
+    write_report_markdown(md, report)
+    first = md.read_bytes()
+    write_report_markdown(md, report)
+    assert md.read_bytes() == first
+    for scope, counts in report["check_summary"].items():
+        assert (
+            f"| {scope} | {counts['passed']} | {counts['failed']} | "
+            f"{counts['error']} | {counts['skipped']} |"
+        ) in md.read_text()
+    markdown = md.read_text()
+    assert markdown.index("❌ Failed") < markdown.index("✅ Passed")
+    assert "&lt;script&gt;" in markdown
 
 
 def test_explicit_group_cannot_be_replaced_by_inferred_groups(
@@ -1119,3 +1221,145 @@ def test_group_ids_are_preserved_across_approval(
     write_json(path, session)
     with pytest.raises(WorkflowError, match="group membership"):
         import_checks(root, PLUGIN, evidence, expected, "approve")
+
+
+@pytest.mark.parametrize("closing_assertion", [False, True])
+def test_review_accepts_source_documents_and_exact_closing_assertions(
+    reviewed: tuple[Path, Path, dict[str, Any]], closing_assertion: bool
+) -> None:
+    root, evidence, expected = reviewed
+    path = root / "statements/parsed/january.json"
+    if closing_assertion:
+        for raw, account, amount in (
+            ("statements/raw/checking.csv", "checking", "870"),
+            ("statements/raw/savings.pdf", "savings", "602"),
+        ):
+            doc = read_fixture(path, raw)
+            account_decisions(doc)[account]["proposed_directives"].append(
+                f"2026-02-01 balance Assets:{account.title()} {amount} EUR"
+            )
+            write_json(path, doc)
+    write_json(evidence / "review.json", checkpoint(root))
+    import_checks(root, PLUGIN, evidence, expected, "review")
+    assert not (root / "beancount/imports.beancount").exists()
+
+
+@pytest.mark.parametrize(
+    "directives",
+    [
+        [],
+        ['2026-01-31 document Assets:Savings "statements/raw/checking.csv"'],
+        ['2026-01-30 document Assets:Checking "statements/raw/checking.csv"'],
+        ['2026-01-31 document Assets:Checking "statements/raw/savings.pdf"'],
+        ['2026-01-31 document Assets:Checking "../../outside.csv"'],
+        ["2026-01-01 open Assets:Invented EUR"],
+        [
+            '2026-01-31 document Assets:Checking "statements/raw/checking.csv"\nplugin "evil"'
+        ],
+        ['2026-01-31 document Assets:Checking "statements/raw/checking.csv"'] * 2,
+        ["2026-02-01 balance Assets:Checking 999 EUR"],
+        ["2026-01-31 balance Assets:Checking 870 EUR"],
+        ["2026-02-01 balance Assets:Checking 870 USD"],
+        ["2026-02-01 balance Assets:Checking 870 ~ 100 EUR"],
+    ],
+)
+def test_unsupported_directives_still_fail(
+    reviewed: tuple[Path, Path, dict[str, Any]], directives: list[str]
+) -> None:
+    root, evidence, expected = reviewed
+    path = root / "statements/parsed/january.json"
+    doc = read_fixture(path)
+    account_decisions(doc)["checking"]["proposed_directives"] = directives
+    write_json(path, doc)
+    write_json(evidence / "review.json", checkpoint(root))
+    with pytest.raises(AssertionError):
+        import_checks(root, PLUGIN, evidence, expected, "review")
+
+
+def test_written_ledger_must_contain_reviewed_document_directives(
+    reviewed: tuple[Path, Path, dict[str, Any]],
+) -> None:
+    root, evidence, _ = reviewed
+    complete(root, evidence)
+    docs = json.loads((evidence / "review.json").read_text())["documents"]
+    financial_checks(root, docs)
+    ledger = root / "beancount/imports.beancount"
+    ledger.write_text(
+        "\n".join(
+            line for line in ledger.read_text().splitlines() if " document " not in line
+        )
+    )
+    with pytest.raises(AssertionError, match="supporting directives"):
+        financial_checks(root, docs)
+
+
+@pytest.mark.parametrize(
+    "defect", [None, "written", "digest", "success", "empty_errors", "hashes"]
+)
+def test_needs_input_accepts_failed_current_review_only(
+    tmp_path: Path, defect: str | None
+) -> None:
+    from auto_bean.reconciliation import validate_import
+
+    raw_inputs(tmp_path / "raw")
+    root, evidence = tmp_path / "ledger", tmp_path / "evidence"
+    expected = import_ledger(root, PLUGIN, tmp_path / "raw")
+    draft(root, PLUGIN, extract=False, defer=True)
+    result = validate_import(root, "harbor-import", stage="review")
+    assert result["state"] == "failed"
+    path = root / "statements/parsed/january.json"
+    doc = read_fixture(path)
+    validation = doc["review"]["validation"]
+    if defect == "written":
+        validation["stage"] = "written"
+    elif defect == "digest":
+        validation["digest"] = "0" * 64
+    elif defect == "success":
+        validation["state"] = "passed"
+    elif defect == "empty_errors":
+        validation["errors"] = []
+    elif defect == "hashes":
+        validation["ledger_hashes"] = expected["financial_hashes"]
+    write_json(path, doc)
+    write_json(evidence / "runtime.json", {"validated": True, "runtime_present": True})
+    (evidence / "last-response.txt").write_text(
+        "## Import Status: Needs Your Input\n\n**Next Step:** Resolve suggestions.\n"
+    )
+    if defect:
+        with pytest.raises(AssertionError):
+            scenario_checks(root, evidence, expected, "needs-input")
+    else:
+        scenario_checks(root, evidence, expected, "needs-input")
+
+
+def test_extracted_account_ids_need_not_match_oracle_ids(tmp_path: Path) -> None:
+    raw_inputs(tmp_path / "raw")
+    root, evidence = tmp_path / "ledger", tmp_path / "evidence"
+    expected = import_ledger(root, PLUGIN, tmp_path / "raw")
+    draft(root, PLUGIN, extract=False, defer=True)
+    path = root / "statements/parsed/january.json"
+
+    def rename_accounts() -> None:
+        group = json.loads(path.read_text())
+        for doc in group["statements"]:
+            for account in doc["statement_metadata"]["accounts"]:
+                account["account_id"] = account["account_id"].upper() + "-TEST"
+            for row in doc["extracted_records"]:
+                row["account_id"] = row["account_id"].upper() + "-TEST"
+                for link in row["review"].get("linked_records", []):
+                    link["account_id"] = link["account_id"].upper() + "-TEST"
+        write_json(path, group)
+
+    original = path.read_text()
+    rename_accounts()
+    write_json(evidence / "runtime.json", {"validated": True, "runtime_present": True})
+    (evidence / "last-response.txt").write_text(
+        "## Import Status: Needs Your Input\n\n**Next Step:** Resolve suggestions.\n"
+    )
+    scenario_checks(root, evidence, expected, "needs-input")
+    # The oracle helper uses its own fixture IDs. Rename its corrected output
+    # before grading, just as an extractor may supply source-owned IDs.
+    path.write_text(original)
+    reference["correct"](root)
+    rename_accounts()
+    correction_checks(root)

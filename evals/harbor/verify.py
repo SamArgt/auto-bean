@@ -5,11 +5,14 @@ from __future__ import annotations
 import argparse
 import copy
 from collections import Counter, defaultdict
+from contextvars import ContextVar
 from datetime import date, datetime
 from decimal import Decimal
 import json
 import os
 import glob
+import html
+import inspect
 import re
 import subprocess
 import sys
@@ -17,15 +20,16 @@ from pathlib import Path
 from typing import Any
 
 from beancount import loader
-from beancount.core.data import Open, Price, Transaction
+from beancount.core.data import Balance, Document, Open, Price, Transaction
+from beancount.parser import parser as bean_parser
 
 # These imports resolve to the verifier's immutable bundle, never the ledger.
 from auto_bean.validation import (
     session_members,
     status_members,
-    session_status,
+    session_status as _session_status,
     load_state,
-    validate_state,
+    validate_state as _validate_state,
 )
 from evals.harbor.fixtures import OPENING, SOURCES, sha256, write_json
 from evals.harbor.capture import write_review_html
@@ -44,10 +48,173 @@ EXPECTED_POSTINGS = (
     ("2026-01-31", (("Assets:Savings", "2", "EUR"), ("Income:Interest", "-2", "EUR"))),
 )
 
+_STATE_CHECKS: ContextVar[list[dict[str, Any]] | None] = ContextVar(
+    "state_checks", default=None
+)
+
+
+def validate_state(kind: str, root: Path, data: dict[str, Any]) -> None:
+    _validate_state(kind, root, data)
+    require(True, f"Invalid {kind} schema or state")
+
+
+def session_status(session: dict[str, Any], status: dict[str, Any]) -> None:
+    _session_status(session, status)
+    require(True, "Session and status are inconsistent")
+
 
 def require(condition: object, message: str) -> None:
+    checks = _STATE_CHECKS.get()
+    if checks is not None:
+        frame = inspect.currentframe()
+        caller = frame.f_back if frame is not None else None
+        context: dict[str, str] = {}
+        if caller is not None:
+            # Restrict context to subject identifiers. Do not dump workspace data.
+            for key in ("raw", "source", "relative", "phase", "subject", "match"):
+                value = caller.f_locals.get(key)
+                if isinstance(value, str):
+                    context[key] = value
+        observed: dict[str, Any] = {}
+        if not condition and caller is not None:
+            doc = caller.f_locals.get("doc", caller.f_locals.get("parsed", {}))
+            if isinstance(doc, dict) and isinstance(doc.get("review"), dict):
+                observed["validation"] = doc["review"].get("validation")
+                observed["approval"] = doc["review"].get("approval")
+            account = caller.f_locals.get("account", {})
+            if isinstance(account, dict) and isinstance(account.get("review"), dict):
+                observed["proposed_directives"] = account["review"].get(
+                    "proposed_directives"
+                )
+        checks.append(
+            {
+                "scope": "state",
+                "status": "passed" if condition else "failed",
+                "failure_message": message,
+                "location": {
+                    "file": "evals/harbor/verify.py",
+                    "function": caller.f_code.co_name if caller else "unknown",
+                    "line": caller.f_lineno if caller else None,
+                },
+                "context": context,
+                "observed": observed,
+            }
+        )
+        del caller, frame
     if not condition:
         raise AssertionError(message)
+
+
+def finish_report(
+    report: dict[str, Any], state_checks: list[dict[str, Any]], trace: dict[str, Any]
+) -> None:
+    """Expose all executed checks without changing the binary grading policy."""
+    checks = list(state_checks)
+    checks.extend(
+        {
+            "scope": "trace",
+            "status": "passed" if check["passed"] else "failed",
+            "requirement": check["requirement"],
+            "evidence": check.get("evidence", []),
+        }
+        for check in trace.get("checks", [])
+    )
+    if trace.get("failure"):
+        checks.append(
+            {
+                "scope": "trace",
+                "status": "error",
+                "requirement": "Load and evaluate native trace",
+                "detail": trace["failure"],
+            }
+        )
+        checks.append(
+            {
+                "scope": "trace",
+                "status": "skipped",
+                "requirement": "Remaining trace checks",
+                "detail": "Trace input could not be loaded. No trace assertions ran.",
+            }
+        )
+    report["schema_version"] = 2
+    report["checks"] = checks
+    report["check_summary"] = {
+        scope: {
+            status: sum(c["scope"] == scope and c["status"] == status for c in checks)
+            for status in ("passed", "failed", "error", "skipped")
+        }
+        for scope in ("state", "trace")
+    }
+    report["coverage_note"] = (
+        "State checks stop at the first failed assertion or exception. "
+        "Skipped rows describe unexecuted check groups, not individual check counts. "
+        "Assertion labels are failure messages; passed means that condition was absent. "
+        "Trace checks run independently. State-dependent trace expectations are only "
+        "available after state checks pass."
+    )
+
+
+def write_report_markdown(path: Path, report: dict[str, Any]) -> None:
+    def cell(value: object) -> str:
+        return (
+            html.escape(str(value))
+            .replace("|", "\\|")
+            .replace("\n", " ")
+            .replace("\r", " ")
+        )
+
+    lines = [
+        "# Verifier report",
+        "",
+        f"Phase: **{report['phase']}**. Result: **{'PASS' if report['passed'] else 'FAIL'}**.",
+        f"Trace policy: `{report['trace_policy']}`.",
+        "",
+        "| Scope | Passed | Failed | Errors | Skipped groups |",
+        "| --- | ---: | ---: | ---: | ---: |",
+    ]
+    for scope, counts in report["check_summary"].items():
+        lines.append(
+            f"| {scope} | {counts['passed']} | {counts['failed']} | "
+            f"{counts['error']} | {counts['skipped']} |"
+        )
+    lines += ["", report["coverage_note"]]
+    icons = {"passed": "✅", "failed": "❌", "error": "⚠️", "skipped": "⏭️"}
+    ordered = sorted(
+        enumerate(report["checks"], 1),
+        key=lambda item: {"failed": 0, "error": 1, "skipped": 2, "passed": 3}[
+            item[1]["status"]
+        ],
+    )
+    previous = None
+    for index, check in ordered:
+        if check["status"] != previous:
+            previous = check["status"]
+            lines += [
+                "",
+                f"## {icons[previous]} {previous.title()}",
+                "",
+                "| # | Scope | Assertion failure message / requirement | Evidence or detail |",
+                "| ---: | --- | --- | --- |",
+            ]
+        detail = []
+        if location := check.get("location"):
+            detail.append(
+                f"{location['file']}:{location['line']} ({location['function']})"
+            )
+        detail.extend(
+            f"{key}={value}" for key, value in check.get("context", {}).items()
+        )
+        detail.extend(check.get("evidence", []))
+        if check.get("detail"):
+            detail.append(check["detail"])
+        if check.get("observed"):
+            detail.append(json.dumps(check["observed"], sort_keys=True))
+        label = check.get("failure_message", check.get("requirement", ""))
+        lines.append(
+            f"| {index} | {check['scope']} | {cell(label)} | "
+            f"{cell('; '.join(detail))} |"
+        )
+    path.write_text("\n".join(lines) + "\n")
 
 
 def section_content(text: str, heading: str) -> str:
@@ -263,6 +430,107 @@ def account_decisions(data: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def sole_account_review(data: dict[str, Any]) -> dict[str, Any]:
+    """These sources each have one account; its extracted ID is not prescribed."""
+    accounts = data["statement_metadata"]["accounts"]
+    require(len(accounts) == 1, "Each fixture has exactly one account")
+    return dict(accounts[0].get("review", {}))
+
+
+def supporting_directives(root: Path, doc: dict[str, Any]) -> list[Any]:
+    """Parse only fixture-supported documents and optional closing assertions."""
+    raw = doc["source_file"]
+    account = "Assets:Checking" if raw == SOURCES[0] else "Assets:Savings"
+    closing = Decimal(870 if raw == SOURCES[0] else 602)
+    directives = sole_account_review(doc).get("proposed_directives", [])
+    entries = []
+    for directive in directives:
+        # Reject options/includes/plugins before parsing. Each proposal is one
+        # dated directive, not an executable ledger fragment or extra metadata.
+        require(
+            re.fullmatch(
+                r"2026-\d{2}-\d{2}[ \t]+(?:document|balance)[ \t]+[^\r\n]+", directive
+            )
+            is not None,
+            "Unsupported proposed supporting directive",
+        )
+        parsed, errors, _ = bean_parser.parse_string(
+            directive + "\n", report_filename=str(root / "ledger.beancount")
+        )
+        require(not errors and len(parsed) == 1, "Invalid supporting directive")
+        entry = parsed[0]
+        require(
+            isinstance(entry, (Document, Balance)),
+            "Unsupported supporting directive type",
+        )
+        assert isinstance(entry, (Document, Balance))
+        require(entry.account == account, "Supporting directive targets wrong account")
+        if isinstance(entry, Document):
+            filename = re.search(r'"(?:[^"\\]|\\.)*"', directive)
+            require(
+                entry.date == date(2026, 1, 31)
+                and filename is not None
+                and json.loads(filename[0]) == raw
+                and Path(entry.filename) == (root / raw).absolute()
+                and not entry.tags
+                and not entry.links,
+                "Document directive must identify its original statement at period end",
+            )
+        else:
+            require(
+                isinstance(entry, Balance)
+                and entry.date == date(2026, 2, 1)
+                and entry.amount.number == closing
+                and entry.amount.currency == "EUR"
+                and entry.tolerance is None,
+                "Balance directive must assert the exact next-day closing balance",
+            )
+        entries.append(entry)
+    require(
+        sum(isinstance(e, Document) for e in entries) == 1
+        and sum(isinstance(e, Balance) for e in entries) <= 1,
+        "Expected one source document and at most one closing assertion",
+    )
+    return entries
+
+
+def review_validation(root: Path, doc: dict[str, Any]) -> None:
+    """A blocked review can retain a failed report; it cannot certify writes."""
+    validation = doc["review"].get("validation")
+    if validation is None:
+        return
+    unresolved = any(
+        account.get("review", {}).get("state") == "needs_input"
+        for account in doc["statement_metadata"]["accounts"]
+    ) or any(
+        row.get("review", {}).get("state") == "needs_input"
+        or row.get("review", {}).get("disposition") == "hold"
+        for row in doc["extracted_records"]
+    )
+    require(
+        validation["stage"] == "review" and validation["digest"] == material_hash(doc),
+        "Premature written or stale review validation",
+    )
+    if validation["state"] == "failed":
+        require(
+            unresolved
+            and bool(validation["errors"])
+            and validation["records_checked"] == 0
+            and not validation["ledger_hashes"]
+            and not validation["balances"],
+            "Failed readiness validation must not claim checked ledger writes",
+        )
+    else:
+        require(
+            not unresolved
+            and validation["state"] == "passed"
+            and not validation["errors"]
+            and validation["records_checked"] == len(doc["extracted_records"])
+            and validation["ledger_hashes"] == financial_hashes(root),
+            "Review validation does not describe the current candidate and baseline",
+        )
+
+
 def transaction_decisions(data: dict[str, Any]) -> dict[str, Any]:
     return {
         record["record_id"]: record["review"]
@@ -385,6 +653,29 @@ def memory_checks(
 
 def financial_checks(root: Path, documents: dict[str, Any]) -> None:
     entries, _ = load_ledger(root)
+    expected_support = [
+        directive
+        for doc in documents.values()
+        for directive in supporting_directives(root, doc)
+    ]
+
+    def support_key(entry: Any) -> tuple[Any, ...]:
+        if isinstance(entry, Document):
+            return (
+                "document",
+                entry.date,
+                entry.account,
+                entry.filename,
+                entry.tags,
+                entry.links,
+            )
+        return ("balance", entry.date, entry.account, entry.amount, entry.tolerance)
+
+    require(
+        Counter(support_key(e) for e in entries if isinstance(e, (Document, Balance)))
+        == Counter(support_key(e) for e in expected_support),
+        "Written supporting directives differ from the reviewed proposal",
+    )
     require(
         {(e.account, tuple(e.currencies or [])) for e in entries if isinstance(e, Open)}
         == {
@@ -403,6 +694,10 @@ def financial_checks(root: Path, documents: dict[str, Any]) -> None:
     require(
         not any(isinstance(e, Price) for e in entries),
         "EUR-only import invented price directives",
+    )
+    require(
+        all(isinstance(e, (Open, Transaction, Document, Balance)) for e in entries),
+        "Ledger contains an unreviewed supporting directive",
     )
     transactions = [e for e in entries if isinstance(e, Transaction)]
     opening = [e for e in transactions if e.date == date(2025, 12, 31)]
@@ -528,10 +823,7 @@ def import_checks(
         checking = raw.endswith("checking.csv")
         ledger = "Assets:Checking" if checking else "Assets:Savings"
         require(account["primary_currency"] == "EUR", "Wrong statement currency")
-        require(
-            not account.get("review", {}).get("proposed_directives"),
-            "Fixture needs no new account or balance directives",
-        )
+        supporting_directives(root, parsed)
         for key, amount in (
             ("opening_balance", "1000" if checking else "500"),
             ("closing_balance", "870" if checking else "602"),
@@ -782,7 +1074,10 @@ def import_checks(
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_bytes(inside(root, relative).read_bytes())
         output = proposed / "beancount/reviewed.beancount"
-        output.write_text(render_reviewed_transactions(checkpoint["documents"]))
+        output.write_text(
+            render_reviewed_transactions(checkpoint["documents"])
+            + render_supporting_directives(proposed, checkpoint["documents"])
+        )
         with (proposed / "ledger.beancount").open("a") as stream:
             stream.write('\ninclude "beancount/reviewed.beancount"\n')
         financial_checks(proposed, documents)
@@ -832,10 +1127,11 @@ def correction_checks(root: Path) -> None:
         (SOURCES[1], "savings", "Assets:Savings"),
     ):
         doc = parsed_source(root, status_members(status)[raw]["parsed_group"], raw)
-        decisions = (
-            transaction_decisions(doc) if raw == SOURCES[0] else account_decisions(doc)
+        decision = (
+            transaction_decisions(doc).get(subject, {})
+            if raw == SOURCES[0]
+            else sole_account_review(doc)
         )
-        decision = decisions.get(subject, {})
         require(
             decision.get("state") == "confirmed", "Missing resolved inline correction"
         )
@@ -894,14 +1190,14 @@ def scenario_checks(
             "Scenario source rows changed",
         )
         require("approval" not in doc["review"], "Fabricated or stale approval")
-        require("validation" not in doc["review"], "Fabricated write validation")
+        review_validation(root, doc)
     memory_checks(root, session, documents, approved=False)
     require(
         financial_hashes(root) == expected["financial_hashes"],
         "Premature ledger writes",
     )
     if phase == "needs-input":
-        mapping = account_decisions(documents[SOURCES[1]]).get("savings", {})
+        mapping = sole_account_review(documents[SOURCES[1]])
         category = transaction_decisions(documents[SOURCES[0]]).get("C-001", {})
         require(
             mapping.get("state") == "needs_input" and mapping.get("suggestions"),
@@ -954,6 +1250,21 @@ def scenario_checks(
 
 
 STALE_RATIONALE = "Updated merchant interpretation requires renewed review."
+
+
+def render_supporting_directives(root: Path, documents: dict[str, Any]) -> str:
+    """Render independently checked proposals into beancount/reviewed.beancount."""
+    lines = []
+    for doc in documents.values():
+        for entry in supporting_directives(root, doc):
+            if isinstance(entry, Document):
+                lines.append(
+                    f"{entry.date} document {entry.account} "
+                    + json.dumps("../" + doc["source_file"])
+                )
+            else:
+                lines.append(f"{entry.date} balance {entry.account} {entry.amount}")
+    return "\n".join(lines) + "\n"
 
 
 def render_reviewed_transactions(documents: dict[str, Any]) -> str:
@@ -1025,6 +1336,8 @@ def main() -> int:
     report: dict[str, Any] = {"phase": args.phase, "passed": False}
     if args.phase != "init":
         write_review_html(args.ledger, args.logs / "review.html")
+    state_checks: list[dict[str, Any]] = []
+    token = _STATE_CHECKS.set(state_checks)
     try:
         if args.phase == "init":
             init_checks(args.ledger, args.plugin, args.evidence)
@@ -1051,6 +1364,33 @@ def main() -> int:
         report["passed"] = True
     except Exception as exc:
         report["failure"] = str(exc)
+        if not state_checks or state_checks[-1]["status"] != "failed":
+            frames = inspect.trace()
+            location = frames[-1] if frames else None
+            state_checks.append(
+                {
+                    "scope": "state",
+                    "status": "error",
+                    "requirement": "Evaluate state checks",
+                    "detail": f"{type(exc).__name__}: {exc}",
+                    "location": {
+                        "file": location.filename if location else "unknown",
+                        "function": location.function if location else "unknown",
+                        "line": location.lineno if location else None,
+                    },
+                }
+            )
+            del frames, location
+        state_checks.append(
+            {
+                "scope": "state",
+                "status": "skipped",
+                "requirement": "Remaining state checks",
+                "detail": "State evaluation stopped at the preceding failure or error.",
+            }
+        )
+    finally:
+        _STATE_CHECKS.reset(token)
     report["state_passed"] = report["passed"]
     stage_groups: dict[str, list[dict[str, Any]]] = {}
     parsed_paths: list[str] = []
@@ -1088,6 +1428,15 @@ def main() -> int:
                         {"group_id": group["group_id"], "paths": paths}
                     )
     trace = grade_trace(args.agent_logs, args.phase, stage_groups, parsed_paths)
+    if not report["state_passed"] and args.phase != "init":
+        state_checks.append(
+            {
+                "scope": "trace",
+                "status": "skipped",
+                "requirement": "State-dependent trace expectations",
+                "detail": "Group worker and parsed-path expectations require valid state.",
+            }
+        )
     report["trace_passed"] = trace["passed"]
     report["trace_policy"] = args.trace_policy
     report["passed"] = report["state_passed"] and (
@@ -1098,8 +1447,10 @@ def main() -> int:
             "failure", "Plugin trace checks failed; see trace-report.json"
         )
     args.logs.mkdir(parents=True, exist_ok=True)
+    finish_report(report, state_checks, trace)
     write_json(args.logs / "trace-report.json", trace)
     write_json(args.logs / "report.json", report)
+    write_report_markdown(args.logs / "report.md", report)
     (args.logs / "reward.txt").write_text("1\n" if report["passed"] else "0\n")
     print(json.dumps(report))
     return 0 if report["passed"] else 1

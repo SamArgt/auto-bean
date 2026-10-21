@@ -1,0 +1,51 @@
+{
+  "schema_version": 2,
+  "document_kind": "statement",
+  "extraction_state": "complete",
+  "source_file": "statements/raw/savings-october.csv",
+  "source_fingerprint": "sha256:748ddbdb47785fc9d6a6a58c1d648faaceb4bcc2c764d1b7c9edae69f7443848",
+  "source_format": "csv",
+  "parse_run_id": "fixture-savings",
+  "parser": {
+    "name": "synthetic-design-fixture",
+    "version": "1"
+  },
+  "parsed_at": "2026-10-21T14:00:00Z",
+  "statement_metadata": {
+    "institution_name": "Example Bank",
+    "statement_name": "Savings account — October 2026",
+    "account_owner": "Alex Example (synthetic)",
+    "statement_period": {
+      "start_date": "2026-10-01",
+      "end_date": "2026-10-20"
+    },
+    "accounts": [
+      {
+        "account_id": "savings",
+        "account_name": "Savings account",
+        "primary_currency": "EUR",
+        "opening_balance": {
+          "date": "2026-10-01",
+          "amount": "5000.00",
+          "currency": "EUR"
+        },
+        "review": {
+          "state": "needs_input",
+          "ledger_account": "Assets:Bank:Savings",
+          "rationale": "Confirm the ledger account for this newly discovered source account."
+        }
+      }
+    ]
+  },
+  "extracted_records": [],
+  "review": {
+    "processing": {
+      "attempts": 1,
+      "outcome": "complete",
+      "warnings": [],
+      "evidence": [
+        "Synthetic design fixture. No real statement was read."
+      ]
+    }
+  }
+}

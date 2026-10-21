@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "statements": {
+    "statements/raw/checking-october.csv": {
+      "current_status": "account_blocked",
+      "source_path": "statements/raw/checking-october.csv",
+      "source_fingerprint": "sha256:f5df397877a3841e169b94f43288d485251bd04036ba259d193f73b6bb67a941",
+      "updated_at": "2026-10-21T14:00:00Z",
+      "parsed_statement": "statements/parsed/checking-october.json",
+      "process_attempts": 1,
+      "user_input_required": true,
+      "workflow_version": 2
+    },
+    "statements/raw/savings-october.csv": {
+      "current_status": "process_blocked",
+      "source_path": "statements/raw/savings-october.csv",
+      "source_fingerprint": "sha256:748ddbdb47785fc9d6a6a58c1d648faaceb4bcc2c764d1b7c9edae69f7443848",
+      "updated_at": "2026-10-21T14:00:00Z",
+      "parsed_statement": "statements/parsed/savings-october.json",
+      "process_attempts": 1,
+      "user_input_required": true,
+      "workflow_version": 2
+    },
+    "statements/raw/brokerage-october.csv": {
+      "current_status": "balance_blocked",
+      "source_path": "statements/raw/brokerage-october.csv",
+      "source_fingerprint": "sha256:9aff46e72c8c1d7e3fa8bf730ab535e764fe49e9674b83b49ef0b192a83c0b4f",
+      "updated_at": "2026-10-21T14:00:00Z",
+      "parsed_statement": "statements/parsed/brokerage-october.json",
+      "process_attempts": 1,
+      "user_input_required": true,
+      "workflow_version": 2
+    }
+  }
+}

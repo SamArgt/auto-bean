@@ -218,6 +218,9 @@ def draft(
             "state": "confirmed",
             "ledger_account": "Assets:" + name.title(),
             "rationale": "Explicit synthetic account identity",
+            "proposed_directives": [
+                f'2026-01-31 document Assets:{name.title()} "{raw}"'
+            ],
             "reconciliation": [
                 {
                     "date": "2026-02-01",
@@ -321,6 +324,7 @@ def write_reviewed(root: Path) -> None:
     docs = {raw: read_statement(root, raw) for raw in SOURCES}
     blocks = []
     for raw, doc in docs.items():
+        blocks.append(f'2026-01-31 document Assets:{Path(raw).stem.title()} "../{raw}"')
         for row in doc["extracted_records"]:
             decision = row["review"]
             if (

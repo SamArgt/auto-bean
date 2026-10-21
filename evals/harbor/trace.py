@@ -38,6 +38,15 @@ PLUGIN_ROOTS = (
     "/opt/auto-bean-marketplace/plugins/auto-bean",
 )
 
+# Accept only the documented helper body. Never infer execution from arbitrary
+# function source, and never execute submitted shell code during verification.
+LAUNCHER_FUNCTION = re.compile(
+    r'auto_bean\(\)\s*\{\s*if\s+\[\s+"\$1"\s+=\s+validate\s*\];\s*then\s+'
+    r'shift\s*;?\s*sh\s+"\$AUTO_BEAN_PLUGIN/runtime/launch.sh"\s+validate\s+"\$@"\s*;?\s*'
+    r'else\s+sh\s+"\$AUTO_BEAN_PLUGIN/runtime/launch.sh"\s+run\s+--workspace\s+'
+    r'"\$AUTO_BEAN_WORKSPACE"\s+"\$@"\s*;?\s*fi\s*;?\s*\}'
+)
+
 
 def expand_braces(value: str) -> list[str]:
     match = re.search(r"\{([^{}]+,[^{}]+)\}", value)
@@ -61,7 +70,8 @@ def shell_commands(script: str, cwd: str) -> list[tuple[tuple[str, ...], str]]:
     variables: dict[str, str] = {}
     result: list[tuple[tuple[str, ...], str]] = []
     heredoc: str | None = None
-    depth = 0
+    function_lines = ""
+    helper: bool | None = None
 
     def substitute(match: re.Match[str]) -> str:
         return variables.get(match[1] or match[2], match[0])
@@ -78,12 +88,26 @@ def shell_commands(script: str, cwd: str) -> list[tuple[tuple[str, ...], str]]:
         if here:
             heredoc = here[1]
             continue
-        if depth:
-            depth += line.count("{") - line.count("}")
-            continue
-        if re.search(r"\w+\s*\(\s*\)\s*\{", line):
-            depth = line.count("{") - line.count("}")
-            continue
+        if function_lines or re.search(r"\w+\s*\(\s*\)\s*\{", line):
+            function_lines += line + "\n"
+            if function_lines.count("{") > function_lines.count("}"):
+                continue
+            match = LAUNCHER_FUNCTION.search(function_lines)
+            prefix = function_lines[: match.start()] if match else ""
+            # A definition must be a top-level command, not quoted data or a
+            # conditional branch. Only literal assignments may precede it.
+            if match and re.fullmatch(
+                r"(?:\s*(?:export\s+)?AUTO_BEAN_(?:PLUGIN|WORKSPACE)=[^;\n]+[;\n])*\s*",
+                prefix,
+            ):
+                helper = True
+                line = prefix + function_lines[match.end() :].lstrip("; \n")
+                line = line.strip().replace("\n", "; ")
+            else:
+                helper = False
+                function_lines = ""
+                continue
+            function_lines = ""
         try:
             lexer = shlex.shlex(line, posix=False, punctuation_chars=";&|<>()")
             lexer.whitespace_split = True
@@ -98,17 +122,19 @@ def shell_commands(script: str, cwd: str) -> list[tuple[tuple[str, ...], str]]:
         ):
             continue
         groups: list[list[str]] = [[]]
+        separators: list[str] = []
         for token in tokens:
-            if token == ";":
-                # A later command can mask an earlier failure. Only the final
-                # AND-list in a semicolon sequence has a proven zero status.
-                groups = [[]]
-            elif token == "&&":
+            if token in {";", "&&"}:
+                separators.append(token)
                 groups.append([])
             else:
                 groups[-1].append(token)
-        line_result = []
-        for group in groups:
+        line_result: list[tuple[tuple[str, ...], str]] = []
+        conditional = False
+        for index, group in enumerate(groups):
+            if index and separators[index - 1] == ";":
+                line_result = []
+                conditional = False
             if not group:
                 continue
             # Preserve quoted separators until after command boundaries are set.
@@ -124,9 +150,26 @@ def shell_commands(script: str, cwd: str) -> list[tuple[tuple[str, ...], str]]:
                 continue
             if group[0] == "export":
                 group = group[1:]
+            assignments = []
             while group and re.match(r"^[A-Za-z_][A-Za-z_0-9]*=", group[0]):
-                key, value = group.pop(0).split("=", 1)
-                variables[key] = value
+                assignments.append(group.pop(0).split("=", 1))
+            prefixed = bool(assignments and group)
+            if prefixed and any(
+                key not in {"AUTO_BEAN_PLUGIN", "AUTO_BEAN_WORKSPACE"}
+                or "$" in value
+                or "`" in value
+                for key, value in assignments
+            ):
+                conditional = True
+                continue
+            # Shell expansion happens before a command-prefix environment is
+            # applied. Credit literal launcher commands without leaking these
+            # assignments into subsequent commands or resolving helper bodies.
+            for key, value in [] if prefixed else assignments:
+                if conditional:
+                    variables.pop(key, None)
+                else:
+                    variables[key] = re.sub(r"\$(?:\{(\w+)\}|(\w+))", substitute, value)
             expanded = [
                 value
                 if value in literal_variables
@@ -139,12 +182,35 @@ def shell_commands(script: str, cwd: str) -> list[tuple[tuple[str, ...], str]]:
             ]
             if not expanded or any("$(" in t or "`" in t for t in expanded):
                 continue
+            conditional = True
             if expanded[0] == "cd" and len(expanded) == 2:
-                cwd = absolute(expanded[1], cwd)
+                if (
+                    index < len(separators)
+                    and separators[index] == "&&"
+                    and ";" not in separators[index:]
+                ):
+                    cwd = absolute(expanded[1], cwd)
+                else:
+                    cwd = "/__unproven_cwd__"
                 continue
             # Redirected data is not a read. Avoid crediting hidden output too.
             if any(t in {">", ">>", "<", "<<"} for t in expanded):
                 continue
+            if expanded[0] == "auto_bean" and helper is not None:
+                if prefixed or not helper or not variables.get("AUTO_BEAN_PLUGIN"):
+                    continue
+                launcher = variables["AUTO_BEAN_PLUGIN"] + "/runtime/launch.sh"
+                if expanded[1:2] == ["validate"]:
+                    expanded = ["sh", launcher, *expanded[1:]]
+                else:
+                    expanded = [
+                        "sh",
+                        launcher,
+                        "run",
+                        "--workspace",
+                        variables.get("AUTO_BEAN_WORKSPACE", ""),
+                        *expanded[1:],
+                    ]
             line_result.append((tuple(expanded), cwd))
         if line_result:
             # Newlines also mask earlier exit statuses. Assignments above still
@@ -232,6 +298,12 @@ def workspace_read(command: Command, relative: str) -> bool:
 
 def operation(command: Command, name: str, *args: str) -> bool:
     argv = command.argv
+    # Plain timeout propagates the child's exit status. Options such as
+    # --preserve-status, arbitrary wrappers and invalid/zero durations do not count.
+    if argv[0] in {"timeout", "/usr/bin/timeout"}:
+        if len(argv) < 3 or not re.fullmatch(r"[1-9]\d*(?:\.\d+)?[smhd]?", argv[1]):
+            return False
+        argv = argv[2:]
     if argv[0] == "auto_bean":
         tail = argv[1:]
     elif argv[0] in {"sh", "bash"} and len(argv) > 2:
@@ -312,9 +384,9 @@ def load_commands(logs: Path) -> list[Command]:
         for _, _, meta in sessions:
             source = meta.get("source", {})
             if isinstance(source, dict):
-                parent = (
-                    source.get("subagent", {}).get("spawn", {}).get("parent_thread_id")
-                )
+                subagent = source.get("subagent", {})
+                spawn = subagent.get("thread_spawn", subagent.get("spawn", {}))
+                parent = spawn.get("parent_thread_id")
                 if parent in allowed:
                     allowed.add(meta.get("id", meta.get("session_id")))
     result = []

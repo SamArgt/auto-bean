@@ -156,6 +156,11 @@ are uploaded only for oracle runs. Workspace Python is never imported by the gra
 - Parsed documents contain source facts, inline mappings, and transaction postings.
 - Sessions contain groups with source membership and one parsed path, plus price runs. Each group has one YAML lifecycle entry and one parsed JSON containing its source sections.
 - Canonical financial files must match the initial fixture.
+- Review proposals include one document directive per original statement.
+  Optional closing assertions must use the exact EUR balance on February 1
+  (the beginning of the day after the January 31 closing). The grader parses
+  these directives independently and rejects other directive types, targets,
+  dates, amounts, duplicate documents, and explicit balance tolerances.
 - Reusable learning waits until approved writes pass validation.
 - The verifier renders reviewed postings in its own temporary ledger.
   It checks the expected economics independently.
@@ -179,6 +184,7 @@ documents, material decision hashes, and the canonical financial baseline.
 - Written validation must describe the current decisions and canonical ledger.
 - Review-stage validation cannot certify completed writes.
 - The grader checks entries, Decimal amounts, accounts, source provenance, and balances.
+- Written document and balance directives must exactly match the reviewed proposals.
 - The EUR-only price stage must record its successful zero-job outcome.
 - Eligible account and merchant memory must retain source and validation provenance.
 - Global `MEMORY.md` preferences remain unchanged.
@@ -194,9 +200,10 @@ passes only when the changed decision is preserved and financial writes are bloc
 
 Every phase also runs [trace.py](trace.py). Full reward requires both the
 existing state checks and these trace checks to pass.
-This changes the scoring contract. Init and import are now task version `2.0.0`;
-correction and stale review are `3.0.0`. Earlier rewards do not establish a pass
-under these versions.
+Init and import are task version `2.1.0`; correction and stale review are
+`3.1.0`. These versions correct supporting-directive, pending-validation,
+source-account identity, and CLI trace handling. Earlier rewards do not
+establish a pass under these versions.
 
 ```mermaid
 flowchart LR
@@ -242,14 +249,27 @@ The reader uses native `CommandExecution` completion events from the pinned
 Codex CLI. It accepts only terminal exit code `0`. Native completion events also
 cover commands that finish after polling. Tool-return text, narration, comments,
 file listings, and command text inside a here-document do not count.
+Both `subagent.thread_spawn` (CLI 0.163.0) and the older `subagent.spawn`
+parent metadata are recognized. Unrelated sessions cannot supply evidence.
 
 Use visible content reads such as `cat`, `sed`, or `jq` and direct launcher
 commands for auditable evidence. The reader supports literal paths, brace and
-file globs, documented launcher variables, and simple `&&` chains. Only the
+file globs, documented launcher variables, and simple `&&` chains. Plain
+`timeout <positive-duration>` wrappers preserve successful child-operation
+evidence. The exact documented `auto_bean()` function can be defined inline or
+across lines and invoked in the same shell call; arbitrary function bodies do
+not count. Unconditional launcher assignments survive semicolons, but earlier
+commands do not receive credit. Only the
 final command list in a semicolon sequence or multiline shell call is credited;
 later success can hide earlier failures. Pipelines, conditional shell blocks,
 and Python or JavaScript program bodies are not interpreted. A required action
 hidden in unsupported code is reported as missing, even if the final ledger is valid.
+
+Needs-input checks allow a current failed `review` report for unresolved
+decisions. Such a report must contain errors and must not claim checked writes.
+Written-stage reports, stale digests, and false readiness claims still fail.
+Account lookup uses each source's sole extracted account, not the oracle's local
+account ID. The single-account fixture requirement remains enforced.
 
 These checks show observed tool use. They do not prove that the model understood
 a skill or provide a tamper-proof system-call audit. Session files are transferred
@@ -260,7 +280,8 @@ Each verifier writes:
 | Artifact | Purpose |
 | --- | --- |
 | `reward.txt` | Binary result: `1` for pass, `0` for fail |
-| `report.json` | Phase, pass state, and the first reported failure |
+| `report.json` | Versioned summary, all executed state assertions and trace checks, source locations, subject context, and failure evidence |
+| `report.md` | Rendered Markdown with failures first, status icons, then skipped and passed checks with full evidence |
 | `trace-report.json` | Each trace requirement, pass state, and matching session file, line, and event ID |
 | `review.html` | Read-only import review; unavailable report for invalid or no-op states |
 
@@ -268,6 +289,27 @@ Harbor saves trajectories, timing, token usage, configuration, rewards, and
 transferred ledger artifacts under `.cache/harbor/jobs/<job>/`.
 
 `report.json` separates `state_passed`, `trace_passed`, and `trace_policy`.
+Its `check_summary` counts each status by scope. State checks stop at the first
+failed assertion or exception. Earlier successes remain visible. A skipped row
+marks the remaining state checks; it does not claim that they passed or count
+individual checks that did not run. Schema errors include their exception type
+and source location. State assertion labels are failure messages: a passed row
+means that the named failure condition was absent.
+
+Trace checks still run after a state failure. The report marks state-dependent
+group and parsed-path expectations as skipped when state checks cannot supply
+them. A trace loading error is separate from a failed trace requirement.
+These artifacts do not change the reward policy. Existing saved reports are not
+rewritten automatically; rerun the verifier against saved artifacts into a
+separate output directory to keep the original evidence.
+
+The installed Harbor viewer renders Markdown and displays HTML as source.
+Use `report.md` for all findings and evidence. Finding labels retain the grader's
+wording; they are not an independent diagnosis of why the agent failed.
+The verifier builds Markdown automatically from the same structured report as
+`report.json`. Rendering is deterministic for identical report data; no model
+call is involved. Separate runs can differ in evidence, paths, and source locations.
+
 Only the explicit verifier-side `state-only` control policy can score state
 without trace evidence. It still records trace failures. Never compare that
 control reward with a full plugin evaluation score.

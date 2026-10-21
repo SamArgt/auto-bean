@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "session_id": "design-october-2026",
+  "created_at": "2026-10-21T14:00:00Z",
+  "statements": [
+    {
+      "source_file": "statements/raw/checking-october.csv",
+      "parsed_statement": "statements/parsed/checking-october.json"
+    },
+    {
+      "source_file": "statements/raw/savings-october.csv",
+      "parsed_statement": "statements/parsed/savings-october.json"
+    },
+    {
+      "source_file": "statements/raw/brokerage-october.csv",
+      "parsed_statement": "statements/parsed/brokerage-october.json"
+    }
+  ],
+  "price_runs": []
+}

@@ -8,7 +8,7 @@ from typing import Any
 
 import pytest
 
-from evals.harbor.trace import grade_trace, load_commands
+from evals.harbor.trace import grade_trace, load_commands, shell_commands
 
 PLUGIN = "/tmp/codex-home/plugins/cache/auto-bean/auto-bean/0.2.0"
 START = "2026-10-21T10:00:00Z"
@@ -383,3 +383,132 @@ def test_distinct_groups_cannot_share_a_stage_worker(tmp_path: Path) -> None:
         "".join(json.dumps(row) + "\n" for row in records)
     )
     assert grade_trace(tmp_path, "review", groups)["passed"]
+
+
+@pytest.mark.parametrize("field", ["spawn", "thread_spawn"])
+def test_cli_parent_metadata_admits_only_linked_descendants(
+    tmp_path: Path, field: str
+) -> None:
+    events = passing_events("review")
+    skills = events.pop(0)
+    save(tmp_path, events)
+    path = save(tmp_path, [skills], child=True)
+    path.write_text(path.read_text().replace('"spawn":', f'"{field}":'))
+    assert grade_trace(tmp_path, "review")["passed"]
+    path.write_text(
+        path.read_text().replace(
+            '"parent_thread_id": "root"', '"parent_thread_id": "other"'
+        )
+    )
+    assert not grade_trace(tmp_path, "review")["passed"]
+
+
+@pytest.mark.parametrize(
+    "wrapper", ["timeout 60", "timeout 120", "/usr/bin/timeout 2m"]
+)
+def test_timeout_preserves_successful_extraction_evidence(
+    tmp_path: Path, wrapper: str
+) -> None:
+    events = passing_events("review")
+    for row in events:
+        item = row["payload"]["item"]
+        if " docling " in item["command"][2]:
+            item["command"][2] = wrapper + " " + item["command"][2]
+    save(tmp_path, events)
+    assert grade_trace(tmp_path, "review")["passed"]
+    events[-3]["payload"]["item"]["exit_code"] = 124
+    save(tmp_path, events)
+    assert not grade_trace(tmp_path, "review")["passed"]
+
+
+@pytest.mark.parametrize(
+    "wrapper",
+    ["timeout 0", "timeout --preserve-status 60", "timeout invalid", "echo timeout 60"],
+)
+def test_unsupported_timeout_is_not_execution_evidence(
+    tmp_path: Path, wrapper: str
+) -> None:
+    events = passing_events("init")
+    events[-1]["payload"]["item"]["command"][2] = (
+        wrapper + " " + events[-1]["payload"]["item"]["command"][2]
+    )
+    save(tmp_path, events)
+    assert not grade_trace(tmp_path, "init")["passed"]
+
+
+HELPER = """auto_bean() {
+  if [ "$1" = validate ]; then
+    shift
+    sh "$AUTO_BEAN_PLUGIN/runtime/launch.sh" validate "$@"
+  else
+    sh "$AUTO_BEAN_PLUGIN/runtime/launch.sh" run --workspace "$AUTO_BEAN_WORKSPACE" "$@"
+  fi
+}"""
+
+
+@pytest.mark.parametrize("inline", [False, True])
+@pytest.mark.parametrize(
+    "defect", [None, "fake", "wrong_root", "not_invoked", "masked_failure"]
+)
+def test_documented_helper_requires_real_invocation(
+    tmp_path: Path, inline: bool, defect: str | None
+) -> None:
+    helper = HELPER
+    if inline:
+        helper = (
+            'auto_bean() { if [ "$1" = validate ]; then shift; '
+            'sh "$AUTO_BEAN_PLUGIN/runtime/launch.sh" validate "$@"; else '
+            'sh "$AUTO_BEAN_PLUGIN/runtime/launch.sh" run --workspace "$AUTO_BEAN_WORKSPACE" "$@"; fi; }'
+        )
+    if defect == "fake":
+        helper = helper.replace('sh "$AUTO_BEAN_PLUGIN/runtime/launch.sh"', "echo")
+    root = PLUGIN if defect != "wrong_root" else "/app/ledger/fake"
+    prefix = f"AUTO_BEAN_PLUGIN={root}; AUTO_BEAN_WORKSPACE=/app/ledger; "
+    events = passing_events("review")
+    for row in events:
+        command = row["payload"]["item"]["command"]
+        if "bean-query" not in command[2] and " --stage review" not in command[2]:
+            continue
+        invocation = (
+            command[2]
+            .replace(
+                f"sh {PLUGIN}/runtime/launch.sh run --workspace /app/ledger",
+                "auto_bean",
+            )
+            .replace(f"sh {PLUGIN}/runtime/launch.sh", "auto_bean")
+        )
+        command[2] = prefix + helper + ("; " if inline else "\n") + invocation
+        if defect == "not_invoked":
+            command[2] = prefix + helper
+        elif defect == "masked_failure":
+            command[2] += "; true"
+    save(tmp_path, events)
+    assert grade_trace(tmp_path, "review")["passed"] is (defect is None)
+
+
+def test_assignments_survive_semicolons_but_prior_commands_do_not() -> None:
+    script = f'AUTO_BEAN_PLUGIN={PLUGIN}; cat ignored; sh "$AUTO_BEAN_PLUGIN/runtime/launch.sh" ensure-runtime --workspace /app/ledger --extraction'
+    commands = shell_commands(script, "/app/ledger")
+    assert len(commands) == 1
+    assert commands[0][0][1] == PLUGIN + "/runtime/launch.sh"
+    commands = shell_commands(
+        f'false && AUTO_BEAN_PLUGIN={PLUGIN}; sh "$AUTO_BEAN_PLUGIN/runtime/launch.sh" init --workspace /app/ledger',
+        "/app/ledger",
+    )
+    assert commands[0][0][1].startswith("$AUTO_BEAN_PLUGIN")
+
+
+def test_command_prefix_environment_does_not_leak_to_later_commands() -> None:
+    prefix = f"AUTO_BEAN_PLUGIN={PLUGIN} AUTO_BEAN_WORKSPACE=/app/ledger "
+    commands = shell_commands(
+        prefix
+        + f"sh {PLUGIN}/runtime/launch.sh ensure-runtime --workspace /app/ledger --extraction",
+        "/app/ledger",
+    )
+    assert commands[0][0][1] == PLUGIN + "/runtime/launch.sh"
+    commands = shell_commands(
+        prefix
+        + 'true; sh "$AUTO_BEAN_PLUGIN/runtime/launch.sh" init --workspace /app/ledger',
+        "/app/ledger",
+    )
+    assert commands[0][0][1].startswith("$AUTO_BEAN_PLUGIN")

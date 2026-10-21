@@ -1,0 +1,51 @@
+{
+  "schema_version": 2,
+  "document_kind": "statement",
+  "extraction_state": "complete",
+  "source_file": "statements/raw/brokerage-october.csv",
+  "source_fingerprint": "sha256:9aff46e72c8c1d7e3fa8bf730ab535e764fe49e9674b83b49ef0b192a83c0b4f",
+  "source_format": "csv",
+  "parse_run_id": "fixture-brokerage",
+  "parser": {
+    "name": "synthetic-design-fixture",
+    "version": "1"
+  },
+  "parsed_at": "2026-10-21T14:00:00Z",
+  "statement_metadata": {
+    "institution_name": "Example Investments",
+    "statement_name": "Investment account — October 2026",
+    "account_owner": "Alex Example (synthetic)",
+    "statement_period": {
+      "start_date": "2026-10-01",
+      "end_date": "2026-10-20"
+    },
+    "accounts": [
+      {
+        "account_id": "brokerage",
+        "account_name": "Investment account",
+        "primary_currency": "EUR",
+        "opening_balance": {
+          "date": "2026-10-01",
+          "amount": "1000.00",
+          "currency": "EUR"
+        },
+        "review": {
+          "state": "needs_input",
+          "ledger_account": "Assets:Broker:Cash",
+          "rationale": "Confirm the ledger account for this newly discovered source account."
+        }
+      }
+    ]
+  },
+  "extracted_records": [],
+  "review": {
+    "processing": {
+      "attempts": 1,
+      "outcome": "complete",
+      "warnings": [],
+      "evidence": [
+        "Synthetic design fixture. No real statement was read."
+      ]
+    }
+  }
+}

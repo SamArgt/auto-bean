@@ -1,7 +1,7 @@
 # From the repo root, after exporting PYTHONPATH and CODEX_FORCE_AUTH_JSON:
 # uv run --group eval harbor run -c evals/harbor/codex.yaml --jobs-dir "$PWD/.cache/harbor/jobs"
 n_attempts: 1
-n_concurrent_trials: 1
+n_concurrent_trials: 4
 environment:
   type: docker
 agents:
