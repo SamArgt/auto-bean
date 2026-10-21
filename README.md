@@ -101,7 +101,7 @@ Guidance has one owner per topic:
 | --- | --- |
 | [Common guidance](plugins/auto-bean/references/common.md) | Once per execution context for runtime, ownership, memory access and validation |
 | [Import review](plugins/auto-bean/references/import-review.md) | Coordinating or contributing to an import session; use its relevant section |
-| [Ledger reference](plugins/auto-bean/references/ledger-reference.md) | Unfamiliar queries/directives or direct mutation review |
+| [Ledger reference](plugins/auto-bean/references/ledger-reference.md) | Unfamiliar queries, directives or commodity semantics |
 | [Memory examples](plugins/auto-bean/skills/auto-bean-memory/references/memory-examples.md) | Writing or correcting a governed memory record |
 | [Price reference](plugins/auto-bean/skills/auto-bean-prices/references/price-reference.md) | Selecting providers or executing/reconciling a price run |
 

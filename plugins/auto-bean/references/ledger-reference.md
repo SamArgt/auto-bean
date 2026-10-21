@@ -1,6 +1,6 @@
 # Ledger reference
 
-Use the relevant section: [queries](#querying), [direct mutation review](#direct-review), [directives and postings](#directives), or [commodities](#commodities). Launcher and shared ownership rules are in [common guidance](common.md). Import changes follow [the Import and Write skills](../skills/auto-bean-import/SKILL.md); the direct-review procedure below applies to standalone transaction, price and setup-option requests.
+Use the relevant section: [queries](#querying), [directives and postings](#directives), or [commodities](#commodities). Launcher and shared ownership rules are in [common guidance](common.md). The [Write skill](../skills/auto-bean-write/SKILL.md) owns transaction writing and direct review.
 
 ## Querying
 
@@ -63,17 +63,6 @@ WHERE account ~ "Expenses"
 GROUP BY year, month, account
 ORDER BY year, month, account;
 ```
-
-## Direct review
-
-For a directly requested edit, present review in the conversation; do not require a separate mutation artifact. Imports review parsed postings before writing, then validate actual ledger coverage and balances under the import contract.
-
-1. Inspect Git status and the relevant staged, unstaged and untracked changes. Capture target paths, before SHA-256 hashes (`null` for absent files), exact proposed hunks, and recoverable original contents in the active execution context. Git HEAD alone does not preserve user changes. Validate the baseline ledger; an existing failure needs a bounded repair decision before drafting.
-2. With one ledger writer, recheck before hashes, draft the narrow authorized changes, run `auto_bean validate --workspace "$AUTO_BEAN_WORKSPACE"`, and inspect the focused diff. Record after hashes. A failed draft stays visible and blocks later mutations until repaired or resolved. Queries must disclose and exclude unapproved drafts when deciding accepted balances or duplicates.
-3. Present evidence, changed files/hunks, validation, reconciliation and unresolved risks. Approval binds those hunks and after hashes. Recheck hashes and validation before acceptance; changed drafts need renewed review, unchanged drafts do not need repeated permission. Commit only authorized paths/hunks when requested; never stage the whole workspace. Push requires authorization.
-4. On rejection, remove only the draft's hunks if current contents still match. Preserve unrelated and overlapping user edits. Missing baselines or overlapping changes require a concrete conflict resolution; never reset, stash or restore whole files blindly. Validate what remains; rejection is not completion.
-
-On a fresh chat or interrupted write, recover the existing diff, source fingerprint and source/account/record provenance before drafting again. Complete or repair the same draft; never append it twice. If its original hunks or ownership cannot be recovered, ask before undoing anything.
 
 ## Directives
 

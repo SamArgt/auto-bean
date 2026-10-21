@@ -27,4 +27,4 @@ After migration, users refresh the plugin through Codex. Do not run the old upda
 
 ## Import status structure
 
-Check the bundled status schema and current state before deciding whether migration is needed; adding optional fields for newly discovered statements does not require converting existing entries. Preserve all existing statement entries, completed imports and their artifacts byte-for-byte. If a future status schema requires migration, inventory and review that narrow change through this migration skill and its journal; do not reconstruct or migrate historical import artifacts.
+Check the [status schema](../../references/schemas/status.schema.json) and current state before deciding whether migration is needed; adding optional fields for newly discovered statements does not require converting existing entries. Preserve all existing statement entries, completed imports and their artifacts byte-for-byte. If a future status schema requires migration, inventory and review that narrow change through this migration skill and its journal; do not reconstruct or migrate historical import artifacts.

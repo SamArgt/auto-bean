@@ -4,18 +4,7 @@ The import review panel reads one conversation's explicit statement membership f
 
 ## Workflow and ownership
 
-```mermaid
-flowchart LR
-    A[Raw statement] --> B[Parsed accounts and records]
-    B --> C[Mappings and explicit postings]
-    C --> D[Validate review readiness]
-    D --> E[User review and approval]
-    E --> F[Write directly to ledger]
-    F --> G[Validate rows, postings and balances]
-    G --> H[Import marks done]
-    G -->|Mismatch| I[Repair affected work]
-    I --> C
-```
+The [canonical process flow](../plugins/auto-bean/references/import-review.md#process-flow) shows discovery/resume, parallel processing and categorization, human-input loops, review before writing, post-write validation and recovery, and the price and memory follow-ups. It is bundled with the plugin; this document links to that single diagram.
 
 Agents use ordinary scoped file edits. Process owns source facts and processing outcomes; Categorize owns inline transaction decisions; Import owns account decisions, session membership and status YAML. Write edits canonical ledger files after explicit approval; Prices owns price runs and separately approved price directives. Memory edits governed JSON, while the main thread maintains workspace `MEMORY.md`. The [ownership table](../plugins/auto-bean/references/common.md#ownership) identifies generated fields that agents preserve.
 
@@ -43,7 +32,7 @@ Export HTML creates a self-contained read-only snapshot with all saved rows and 
 
 ## Guidance and examples
 
-Skills own workflow steps. Common guidance owns runtime setup, shared ownership and validation; the import reference defines field meanings and edge cases; the ledger reference owns query/directive mechanics and standalone review. Memory examples and price execution details remain beside their skills. This avoids repeating a second workflow in references.
+Skills own workflow steps. Common guidance owns runtime setup, shared ownership and validation; the import reference defines field meanings and edge cases; the ledger reference owns query/directive mechanics. Write owns standalone review, which Init and Prices also reference. Memory examples and price execution details remain beside their skills.
 
 There is one [parsed statement example](../plugins/auto-bean/references/parsed-statement-output.example.json) and one [session example](../plugins/auto-bean/references/import-session.example.json). They describe a synthetic resolved import with source facts, account mappings, split/refund postings, an answered category question, reciprocal transfer links, optional panel confirmations and generated written-stage validation. The [status example](../plugins/auto-bean/references/import-status.example.yml) uses the same source identity. Never copy example confirmations or validation results into a live import.
 

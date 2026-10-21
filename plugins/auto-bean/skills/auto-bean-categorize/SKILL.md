@@ -11,7 +11,7 @@ Handle only the assigned complete parsed statement, current status entry, sessio
 
 Use `$auto-bean:auto-bean-query` for ledger accounts, constraints, registers, balances and transaction/duplicate checks. Source account names/owner evidence do not establish ledger mapping without a current check or approved mapping.
 
-Edit each `extracted_records[].review` directly. Persist explicit split postings, rationale, findings, disposition and source links; preserve answers and extracted facts. Ambiguity uses `state: needs_input`, rationale and optional suggestions beside the record. When a memory hint materially influenced a decision, identify it with the supporting or contradicting evidence in that decision’s rationale.
+Edit each `extracted_records[].review` directly according to the [parsed schema](../../references/schemas/parsed-v2.schema.json). Persist explicit split postings, rationale, findings, disposition and source links; preserve answers and extracted facts. Ambiguity uses `state: needs_input`, rationale and optional suggestions beside the record. When a memory hint materially influenced a decision, identify it with the supporting or contradicting evidence in that decision’s rationale.
 
 ## Categorization
 

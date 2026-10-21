@@ -14,5 +14,5 @@ Read [common guidance](../../references/common.md#runtime) once for workspace re
    ```
 
 4. Check JSON result and terminal exit: `ok` means validated and initially committed; `needs_input` preserves a validated workspace needing Git attention. Report its next step; failure is not successful setup.
-5. Own other explicitly requested scaffold options/account-name changes under [direct review](../../references/ledger-reference.md#direct-review); apply them before claiming those preferences are configured. Route transactions to `$auto-bean:auto-bean-write`. Never invent opening balances, personal accounts, or preferences.
+5. Own other explicitly requested scaffold options/account-name changes under Write's [direct-review procedure](../auto-bean-write/SKILL.md#direct-review); apply them before claiming those preferences are configured. Route transactions to `$auto-bean:auto-bean-write`. Never invent opening balances, personal accounts, or preferences.
 6. Return the destination and routes for statements (`$auto-bean:auto-bean-import`), reads (`$auto-bean:auto-bean-query`), transactions, and launcher-based Fava. Have the user open the new project if this chat targets another directory. Installed plugin resources stay in the plugin.

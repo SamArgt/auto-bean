@@ -15,13 +15,13 @@ Read [common guidance](../../references/common.md) once, then the import contrac
    ```
 
    Docling/CPU model preparation has a separate 10-minute budget. Prefetch required PDF models with the installed version's documented command before timing extraction, or record a first-use blocker. Check official Docling docs through Context7 when support is unclear. Preparation failures do not consume source attempts.
-3. Initialize the parsed document before starting. Run `auto_bean docling <assigned-source> --to json --output <unique-.auto-bean/tmp/directory>`; allow 120 seconds for PDF or 60 seconds for CSV/Excel. Poll the same session until terminal exit.
+3. Create the assigned parsed document only if absent, before extraction, using the [parsed schema](../../references/schemas/parsed-v2.schema.json); on resume preserve its existing decisions, answers and evidence. Run `auto_bean docling <assigned-source> --to json --output <unique-.auto-bean/tmp/directory>`; allow 120 seconds for PDF or 60 seconds for CSV/Excel. Poll the same session until terminal exit.
 4. Timeout/interruption/transient filesystem IO permits one retry with fresh output. Do not retry crashes, malformed/missing evidence, encrypted/corrupt/missing sources or unsupported formats unless clearly transient. Supported local OCR may handle scanned/textless PDFs; otherwise block rather than guess.
 5. Persist attempts, terminal outcome, extraction evidence, sanitized failure reason, output pointer, warnings and repair need in `review.processing`. Required input uses needs_input, suggestions and failure_reason/evidence there. Use the schema's failure code: `tool_timeout`, `transient_io_failure`, `parser_crash`, `malformed_parser_output`, `unsupported_format`, `encrypted_or_unreadable_source`, `textless_pdf`, `missing_source` or `tool_unavailable`.
 
 ## Normalization and return
 
-Follow the [parsed example](../../references/parsed-statement-output.example.json) and [state contract](../../references/import-review.md#state-and-validation). `statement` supplies a period/balances; `transaction_export` is a transaction list without those facts. Do not manufacture missing periods, balances, ownership or account identity. A multi-account row without a trustworthy account match blocks processing.
+Use the [parsed example](../../references/parsed-statement-output.example.json) to illustrate the [state contract](../../references/import-review.md#state-and-validation). `statement` supplies a period/balances; `transaction_export` is a transaction list without those facts. Do not manufacture missing periods, balances, ownership or account identity. A multi-account row without a trustworthy account match blocks processing.
 
 Preserve stable account/row IDs and source references across reparses. Edit extracted facts and processing outcomes directly, preserving existing inline decisions and answers. If corrected evidence changes an earlier decision, return affected IDs for the owning stage to recheck. Complete extraction needs parser/run metadata and timestamp. Pending/failed extraction may have empty evidence arrays and never enters accounting stages.
 

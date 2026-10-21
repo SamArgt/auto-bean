@@ -2,13 +2,66 @@
 
 Use this reference for field meanings and edge cases. The Import, Process, Categorize and Write skills own the workflow; [common guidance](common.md#ownership) owns editing boundaries and [the validation command](common.md#validation).
 
+## Process flow
+
+This is the canonical process diagram for [Import](../skills/auto-bean-import/SKILL.md). **∥** marks work that can run in parallel on separate statements. **◆** marks coordination owned by the main import agent, not a measured runtime delay. Orange nodes show human input; dotted links are conditional clarification loops.
+
+Each statement resumes at its relevant stage from saved status and evidence; the diagram shows the full path for a new import. Independent safe work continues while questions are pending. Unresolved transfers or duplicates hold the affected group of rows. Edits to the same parsed document and all ledger writes are serialized under the [ownership rules](common.md#ownership).
+
+```mermaid
+flowchart TD
+    S([Start or resume import]) --> D["Discover sources<br/>Read status and fingerprints"]
+    D --> E{"Already done?"}
+    E -- Yes --> R{"Explicit rework requested?"}
+    R -- No --> SK([Skip statement])
+    R -- Yes --> P
+    E -- No --> P["∥ Process source<br/>Extract and validate evidence"]
+
+    P --> A["◆ Inspect accounts<br/>Plan openings and document references"]
+    A --> B["Check opening balances<br/>Resolve account and balance decisions"]
+    B --> C["∥ Categorize transactions"]
+    C --> X["◆ Review batch transfers and duplicates<br/>Assign dispositions and one posting owner"]
+    X --> F["◆ Validate and prepare final review<br/>Mappings, parsed postings and supporting directives"]
+
+    P <-.-> HP["Human: source clarification<br/>or manual resolution"]
+    A <-.-> HA["Human: resolve account/date<br/>and mapping questions"]
+    B <-.-> HB["Human: choose balance remediation"]
+    C <-.-> HC["Human: resolve category<br/>or transaction ambiguity"]
+    X <-.-> HX["Human: resolve uncertain<br/>transfer or duplicate decisions"]
+    W <-.-> HW["Human: resolve missing facts<br/>or repair needing direction"]
+
+    F --> AP{"Human approves<br/>the current parsed decisions?"}
+    AP -- "No or pending" --> H["Keep review or blocked state"]
+    H -- "Correct and revalidate" --> F
+    AP -- Yes --> W["Write approved entries serially<br/>Directly from parsed JSON"]
+    W --> V["Validate written transactions<br/>Check ledger and closing balances"]
+    V -- Passed --> DN["Mark validated statements done"]
+
+    DN --> PR["After statement writes/reviews:<br/>Run or resume price epilogue"]
+    PR --> PC{"Price edits?"}
+    PC -- Yes --> PA["Human: separately approve<br/>proposed price directives"]
+    PC -- "No new edits; validate outcome" --> M["Invoke Memory with import JSON<br/>Apply eligible memory updates"]
+    PA -- Approved --> PW["Write approved prices<br/>Validate ledger"]
+    PW -- Validated --> M
+    PA -- Pending --> PP["Keep price follow-up pending<br/>Statements remain done"]
+    PP --> M
+    M --> END([Summarize outcomes and remaining actions])
+
+    classDef human fill:#fff1d6,stroke:#b7791f,color:#222;
+    class HP,HA,HB,HC,HX,HW,AP,PA human;
+```
+
+Before first approval, proposed postings and supporting directives remain in parsed JSON and the ledger is unchanged. The statement review covers mappings, openings and transactions together; clarification loops are conditional, not extra approval rounds. A shared transfer requires approval for all affected statements. Write returns its written validation result to Import for `done`; failures return to the owning stage for repair. Material corrections require renewed review. Interrupted writes resume from actual provenance without duplicate appends or whole-file restoration.
+
+The price epilogue runs after the current statement pass, including when some work remains pending. It records a zero-job result when no commodities need prices. Price questions or approval can remain pending while statements stay `done`. Memory uses only accepted, verified work; unresolved proposals are not learned. The overall import is `Complete` only when every in-scope statement is done and no price or follow-up action remains.
+
 ## State and validation
 
 There are three authoritative import surfaces:
 
-- `statements/import-status.yml`: lifecycle, retry information, compact flags and the current parsed-document pointer.
-- One parsed JSON per statement: source facts, inline account/transaction decisions and generated validation.
-- `.auto-bean/import-sessions/<session-id>.json`: explicit statement membership and session price runs. It does not contain another transaction list.
+- `statements/import-status.yml` ([status schema](schemas/status.schema.json)): lifecycle, retry information, compact flags and the current parsed-document pointer.
+- One parsed JSON per statement ([parsed schema](schemas/parsed-v2.schema.json)): source facts, inline account/transaction decisions and generated validation.
+- `.auto-bean/import-sessions/<session-id>.json` ([session schema](schemas/session.schema.json)): explicit statement membership and session price runs. It does not contain another transaction list.
 
 Pending/running/failed extraction requires source identity/fingerprint, source format, extraction state, account/record arrays and `review.processing`. Arrays may be empty; parser metadata and completion time are required only for complete extraction. Partial evidence never enters accounting stages.
 

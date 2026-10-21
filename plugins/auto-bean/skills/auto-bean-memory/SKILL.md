@@ -9,7 +9,7 @@ Read [common guidance](../../references/common.md) for runtime and ownership. Us
 
 - **Inspect:** Answer questions about existing memory with record identity, scope, evidence, review state and reuse limits. Do not write, normalize or prune files during inspection.
 - **Standalone update, correction or forgetting:** Follow the user's explicit scope. A clear request already authorizes that memory change; do not request the same permission again. Read matching existing records and current evidence first. Ask only when the intended record, replacement or deletion scope is materially ambiguous. Forgetting removes the requested content, including copies retained in its audit; do not preserve a hidden duplicate of what the user asked to forget.
-- **Import learning:** Read [import state and validation](../../references/import-review.md#state-and-validation). Derive reusable lessons from source facts, inline account/transaction reviews, current approval and successful ledger validation; compare them with governed memory. No separate parsed/session memory proposal or completion record is needed. Return actual writes, no eligible change, or a concrete blocker to Import in conversation.
+- **Import learning:** Read the supplied session and parsed JSON alongside this skill, then compare eligible lessons with existing memory and apply relevant updates using the procedures below. Use [import state and validation](../../references/import-review.md#state-and-validation) for field meanings. Return changes or blockers to Import; no separate memory artifact is needed.
 
 For import financial decisions, require explicit approval of the current decisions in conversation or the panel, a successful written-stage `review.validation` for the same evidence, and matching actual ledger entries. Chat approval does not require an approval field; never construct or edit the panel’s approval fields. Check source/account/record identities and the accepted mapping/postings. A saved answer or `confirmed` inline state alone is insufficient. A verified existing duplicate can support a reusable rule without another ledger write; check its canonical reference and successful coverage validation. Failed, rejected, stale, unresolved or unvalidated work does not establish accepted financial learning. Price-source learning requires successful accounted runs, separate current price approval and verified ledger results. A no-op may leave existing hints unchanged.
 
@@ -33,6 +33,8 @@ Persist a narrow reusable rule only when it changes a future decision. One-off a
 Read the matching section of [memory examples](references/memory-examples.md) when constructing a record. There are six JSON categories; broad user preferences and cross-workflow facts instead follow the Markdown procedure below.
 
 ## Update governed JSON
+
+Use the [memory schema](../../references/schemas/memory.schema.json) for governed memory files and the source index.
 
 1. Read the relevant file, or source index followed by its narrowly matching document. Compare proposed matching criteria, scope and decision with existing records. Reuse an equivalent record; do not add another copy or rewrite timestamps just because the hint was read.
 2. For a real update, preserve `record_id` and `created_at`, revise the specific decision/scope, set `updated_at`, and append concise audit evidence. New records receive an ID once. Add a missing ID only when editing that record. Preserve unrelated records, unknown retained metadata and prior audit context unless explicit forgetting requires removing it.

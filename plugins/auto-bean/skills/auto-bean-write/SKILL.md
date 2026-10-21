@@ -3,7 +3,7 @@ name: auto-bean-write
 description: Draft or correct Beancount transactions from evidence. Use for ledger entries, explicit postings, transaction validation, and clarification of ambiguous transaction facts.
 ---
 
-Read [common guidance](../../references/common.md) once. Direct requests use [conversation review](../../references/ledger-reference.md#direct-review); imports use the [import data contract](../../references/import-review.md#transaction-dispositions). Consult [ledger semantics](../../references/ledger-reference.md#directives) for unfamiliar directives or costs.
+Read [common guidance](../../references/common.md) once. Imports use the [import data contract](../../references/import-review.md#transaction-dispositions). Consult [ledger semantics](../../references/ledger-reference.md#directives) for unfamiliar directives or costs.
 
 ## Evidence and drafting
 
@@ -13,12 +13,21 @@ Read [common guidance](../../references/common.md) once. Direct requests use [co
 4. Preserve imported `source`, `source_fingerprint`, `account_id` and `record_id`. A paired transfer is written once with both source identities; its non-owner links to that transaction. Reviewed duplicates identify existing entries and may retain their existing narration, but their date, payee when present, exact postings and source-account movement must match. Held records are never posted. Direct facts without external IDs use `source: "user-provided"` and a unique disclosed `manual-` record ID.
 5. Before adding an entry, check existing provenance. An identical reviewed entry is already written; a conflicting or duplicate identity needs repair. Never blindly append all parsed rows on resume.
 
-## Direct writing and validation
+## Import writing and validation
 
 For imports, reread the current ledger and parsed decisions, confirm explicit approval of that content in conversation or the panel, then edit the narrowest included ledger files directly. Follow common ownership and serialization rules. The parsed postings are the sole input; do not create a second transaction file, approval record or execution journal. If the approved content has changed materially, return for renewed review.
 
-Run [shared validation](../../references/common.md#validation) with `--session <id> --stage written`. It independently checks the actual rows, postings, provenance, supporting directives and available balances. Never hand-author its result. Return concrete row/account errors if validation fails; dependent writes wait for repair. Interrupted work resumes from actual provenance and current file contents, never a whole-file rollback.
+After the assigned statement or linked group has been written, run [shared validation](../../references/common.md#validation) with `--session <id> --stage written`. Return its per-statement reports and any session-wide error to Import. The check covers actual rows, postings, provenance, supporting directives and available balances. Never hand-author its result. Affected failures block dependent writes until repaired. Interrupted work resumes from actual provenance and current file contents, never a whole-file rollback.
 
-Direct requests retain the conversation-review procedure for drafting, approval, rejection and recovery. No commit or push without authorization.
+Return changed paths, validation results, any required repair and eligible learning evidence under the [ownership rules](../../references/common.md#ownership). Import alone advances status to `done` and coordinates import-memory updates. For standalone writes, route eligible learning to `$auto-bean:auto-bean-memory`; only the main thread edits workspace `MEMORY.md`.
 
-Return changed paths, validation result and any required repair under the [ownership rules](../../references/common.md#ownership). Import alone advances status to `done`. Route eligible reusable learning to `$auto-bean:auto-bean-memory`; only the main thread edits workspace `MEMORY.md`.
+## Direct review
+
+Use this procedure for standalone transaction edits. Prices and Init also use it for their own price or setup changes; they retain ownership of those edits. Present review in conversation without a separate mutation artifact.
+
+1. Inspect relevant staged, unstaged and untracked changes. Retain target paths, before SHA-256 hashes (`null` for absent files), exact proposed hunks and recoverable original contents in the execution context. Git HEAD alone does not preserve user changes. Validate the baseline ledger; existing errors need a bounded repair decision before drafting.
+2. With one ledger writer, recheck before hashes, draft the narrow authorized changes, run `auto_bean validate --workspace "$AUTO_BEAN_WORKSPACE"`, inspect the diff and retain after hashes. A failed draft blocks dependent writes until resolved. Disclose unapproved drafts and exclude them when identifying accepted balances or duplicates.
+3. Present evidence, exact changes, validation, reconciliation and unresolved risks. Approval covers those hunks and after hashes; recheck them and validation before acceptance. Changed drafts require renewed review; unchanged approved drafts need no repeated permission. Commit only authorized paths/hunks when requested, never the whole workspace; push requires authorization.
+4. On rejection, remove only the draft's hunks when current contents still match, then validate what remains. Preserve unrelated user edits. Missing baselines or overlapping changes require conflict resolution; never blindly reset, stash or restore whole files. Rejection is not completion.
+
+On resume, inspect the existing diff and source/account/record provenance before continuing or repairing the same draft. Never append it twice. Ask before undoing changes whose original hunks or ownership cannot be recovered.
