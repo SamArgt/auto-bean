@@ -2,6 +2,14 @@
 
 This repository authors the product, not a live user ledger workspace.
 
+## Writing Style
+
+- Use ASD-STE100-inspired simple English across this repository. Aim for about 80% adherence, not strict dictionary compliance.
+- Use short, active sentences. Keep one main idea per sentence.
+- Use consistent terms. Define unfamiliar terms and preserve technical precision.
+- Use bullet points for steps and parallel facts. Use tables for comparisons.
+- Use Mermaid diagrams when they make a workflow or boundary easier to understand.
+
 ## Python Development
 - Use `uv run` to run scripts and tools in the local environment.
 - Use context7 mcp to look up documentation about external libraries and dependencies.

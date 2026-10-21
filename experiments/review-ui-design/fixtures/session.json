@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "session_id": "design-october-2026",
+  "created_at": "2026-10-21T14:00:00Z",
+  "statements": [
+    {
+      "source_file": "statements/raw/checking-october.csv",
+      "parsed_statement": "statements/parsed/checking-october.json"
+    },
+    {
+      "source_file": "statements/raw/savings-october.csv",
+      "parsed_statement": "statements/parsed/savings-october.json"
+    },
+    {
+      "source_file": "statements/raw/brokerage-october.csv",
+      "parsed_statement": "statements/parsed/brokerage-october.json"
+    }
+  ],
+  "price_runs": [
+    {
+      "run_id": "vwce-october-20",
+      "requested_date": "2026-10-20",
+      "state": "complete",
+      "required_commodities": [
+        "VWCE"
+      ],
+      "coverage": [
+        "VWCE"
+      ],
+      "preflight": "passed",
+      "preflight_job_count": 1,
+      "execution": {
+        "state": "complete",
+        "exit_code": 0,
+        "duration_seconds": 0,
+        "stderr_summary": "Synthetic fixture; no price provider contacted."
+      },
+      "jobs": [
+        {
+          "commodity": "VWCE",
+          "source": "fixture:vwce-eur",
+          "requested_date": "2026-10-20",
+          "quote_date": "2026-10-20",
+          "outcome": "emitted",
+          "directive": "2026-10-20 price VWCE 112.40 EUR",
+          "detail": "Illustrative rate only; not market data."
+        }
+      ],
+      "detail": "Synthetic valuation quote for the investment statement."
+    }
+  ]
+}

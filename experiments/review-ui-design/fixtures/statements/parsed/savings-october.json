@@ -1,0 +1,160 @@
+{
+  "schema_version": 2,
+  "document_kind": "statement",
+  "extraction_state": "complete",
+  "source_file": "statements/raw/savings-october.csv",
+  "source_fingerprint": "sha256:748ddbdb47785fc9d6a6a58c1d648faaceb4bcc2c764d1b7c9edae69f7443848",
+  "source_format": "csv",
+  "parse_run_id": "fixture-savings",
+  "parser": {
+    "name": "synthetic-design-fixture",
+    "version": "1"
+  },
+  "parsed_at": "2026-10-21T14:00:00Z",
+  "statement_metadata": {
+    "institution_name": "Example Bank",
+    "statement_name": "Savings account — October 2026",
+    "account_owner": "Alex Example (synthetic)",
+    "statement_period": {
+      "start_date": "2026-10-01",
+      "end_date": "2026-10-20"
+    },
+    "accounts": [
+      {
+        "account_id": "savings",
+        "account_name": "Savings account",
+        "primary_currency": "EUR",
+        "opening_balance": {
+          "date": "2026-10-01",
+          "amount": "5000.00",
+          "currency": "EUR"
+        },
+        "closing_balance": {
+          "date": "2026-10-20",
+          "amount": "5502.20",
+          "currency": "EUR"
+        },
+        "review": {
+          "state": "confirmed",
+          "ledger_account": "Assets:Bank:Savings",
+          "rationale": "Synthetic source account mapped to its matching fixture ledger account."
+        }
+      }
+    ]
+  },
+  "extracted_records": [
+    {
+      "record_id": "interest",
+      "account_id": "savings",
+      "transaction_date": "2026-10-20",
+      "description": "Interest after withholding",
+      "amount": "4.20",
+      "currency": "EUR",
+      "source_reference": "row:2",
+      "raw_fields": {
+        "reference": "INTEREST OCT / GROSS 6.00 TAX 1.80"
+      },
+      "review": {
+        "state": "confirmed",
+        "disposition": "post",
+        "postings": [
+          {
+            "account": "Assets:Bank:Savings",
+            "amount": "4.20",
+            "currency": "EUR"
+          },
+          {
+            "account": "Expenses:Tax:Withholding",
+            "amount": "1.80",
+            "currency": "EUR"
+          },
+          {
+            "account": "Income:Interest",
+            "amount": "-6.00",
+            "currency": "EUR"
+          }
+        ],
+        "rationale": "6.00 EUR gross interest less 1.80 EUR withholding tax; 4.20 EUR credited."
+      }
+    },
+    {
+      "record_id": "fee",
+      "account_id": "savings",
+      "transaction_date": "2026-10-19",
+      "description": "Savings service fee",
+      "amount": "-2.00",
+      "currency": "EUR",
+      "source_reference": "row:3",
+      "raw_fields": {
+        "reference": "SAVINGS SERVICE FEE"
+      },
+      "review": {
+        "state": "confirmed",
+        "disposition": "post",
+        "postings": [
+          {
+            "account": "Assets:Bank:Savings",
+            "amount": "-2.00",
+            "currency": "EUR"
+          },
+          {
+            "account": "Expenses:Bank:Fees",
+            "amount": "2.00",
+            "currency": "EUR"
+          }
+        ],
+        "rationale": "Monthly service fee shown on the statement."
+      }
+    },
+    {
+      "record_id": "save-in",
+      "account_id": "savings",
+      "transaction_date": "2026-10-17",
+      "description": "Transfer from everyday",
+      "amount": "500.00",
+      "currency": "EUR",
+      "source_reference": "row:4",
+      "raw_fields": {
+        "reference": "SAVE-1017"
+      },
+      "review": {
+        "state": "confirmed",
+        "disposition": "paired_transfer",
+        "postings": [
+          {
+            "account": "Assets:Bank:Checking",
+            "amount": "-500.00",
+            "currency": "EUR"
+          },
+          {
+            "account": "Assets:Bank:Savings",
+            "amount": "500.00",
+            "currency": "EUR"
+          }
+        ],
+        "rationale": "Both statement rows match by amount, currency and reference. They describe one shared ledger transaction.",
+        "findings": [
+          "likely_transfer"
+        ],
+        "posting_owner": "statements/raw/checking-october.csv",
+        "linked_records": [
+          {
+            "source_file": "statements/raw/checking-october.csv",
+            "account_id": "checking",
+            "record_id": "save-out"
+          }
+        ]
+      }
+    }
+  ],
+  "review": {
+    "processing": {
+      "attempts": 1,
+      "outcome": "complete",
+      "warnings": [],
+      "evidence": [
+        "Synthetic design fixture. No real statement was read."
+      ]
+    }
+  }
+}

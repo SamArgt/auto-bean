@@ -1,0 +1,195 @@
+{
+  "schema_version": 2,
+  "document_kind": "statement",
+  "extraction_state": "complete",
+  "source_file": "statements/raw/brokerage-october.csv",
+  "source_fingerprint": "sha256:9aff46e72c8c1d7e3fa8bf730ab535e764fe49e9674b83b49ef0b192a83c0b4f",
+  "source_format": "csv",
+  "parse_run_id": "fixture-brokerage",
+  "parser": {
+    "name": "synthetic-design-fixture",
+    "version": "1"
+  },
+  "parsed_at": "2026-10-21T14:00:00Z",
+  "statement_metadata": {
+    "institution_name": "Example Investments",
+    "statement_name": "Investment account — October 2026",
+    "account_owner": "Alex Example (synthetic)",
+    "statement_period": {
+      "start_date": "2026-10-01",
+      "end_date": "2026-10-20"
+    },
+    "accounts": [
+      {
+        "account_id": "brokerage",
+        "account_name": "Investment account",
+        "primary_currency": "EUR",
+        "opening_balance": {
+          "date": "2026-10-01",
+          "amount": "1000.00",
+          "currency": "EUR"
+        },
+        "closing_balance": {
+          "date": "2026-10-20",
+          "amount": "1100.50",
+          "currency": "EUR"
+        },
+        "review": {
+          "state": "confirmed",
+          "ledger_account": "Assets:Broker:Cash",
+          "rationale": "Synthetic source account mapped to its matching fixture ledger account."
+        }
+      }
+    ]
+  },
+  "extracted_records": [
+    {
+      "record_id": "dividend",
+      "account_id": "brokerage",
+      "transaction_date": "2026-10-20",
+      "description": "Dividend after withholding",
+      "amount": "25.00",
+      "currency": "EUR",
+      "source_reference": "row:2",
+      "raw_fields": {
+        "reference": "DIVIDEND / GROSS 30.00 TAX 5.00"
+      },
+      "review": {
+        "state": "confirmed",
+        "disposition": "post",
+        "postings": [
+          {
+            "account": "Assets:Broker:Cash",
+            "amount": "25.00",
+            "currency": "EUR"
+          },
+          {
+            "account": "Expenses:Tax:Withholding",
+            "amount": "5.00",
+            "currency": "EUR"
+          },
+          {
+            "account": "Income:Investments:Dividends",
+            "amount": "-30.00",
+            "currency": "EUR"
+          }
+        ],
+        "rationale": "30.00 EUR gross dividend less 5.00 EUR withholding tax; 25.00 EUR credited."
+      }
+    },
+    {
+      "record_id": "buy",
+      "account_id": "brokerage",
+      "transaction_date": "2026-10-14",
+      "description": "Buy 2 VWCE shares",
+      "amount": "-221.50",
+      "currency": "EUR",
+      "source_reference": "row:3",
+      "raw_fields": {
+        "reference": "BUY VWCE 2 @ 110.00 EUR / FEE 1.50"
+      },
+      "review": {
+        "state": "confirmed",
+        "disposition": "post",
+        "postings": [
+          {
+            "account": "Assets:Broker:Cash",
+            "amount": "-221.50",
+            "currency": "EUR"
+          },
+          {
+            "account": "Assets:Broker:VWCE",
+            "amount": "2.00",
+            "currency": "VWCE",
+            "cost": "110.00 EUR"
+          },
+          {
+            "account": "Expenses:Investments:Fees",
+            "amount": "1.50",
+            "currency": "EUR"
+          }
+        ],
+        "rationale": "2 shares at 110.00 EUR each, plus a 1.50 EUR trading fee. The acquisition cost is retained per share."
+      }
+    },
+    {
+      "record_id": "broker-in",
+      "account_id": "brokerage",
+      "transaction_date": "2026-10-12",
+      "description": "Transfer from everyday",
+      "amount": "300.00",
+      "currency": "EUR",
+      "source_reference": "row:4",
+      "raw_fields": {
+        "reference": "INVEST-1012"
+      },
+      "review": {
+        "state": "confirmed",
+        "disposition": "paired_transfer",
+        "postings": [
+          {
+            "account": "Assets:Bank:Checking",
+            "amount": "-300.00",
+            "currency": "EUR"
+          },
+          {
+            "account": "Assets:Broker:Cash",
+            "amount": "300.00",
+            "currency": "EUR"
+          }
+        ],
+        "rationale": "Both statement rows match by amount, currency and reference. They describe one shared ledger transaction.",
+        "findings": [
+          "likely_transfer"
+        ],
+        "posting_owner": "statements/raw/checking-october.csv",
+        "linked_records": [
+          {
+            "source_file": "statements/raw/checking-october.csv",
+            "account_id": "checking",
+            "record_id": "broker-out"
+          }
+        ]
+      }
+    },
+    {
+      "record_id": "custody",
+      "account_id": "brokerage",
+      "transaction_date": "2026-10-10",
+      "description": "Custody adjustment",
+      "amount": "-3.00",
+      "currency": "EUR",
+      "source_reference": "row:5",
+      "raw_fields": {
+        "reference": "CUSTODY ADJUSTMENT"
+      },
+      "review": {
+        "state": "needs_input",
+        "disposition": "hold",
+        "postings": [
+          {
+            "account": "Assets:Broker:Cash",
+            "amount": "-3.00",
+            "currency": "EUR"
+          },
+          {
+            "account": "Expenses:Investments:Fees",
+            "amount": "3.00",
+            "currency": "EUR"
+          }
+        ],
+        "rationale": "The statement calls this an adjustment. Confirm whether it is a custody fee."
+      }
+    }
+  ],
+  "review": {
+    "processing": {
+      "attempts": 1,
+      "outcome": "complete",
+      "warnings": [],
+      "evidence": [
+        "Synthetic design fixture. No real statement was read."
+      ]
+    }
+  }
+}

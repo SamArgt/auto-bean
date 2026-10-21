@@ -1,0 +1,11 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json",
+  "mcpServers": {
+    "review-probe": {
+      "type": "stdio",
+      "command": "uv",
+      "args": ["run", "--frozen", "--project", "${PLUGIN_ROOT}", "python", "${PLUGIN_ROOT}/server.py"],
+      "cwd": "${PLUGIN_ROOT}"
+    }
+  }
+}

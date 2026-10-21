@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Auto Bean · Review design</title>
+<style>
+:root{font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#26352f;background:#f5f6f3;--green:#236348;--muted:#68766e;--line:#dfe5df;--amber:#956015}*{box-sizing:border-box}body{margin:0}button,input,select{font:inherit}button{cursor:pointer;color:inherit}button,a,input,select{outline-offset:4px}button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--green)}button{background:white;border:1px solid var(--line);border-radius:7px;padding:8px 13px}button:hover{background:#edf2ed}button:disabled{cursor:default;opacity:.45}.primary{background:var(--green);border-color:var(--green);color:white}.primary:hover{background:#194d37}.quiet{border-color:transparent;background:transparent}.muted,small{color:var(--muted)}small{font-size:12px}.mono,code,pre{font-family:ui-monospace,SFMono-Regular,Consolas,monospace}.topbar{height:66px;border-bottom:1px solid var(--line);background:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 30px}.brand{display:flex;align-items:center;gap:10px;font-size:16px;font-weight:650}.mark{background:#236348;color:white;border-radius:10px;padding:5px 9px}.prototype{font-size:11px;font-weight:500;background:#f1f2ed;border:1px solid var(--line);border-radius:5px;padding:3px 8px;margin-left:10px}.shell{display:grid;grid-template-columns:228px minmax(0,1fr);max-width:1600px;margin:auto;min-height:calc(100vh - 66px)}aside{border-right:1px solid var(--line);padding:28px 16px}.eyebrow{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted)}.workspace{padding:0 12px 25px}.workspace strong{display:block;margin-top:7px}.navitem{width:100%;border:0;background:transparent;text-align:left;padding:12px;margin:3px 0;display:flex;justify-content:space-between;align-items:center}.navitem.active{background:#e5eee5;color:#245a40}.navitem strong{font-size:13px;display:block}.navitem small{font-size:11px}.count{border-radius:5px;background:#fff4d9;color:var(--amber);padding:0 6px;font-size:11px}.side-note{margin:30px 12px;padding-top:18px;border-top:1px solid var(--line);font-size:12px;color:var(--muted)}main{padding:30px 34px;min-width:0}.heading{display:flex;justify-content:space-between;align-items:center;gap:20px}h1{font-size:27px;letter-spacing:-.8px;margin:5px 0}h2{font-size:17px;margin:0}h3{font-size:14px;margin:0}p{margin:7px 0}.badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;white-space:nowrap;border-radius:5px;padding:3px 8px;background:#edf3ec;color:#386443}.badge.warn{background:#fff1d8;color:#885411}.steps{display:flex;gap:24px;margin:25px 0 26px;font-size:12px;color:var(--muted)}.steps .current{color:var(--green);font-weight:650}.steps span{display:flex;align-items:center;gap:7px}.step{border:1px solid var(--line);border-radius:50%;width:21px;height:21px;justify-content:center;font-size:10px;background:white}.current .step{background:var(--green);color:white;border-color:var(--green)}.summary{display:grid;grid-template-columns:1.5fr 1fr 1fr;gap:20px;background:white;border:1px solid var(--line);border-radius:10px;padding:19px 22px}.summary>div+div{border-left:1px solid var(--line);padding-left:24px}.value{font-size:22px;font-weight:600;letter-spacing:-.5px;margin:4px 0;font-variant-numeric:tabular-nums}.account{font-size:13px;margin:6px 0}.callout{display:flex;justify-content:space-between;align-items:center;gap:16px;background:#fff9ec;border:1px solid #e9d9b5;border-radius:8px;padding:14px 18px;margin:20px 0}.callout strong{font-size:13px}.callout p{font-size:12px;color:#7d6949;margin:3px 0 0}.tabs{display:flex;gap:24px;border-bottom:1px solid var(--line);margin-top:23px}.tab{border:0;border-radius:0;padding:12px 0;background:transparent;color:var(--muted);font-size:13px}.tab[aria-selected=true]{color:var(--green);box-shadow:0 2px var(--green);font-weight:650}.tab span{margin-left:5px;font-size:11px}.toolbar{display:flex;justify-content:space-between;gap:10px;padding:18px 0}.segments{display:flex;gap:5px}.segments button{font-size:12px;padding:6px 10px;background:transparent;border-color:transparent}.segments button[aria-pressed=true]{background:#fff;border-color:var(--line);box-shadow:0 1px 2px #26352f09}.search{background:white;border:1px solid var(--line);border-radius:6px;padding:7px 10px;width:190px;font-size:12px}.review{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(300px,1fr);border:1px solid var(--line);border-radius:10px;background:white;overflow:hidden}.list{border-right:1px solid var(--line)}.list-head,.transaction{display:grid;grid-template-columns:1fr 92px;gap:10px}.list-head{font-size:10px;letter-spacing:.8px;text-transform:uppercase;background:#fafbf8;padding:12px 18px;color:var(--muted)}.transaction{width:100%;border:0;border-top:1px solid #edf0eb;border-radius:0;text-align:left;padding:16px 18px;position:relative}.transaction.selected{background:#edf4ed;box-shadow:inset 3px 0 var(--green)}.transaction strong{display:block;font-size:13px;font-weight:600}.transaction small{display:block;font-size:11px;margin-top:4px}.amount{text-align:right;font-size:13px;font-variant-numeric:tabular-nums}.amount .badge{margin-top:6px;font-size:10px}.positive{color:var(--green)}.list-footer{font-size:11px;color:var(--muted);padding:13px 18px;border-top:1px solid var(--line)}.detail{padding:22px}.detail-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:21px}.detail h2{font-size:20px;letter-spacing:-.4px}.detail .total{font-size:27px;letter-spacing:-.8px;margin-top:17px}.detail hr{border:0;border-top:1px solid var(--line);margin:20px 0}.question{background:#fff9ec;border:1px solid #efdfbc;border-radius:7px;padding:13px;margin:18px 0}.question p{font-size:12px;color:#78613d}.field{display:block;font-size:11px;font-weight:600;margin:16px 0 6px}select{width:100%;padding:9px;background:#fff;border:1px solid #cdd8ce;border-radius:6px;color:inherit;font-size:12px}.post{display:flex;justify-content:space-between;gap:10px;padding:10px 0;font-size:11px;border-bottom:1px solid #eef1eb}.post code{overflow-wrap:anywhere}.post span{white-space:nowrap}.actions{display:flex;gap:8px;margin-top:16px}.actions button{font-size:12px}.detail details{font-size:12px;margin-top:20px;color:var(--muted)}summary{cursor:pointer}details p{padding-top:6px}.bottom{display:flex;justify-content:space-between;align-items:center;gap:20px;padding:22px 0}.bottom small{max-width:420px}footer{border-top:1px solid var(--line);padding-top:16px;font-size:11px;color:var(--muted)}.panel{background:white;border:1px solid var(--line);border-radius:9px;margin-top:20px;padding:23px}.panel p{font-size:13px}.diff{background:#f3f7f0;color:#305a36;border:1px solid #dce7d7;padding:20px;border-radius:7px;overflow:auto;font-size:12px;line-height:1.8}.hidden{display:none!important}.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#263e31;color:#fff;padding:12px 20px;border-radius:8px;box-shadow:0 6px 28px #0002;font-size:13px;max-width:90vw;z-index:5}.empty{padding:24px;color:var(--muted)}@media(min-width:1450px){main{padding:36px 48px}.transaction{padding-top:20px;padding-bottom:20px}}@media(max-width:1050px){.shell{grid-template-columns:185px minmax(0,1fr)}main{padding:24px 20px}.review{grid-template-columns:1fr}.list{border-right:0;border-bottom:1px solid var(--line)}.summary{gap:10px;padding:16px}.summary>div+div{padding-left:12px}.steps{gap:12px}}@media(max-width:640px){.topbar{padding:0 16px}.topbar>small{display:none}.shell{display:block}aside{padding:14px;border-right:0;border-bottom:1px solid var(--line)}.workspace,.side-note,aside>.eyebrow{display:none}aside nav{display:flex}.navitem{width:auto;flex:1;padding:8px}.navitem small{display:none}main{padding:20px 16px}.heading{align-items:flex-start}.heading>.badge{display:none}h1{font-size:24px}.summary{grid-template-columns:1fr 1fr}.summary>div:first-child{grid-column:1/-1}.summary>div:nth-child(2){border-left:0;padding-left:0}.value{font-size:20px}.steps{gap:8px;font-size:10px}.toolbar,.bottom{align-items:stretch;flex-direction:column}.search{width:100%}.callout{align-items:flex-start}.callout button{white-space:nowrap;font-size:12px}.tabs{gap:20px}}
+.transfer-note{background:#eef4ed;border:1px solid #d6e3d4;border-radius:8px;padding:14px;margin:18px 0}.transfer-note p{font-size:12px}.transfer-note button{font-size:12px}.segments{flex-wrap:wrap}.post span{flex-shrink:0}#statementNavs{min-width:0}@media(max-width:640px){aside nav{flex-wrap:wrap}#statementNavs{display:flex;width:100%;gap:5px}.navitem strong{font-size:11px}.detail-top{flex-wrap:wrap;gap:8px}}
+.posting-editor{margin-top:18px}.posting-editor p{font-size:12px}.posting-fields{border:1px solid var(--line);border-radius:8px;margin:14px 0;padding:12px;display:grid;grid-template-columns:1fr 1fr;gap:10px;min-width:0}.posting-fields legend{font-size:12px;font-weight:600}.posting-fields label{font-size:11px;min-width:0}.posting-fields label:first-of-type{grid-column:1/-1}.posting-fields input{width:100%;padding:8px;border:1px solid var(--line);border-radius:5px;background:white;color:inherit;font-size:12px}.posting-fields button{font-size:11px;grid-column:1/-1;justify-self:start}.posting-editor .actions{flex-wrap:wrap}
+</style>
+</head>
+<body>
+<header class="topbar"><div class="brand"><span class="mark">a b</span> auto bean <span class="prototype">Design prototype</span></div><small>Synthetic data · changes stay in this page</small></header>
+<div id="loading" class="panel" role="status">Loading synthetic JSON fixtures…</div><div class="shell hidden" id="prototypeApp">
+<aside><div class="workspace"><div class="eyebrow">Ledger workspace</div><strong>Personal finances</strong><small>October 2026 import</small></div><div class="eyebrow" style="padding:0 12px 8px">This session</div><nav aria-label="Statements"><button class="navitem" id="sessionNav"><span><strong>Session overview</strong><small>Prices & import activity</small></span></button><div id="statementNavs"></div></nav><div class="side-note">Three statements, one connected review.<br><br>Review the mappings and transactions. After approval, the agent writes the ledger and checks the results.</div></aside>
+<main>
+<div class="heading" id="statementHeading"><div><div class="eyebrow">Statement review</div><h1 id="statementTitle">Everyday account</h1><p id="statementFile" class="muted" style="font-size:12px">checking-october.csv <span style="padding:0 7px">/</span> 1–20 October 2026</p></div><span class="badge">✓ Extraction complete</span></div>
+<div id="statementSteps" class="steps" aria-label="Import progress"><span><span class="step">✓</span>Extract statement</span><span class="current"><span class="step">2</span>Review & clarify</span><span><span class="step">3</span>Approve & validate</span></div>
+<section id="accountSummary" class="summary" aria-label="Account summary"><div><small>Ledger account</small><div id="ledgerAccount" class="account mono">Assets:Bank:Checking</div><span class="badge">✓ Mapping confirmed</span></div><div><small>Statement closing balance</small><div id="closingBalance" class="value">2,276.21 <small>EUR</small></div><small id="openingBalance">Opening balance 1,200.00 EUR</small></div><div><small>Ledger validation</small><div class="value" id="balanceStatus">Not written</div><small id="balanceNote">Closing balance checked after writing</small></div></section>
+<div class="callout" id="callout"><div><strong id="calloutTitle">One transaction needs your input</strong><p>Resolve the question before approving this statement.</p></div><button id="resolve">Review item →</button></div>
+<div id="reviewTabs" class="tabs" role="tablist" aria-label="Review sections"><button class="tab" role="tab" aria-selected="true" data-tab="transactions">Transactions <span>6</span></button><button class="tab" role="tab" aria-selected="false" data-tab="changes">Approval & validation</button><button class="tab" role="tab" aria-selected="false" data-tab="activity">Activity</button></div>
+<section id="transactions" role="tabpanel"><div class="toolbar"><div class="segments" aria-label="Filter transactions"><button aria-pressed="true" data-filter="all">All transactions</button><button aria-pressed="false" data-filter="needs">Needs input <span id="filterCount">1</span></button><button aria-pressed="false" data-filter="transfers">Transfers</button></div><input class="search" id="search" type="search" placeholder="Search transactions…" aria-label="Search transactions"></div><div class="review"><div class="list"><div class="list-head"><span>Transaction</span><span style="text-align:right">Amount · EUR</span></div><div id="rows"></div><div class="list-footer" id="rowCount">6 transactions · ordered by date</div></div><section class="detail" id="detail" aria-label="Selected transaction"></section></div></section>
+<section id="changes" class="hidden" role="tabpanel"><div class="panel"><div class="detail-top"><h2>Approval and ledger validation</h2><span class="badge" id="changeStatus"></span></div><p>Approval covers this statement’s current account mappings, transaction postings and dispositions. The import agent writes the ledger, then checks every source row and closing balance.</p><p id="confirmation" class="muted"></p><div class="question hidden" id="blockers" role="status"></div><div class="post"><span>Account mapping</span><code id="approvalAccount">Assets:Bank:Checking</code></div><div class="post"><span>Transactions</span><span id="approvalRows"></span></div><div class="post"><span>Dispositions</span><span id="dispositions"></span></div><p id="transferApproval" class="muted"></p><div class="actions"><button id="approve" class="primary" disabled>Approve reviewed transactions</button><button id="reject" disabled>Reject</button></div></div><div class="panel"><div class="detail-top"><h2 id="validationTitle">Review readiness validation</h2><span class="badge" id="validationBadge"></span></div><p id="validationText"></p><p id="validationEvidence" class="muted"></p></div></section>
+<section id="prices" class="hidden"><div class="panel"><div class="detail-top"><h2>Session & prices</h2><span id="priceSummary" class="badge"></span></div><p id="priceRun"></p><p class="muted" id="priceCoverage"></p><div class="post" id="priceJob"></div><pre class="diff" id="priceDirective"></pre><small id="priceNote"></small><p id="priceConfirmation"></p><div class="actions"><button class="primary" id="approvePrices">Approve price directives</button></div><hr><h3 id="priceValidationTitle">Review readiness validation</h3><p id="priceValidation"></p></div></section>
+<section id="activity" class="hidden" role="tabpanel"><div class="panel"><h2>Import activity</h2><div id="events"><p>10:42 · Account mapping confirmed</p><p>10:41 · Source rows extracted; closing balance check awaits ledger writing</p><p>10:41 · Transfer question raised</p><p>10:40 · 6 transactions extracted from checking-october.csv</p></div></div></section>
+<div id="bottomActions" class="bottom"><small id="bottomText">Approval confirms the reviewed data. The agent then writes the ledger and validates the source rows and closing balances.</small><button class="primary" id="reviewChanges">Review approval →</button></div><details class="panel" style="margin:0 0 20px"><summary>Demo controls</summary><p class="muted">Simulate agent outcomes and conflicts. All changes stay in this page.</p><label class="field" for="scenario">Statement state</label><select id="scenario"><option value="normal">Current review</option><option value="snapshot">Statement and transactions from different snapshots</option><option value="stale">Ledger changed · validation stale</option><option value="written">Agent finished · ledger validation passed</option><option value="failed">Agent finished · closing balance mismatch</option></select><small id="scenarioHint"></small><label class="field" for="priceScenario">Price state</label><select id="priceScenario"><option value="review">Review ready</option><option value="written">Agent finished · price validation passed</option><option value="stale">Ledger changed · price validation stale</option></select></details><details class="panel"><summary>Fixture data sources</summary><p>Synthetic session loaded from JSON. Demo edits and outcomes are held in memory; Reset reloads the files.</p><p>Status: <strong id="fixtureStatus"></strong></p><p><a href="./fixtures/session.json" target="_blank" rel="noopener">session.json</a> · <a href="./fixtures/import-status.json" target="_blank" rel="noopener">import-status.json</a></p><p><a id="fixtureParsed" target="_blank" rel="noopener"></a></p></details><footer>Local design prototype · Synthetic October statements · <button class="quiet" id="reset" style="font-size:11px;padding:0 4px">Reset demo</button></footer>
+</main></div><div id="toast" role="status" class="toast hidden"></div>
+<script>
+// Domain data comes exclusively from the synthetic workspace fixtures.
+let statements={},transfers={},sessionData,statusData,loadedDocuments=[];
+async function readFixture(path){
+ if(path.startsWith('/')||path.split('/').includes('..'))throw new Error('Invalid fixture path: '+path);
+ const response=await fetch('./fixtures/'+path,{cache:'no-store'});
+ if(!response.ok)throw new Error(path+': HTTP '+response.status);
+ return response.json();
+}
+async function loadFixtures(){
+ [sessionData,statusData]=await Promise.all([readFixture('session.json'),readFixture('import-status.json')]);
+ if(sessionData.schema_version!==1||statusData.version!==1||!sessionData.statements?.length)throw new Error('Unsupported or empty fixture session.');
+ loadedDocuments=await Promise.all(sessionData.statements.map(item=>readFixture(item.parsed_statement)));
+ const sourceIds=new Map();
+ loadedDocuments.forEach((doc,i)=>{
+  const membership=sessionData.statements[i],status=statusData.statements[membership.source_file];
+  if(doc.schema_version!==2||doc.source_file!==membership.source_file||status?.parsed_statement!==membership.parsed_statement||status?.source_fingerprint!==doc.source_fingerprint)throw new Error('Fixture identity mismatch: '+membership.source_file);
+  if(doc.statement_metadata.accounts.length!==1)throw new Error('This prototype currently displays one account per statement.');
+  const a=doc.statement_metadata.accounts[0],id=a.account_id;
+  if(statements[id])throw new Error('Duplicate fixture account ID: '+id);
+  sourceIds.set(doc.source_file,id);
+  const rows=doc.extracted_records.map(r=>{
+   if(r.account_id!==id)throw new Error('Unknown source account on '+r.record_id);
+   const d=r.review,ps=d.postings.map(p=>({account:p.account,amount:Number(p.amount),currency:p.currency,cost:p.cost??null,price:p.price??null}));
+   const complex=ps.length!==2||ps.some(p=>p.cost||p.price||p.currency!==r.currency);
+   return {id:r.record_id,name:r.description,day:Number(r.transaction_date.slice(-2)),date:r.transaction_date,amount:Number(r.amount),currency:r.currency,category:d.state==='needs_input'?'Needs clarification':d.disposition==='paired_transfer'?'Internal transfer':complex?'Multiple postings':ps[1]?.account.split(':').slice(1).join(' / ')??d.disposition,account:ps[1]?.account,note:d.rationale,needs:d.state==='needs_input'||d.disposition==='hold',source:r.raw_fields?.reference??r.source_reference,sourceReference:r.source_reference,disposition:d.disposition,links:d.linked_records??[],postingOwner:d.posting_owner,allPostings:ps,...(complex?{postings:ps}:{})};
+  }).sort((a,b)=>b.date.localeCompare(a.date));
+  statements[id]={name:a.account_name??id,file:doc.source_file.split('/').at(-1),source:doc.source_file,parsedPath:membership.parsed_statement,period:doc.statement_metadata.statement_period,account:a.review.ledger_account,opening:Number(a.opening_balance.amount),closing:Number(a.closing_balance.amount),currency:a.primary_currency,rows,fixtureValidation:doc.review.validation??null,status:status.current_status,initialStatus:status.current_status,extraction:doc.extraction_state,processing:doc.review.processing,touched:false};
+ });
+ for(const [id,s] of Object.entries(statements))for(const r of s.rows.filter(r=>r.disposition==='paired_transfer')){
+  if(r.links.length!==1)throw new Error('Expected one counterpart for '+r.id);
+  const link=r.links[0],peerId=sourceIds.get(link.source_file),peer=statements[peerId]?.rows.find(p=>p.id===link.record_id);
+  if(!peer||link.account_id!==peerId||peer.disposition!=='paired_transfer'||peer.postingOwner!==r.postingOwner||![s.source,link.source_file].includes(r.postingOwner)||!peer.links.some(l=>l.source_file===s.source&&l.record_id===r.id&&l.account_id===id)||peer.amount+r.amount!==0||peer.currency!==r.currency)throw new Error('Invalid reciprocal transfer: '+r.id);
+  const members=[[id,r.id],[peerId,peer.id]].sort((a,b)=>a.join('/').localeCompare(b.join('/'))),key=JSON.stringify(members);
+  const ownerRow=r.postingOwner===s.source?r:peer;
+  if(JSON.stringify(r.allPostings)!==JSON.stringify(peer.allPostings))throw new Error('Transfer postings disagree: '+r.id);
+  transfers[key]={reference:r.source,postings:ownerRow.allPostings,members,postingOwner:r.postingOwner};r.pair=key;
+ }
+}
+function initializeView(){for(const s of Object.values(statements))Object.assign(s,{selected:0,filter:'all',search:'',drafts:new Map(),revision:1,approval:null,rejected:false,scenario:'normal',events:[s.processing.evidence.join(' · '),'Loaded status: '+s.status]});
+}
+let active='',view='transactions',timer,priceApproved=false,priceState='review';
+const $=id=>document.getElementById(id),current=()=>statements[active];
+const fmt=n=>n.toLocaleString('en-GB',{minimumFractionDigits:2,maximumFractionDigits:2});
+const money=n=>(n<0?'−':'+')+fmt(Math.abs(n));
+const esc=s=>String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('"','&quot;');
+const done=()=>current().scenario==='written';
+const approved=s=>s.approval===s.revision;
+const entries=(s,r)=>r.pair?transfers[r.pair].postings:r.allPostings;
+function toast(text){$('toast').textContent=text;$('toast').classList.remove('hidden');clearTimeout(timer);timer=setTimeout(()=>$('toast').classList.add('hidden'),4500)}
+function event(text){current().events.unshift(text);renderEvents()}
+function renderEvents(){$('events').innerHTML=current().events.map(text=>'<p>Demo · '+esc(text)+'</p>').join('')}
+function renderNav(){
+ $('statementNavs').innerHTML=Object.entries(statements).map(([id,s])=>{const n=s.rows.filter(r=>r.needs).length;return '<button class="navitem '+(id===active&&view!=='prices'?'active':'')+'" data-statement="'+id+'"><span><strong>'+s.name+'</strong><small>'+s.period.start_date+' – '+s.period.end_date+' · '+s.rows.length+' transactions'+(s.drafts.size?' · draft':'')+'</small></span>'+(n?'<span class="count">'+n+'</span>':approved(s)?'<span class="badge">✓</span>':'')+'</button>'}).join('');
+ document.querySelectorAll('[data-statement]').forEach(b=>b.onclick=()=>selectStatement(b.dataset.statement));
+ $('sessionNav').classList.toggle('active',view==='prices');
+}
+function selectStatement(id,rowId){active=id;const s=current();if(rowId){s.selected=s.rows.findIndex(r=>r.id===rowId);s.search='';s.filter='all'}view='transactions';$('search').value=s.search;$('scenario').value=s.scenario;renderAll();tab('transactions')}
+function renderHeader(){const s=current();$('statementTitle').textContent=s.name;$('statementFile').textContent=s.file+' / '+s.period.start_date+' – '+s.period.end_date;$('ledgerAccount').textContent=s.account;$('closingBalance').innerHTML=fmt(s.closing)+' <small>EUR</small>';$('openingBalance').textContent='Opening balance '+fmt(s.opening)+' EUR';document.querySelector('[data-tab="transactions"]').innerHTML='Transactions <span>'+s.rows.length+'</span>';document.querySelectorAll('[data-filter]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.filter===s.filter))}
+function renderRows(){
+ const s=current(),visible=s.rows.map((r,i)=>({...r,i})).filter(r=>(s.filter!=='needs'||r.needs)&&(s.filter!=='transfers'||r.pair)&&(r.name+' '+r.category).toLowerCase().includes(s.search.toLowerCase()));
+ $('rows').innerHTML=visible.map(r=>'<button class="transaction '+(s.selected===r.i?'selected':'')+'" aria-pressed="'+(s.selected===r.i)+'" data-row="'+r.i+'"><span><strong>'+r.name+'</strong><small>'+r.day+' Oct · '+r.category+(s.drafts.has(r.id)?' · Unsaved edit':'')+'</small></span><span class="amount '+(r.amount>0?'positive':'')+'">'+money(r.amount)+(r.needs?'<br><span class="badge warn">Needs input</span>':r.pair?'<br><span class="badge">Linked</span>':'')+'</span></button>').join('')||'<div class="empty">No matching transactions.</div>';
+ $('rowCount').textContent=visible.length+' of '+s.rows.length+' source rows · ordered by date';
+ document.querySelectorAll('[data-row]').forEach(b=>b.onclick=()=>{s.selected=Number(b.dataset.row);renderRows();renderDetail()});
+}
+// Fixed-point arithmetic keeps split and cost checks independent of float rounding.
+const UNIT=100000000n;
+function decimal(value){
+ const text=String(value).trim();
+ if(!/^[+-]?\d+(?:\.\d{1,8})?$/.test(text))throw new Error('Use a decimal with up to 8 decimal places.');
+ const negative=text.startsWith('-'),parts=text.replace(/^[+-]/,'').split('.');
+ return (negative?-1n:1n)*(BigInt(parts[0])*UNIT+BigInt((parts[1]??'').padEnd(8,'0')));
+}
+function checkPostings(s,r,ps){
+ const errors=[],totals=new Map();let source=0n;
+ if(ps.length<2)errors.push('Keep at least two postings.');
+ ps.forEach((p,i)=>{try{
+  if(!/^(Assets|Liabilities|Equity|Income|Expenses)(?::[A-Z][A-Za-z0-9-]*)+$/.test(p.account.trim()))throw new Error('Enter a full ledger account such as Expenses:Dining.');
+  if(!/^[A-Z][A-Z0-9._-]*$/.test(p.currency.trim()))throw new Error('Enter a currency or commodity such as EUR or VWCE.');
+  const amount=decimal(p.amount);let currency=p.currency.trim(),weight=amount*UNIT;
+  if(p.cost?.trim()&&p.price?.trim())throw new Error('Use either unit cost or unit price in this prototype.');
+  const annotation=p.cost?.trim()||p.price?.trim();
+  if(annotation){const match=annotation.match(/^(\d+(?:\.\d{1,8})?)\s+([A-Z][A-Z0-9._-]*)$/);if(!match)throw new Error('Use an explicit unit value and currency, for example 110.00 EUR.');const rate=decimal(match[1]);if(rate<=0n)throw new Error('Unit cost or price must be positive.');weight=amount*rate;currency=match[2];}
+  totals.set(currency,(totals.get(currency)??0n)+weight);
+  if(p.account.trim()===s.account){if(p.currency.trim()!==r.currency||annotation)throw new Error('The statement cash posting must keep its original currency without cost or price.');source+=amount;}
+ }catch(e){errors.push('Posting '+(i+1)+': '+e.message)}});
+ if(source!==decimal(r.amount))errors.push('Statement cash postings must total '+money(r.amount)+' '+r.currency+'.');
+ if(!errors.length)for(const [currency,total]of totals)if(total!==0n)errors.push('Unbalanced '+currency+': difference '+(Number(total)/1e16).toLocaleString('en-GB',{maximumFractionDigits:8})+'.');
+ return errors;
+}
+function renderPostingEditor(){
+ const s=current(),r=s.rows[s.selected],draft=s.drafts.get(r.id);if(!draft?.postings)return;
+ const ps=draft.postings,locked=done();
+ $('complexEditor').innerHTML='<div class="posting-editor"><div class="detail-top"><h3>Edit postings</h3><small>Draft · '+ps.length+' lines</small></div><p class="muted">Split amounts and fees across accounts. Unit cost preserves acquisition cost; unit price converts a posting for balancing. Use “110.00 EUR”.</p>'+ps.map((p,i)=>'<fieldset class="posting-fields" '+(locked?'disabled':'')+'><legend>Posting '+(i+1)+'</legend>'+['account','amount','currency','cost','price'].map(key=>'<label>'+({account:'Account',amount:'Amount / units',currency:'Currency / commodity',cost:'Unit cost (optional)',price:'Unit price (optional)'}[key])+'<input data-post="'+i+'" data-field="'+key+'" aria-label="Posting '+(i+1)+' '+key+'" value="'+esc(p[key]??'')+'" '+(key==='amount'?'inputmode="decimal"':'')+'></label>').join('')+'<button type="button" data-remove="'+i+'">Remove posting '+(i+1)+'</button></fieldset>').join('')+'<div id="postingErrors" role="status" class="question"></div><div class="actions"><button id="addPosting" '+(locked?'disabled':'')+'>Add posting</button><button class="primary" id="savePostings" '+(locked?'disabled':'')+'>Save postings</button><button id="discardPostings">Discard edits</button></div><small>Supports explicit amounts and simple unit costs/prices. Lot dates, labels and total-cost syntax are outside this prototype.</small></div>';
+ function update(){const errors=checkPostings(s,r,ps);$('postingErrors').textContent=errors.length?errors.join(' '):'Balanced. Statement cash amount preserved.';$('savePostings').disabled=locked||errors.length>0;renderRows();sync()}
+ document.querySelectorAll('[data-post]').forEach(input=>input.oninput=()=>{ps[Number(input.dataset.post)][input.dataset.field]=input.value;update()});
+ document.querySelectorAll('[data-remove]').forEach(b=>b.onclick=()=>{ps.splice(Number(b.dataset.remove),1);renderPostingEditor()});
+ $('addPosting').onclick=()=>{ps.push({account:'Expenses:',amount:'0.00',currency:r.currency,cost:'',price:''});renderPostingEditor()};
+ $('discardPostings').onclick=()=>{s.drafts.delete(r.id);renderRows();renderDetail();sync()};
+ $('savePostings').onclick=()=>{
+  if(done()||checkPostings(s,r,ps).length)return;
+  r.allPostings=ps.map(p=>({account:p.account.trim(),amount:p.amount.trim(),currency:p.currency.trim(),cost:p.cost.trim()||null,price:p.price.trim()||null}));r.postings=r.allPostings;r.account=r.allPostings[1].account;r.originalNote??=r.note;r.note='Posting corrections saved in this prototype. Original source reasoning is retained below.';
+  s.drafts.delete(r.id);s.revision++;s.touched=true;s.scenario='normal';$('scenario').value='normal';s.rejected=false;
+  // A posting edit does not answer a separate clarification question.
+  s.status=s.rows.some(row=>row.needs)?'categorize_blocked':'final_review';
+  event('Posting corrections saved for '+r.name);renderRows();renderDetail();sync();toast('Demo postings saved. Previous approval no longer covers this revision.');
+ };
+ update();
+}
+
+function renderDetail(){
+ const s=current(),r=s.rows[s.selected],draft=s.drafts.get(r.id),account=draft??r.account;
+ let link='';
+ if(r.pair){const t=transfers[r.pair],peer=t.members.find(([id])=>id!==active),other=statements[peer[0]],otherRow=other.rows.find(row=>row.id===peer[1]);link='<div class="transfer-note"><h3>Matched internal transfer</h3><p>'+s.name+' '+money(r.amount)+' EUR<br>'+other.name+' '+money(otherRow.amount)+' EUR</p><p>Reference '+t.reference+' · One shared entry for both source rows. Do not post the receipt again.</p><button id="linkedRow">View matching row →</button><small style="display:block;margin-top:8px">'+(approved(other)?'Other statement approved.':'Other statement awaiting approval.')+'</small></div>'}
+ let editor='';
+ if(!r.pair&&!r.postings){const choices=[...new Set([r.account,'Expenses:Dining','Expenses:Food:Groceries','Expenses:Investments:Fees','Expenses:Bank:Fees','Assets:Receivables:Alex'])];editor='<label class="field" for="category">Posting account</label><select id="category" '+(done()?'disabled':'')+'>'+choices.map(a=>'<option '+(a===account?'selected':'')+'>'+a+'</option>').join('')+'</select><div class="actions"><button class="primary" id="save" '+(done()||(!r.needs&&!draft)?'disabled':'')+'>'+(r.needs?'Confirm category':'Save correction')+'</button><button id="discard" '+(!draft?'disabled':'')+'>Discard edit</button></div>'}
+ if(r.postings&&!r.pair)editor='<div id="complexEditor">'+(done()?'':'<button id="editPostings">Edit postings</button>')+'</div>';
+ const ps=entries(s,r).map(p=>({...p}));if(typeof draft==='string')ps[1].account=draft;
+ $('detail').innerHTML='<div class="detail-top"><span class="eyebrow">Transaction detail</span><span class="badge '+(r.needs?'warn':'')+'">'+(r.needs?'Needs input':done()?'Written & checked':r.pair?'Linked transfer':r.postings?'Multiple postings':'Ready for review')+'</span></div><h2>'+r.name+'</h2><small>'+r.date+' · '+s.name+'</small><div class="total">'+money(r.amount)+' <small>EUR</small></div>'+(r.needs?'<div class="question"><h3>Clarification needed</h3><p>'+r.note+'</p></div>':'<p class="muted" style="font-size:12px;margin-top:16px">'+r.note+'</p>')+link+editor+'<small style="display:block;margin-top:12px">'+(done()?'Statement complete. Request rework in conversation before changing decisions.':r.pair?'Linked transfer postings are shared and read-only in this prototype.':'Save or discard edits before approving this statement.')+'</small><hr><h3>'+(r.pair?'Shared ledger entry':'Proposed postings')+' · '+r.disposition.replaceAll('_',' ')+'</h3>'+ps.map((p,i)=>'<div class="post"><code '+(i===1?'id="postingAccount"':'')+'>'+esc(p.account)+'</code><span>'+money(p.amount)+' '+p.currency+(p.cost?'<br><small>{'+esc(p.cost)+' / unit}</small>':'')+(p.price?'<br><small>@ '+esc(p.price)+' / unit</small>':'')+'</span></div>').join('')+'<details><summary>Source & reasoning</summary><p class="mono">'+r.source+'</p><p>'+s.file+' · '+r.sourceReference+' · record '+r.id+'<br>'+(r.originalNote??r.note)+'</p></details>';
+ if($('editPostings'))$('editPostings').onclick=()=>{s.drafts.set(r.id,{postings:entries(s,r).map(p=>({account:p.account,amount:String(p.amount),currency:p.currency,cost:p.cost??'',price:p.price??''}))});renderPostingEditor()};
+ if(r.postings&&draft?.postings)renderPostingEditor();
+ if(r.pair)$('linkedRow').onclick=()=>{const peer=transfers[r.pair].members.find(([id])=>id!==active);selectStatement(...peer);$('detail').scrollIntoView({behavior:'smooth',block:'nearest'})};
+ if($('category')){
+ $('category').onchange=()=>{if($('category').value===r.account)s.drafts.delete(r.id);else s.drafts.set(r.id,$('category').value);$('postingAccount').textContent=$('category').value;$('save').disabled=!r.needs&&!s.drafts.has(r.id);$('discard').disabled=!s.drafts.has(r.id);renderRows();sync()};
+ $('discard').onclick=()=>{s.drafts.delete(r.id);renderRows();renderDetail();sync()};
+ $('save').onclick=()=>{r.account=$('category').value;r.category=r.account.split(':').slice(1).join(' / ');r.needs=false;r.disposition='post';r.note='Category confirmed in this prototype.';s.drafts.delete(r.id);r.allPostings[1].account=r.account;s.revision++;s.touched=true;s.status=s.rows.some(row=>row.needs)?'categorize_blocked':'final_review';s.rejected=false;event('Category saved for '+r.name);renderRows();renderDetail();sync();toast('Demo correction saved. Agent notified; waiting for its outcome.')};
+ }
+}
+function sync(){
+ const s=current(),n=s.rows.filter(r=>r.needs).length,issues=[];
+ if(n)issues.push('Resolve all required input before approval.');
+ if(s.status!=='final_review'&&!done())issues.push('Statement status: '+s.status.replaceAll('_',' ')+'. Waiting for final review.');
+ if(s.drafts.size)issues.push('Save or discard '+s.drafts.size+' unsaved edit(s) before approving.');
+ if(s.scenario==='snapshot')issues.push('Statement and transaction views are from different snapshots. Refresh before approval.');
+ if(s.rejected)issues.push('Review rejected. Waiting for the agent to revise the reviewed data.');
+ if(done())issues.push('Statement complete. Request explicit rework in conversation to change decisions.');
+ $('filterCount').textContent=n;$('callout').classList.toggle('hidden',!n||view==='prices');$('calloutTitle').textContent=n+' transaction'+(n===1?'':'s')+' need'+(n===1?'s':'')+' your input';
+ $('approve').disabled=issues.length>0||approved(s);$('reject').disabled=issues.length>0;
+ $('blockers').textContent=issues.join(' ');$('blockers').classList.toggle('hidden',!issues.length);
+ $('changeStatus').textContent=done()?'Complete':approved(s)?'Panel confirmation saved':n?'Needs input':s.rejected?'Rejected':'Ready for review';
+ $('confirmation').textContent=approved(s)?'Panel confirmation saved for '+s.name+'. '+(done()?'Agent completion recorded in this demo.':'Waiting for the agent to write and validate the ledger.'):s.approval!==null?'The reviewed data changed. Review it again before approval.':'No panel confirmation. Approval can also be given in conversation.';
+ $('approvalAccount').textContent=s.account;$('approvalRows').textContent=s.rows.length+' source rows · '+s.rows.filter(r=>r.postings).length+' with split postings';
+ const counts={};s.rows.forEach(r=>counts[r.disposition]=(counts[r.disposition]||0)+1);$('dispositions').textContent=Object.entries(counts).map(([k,v])=>v+' '+k.replaceAll('_',' ')).join(' · ');
+ const peers=[...new Set(s.rows.filter(r=>r.pair).flatMap(r=>transfers[r.pair].members.map(([id])=>id)).filter(id=>id!==active))];
+ const pending=peers.filter(id=>!approved(statements[id])||statements[id].drafts.size||statements[id].rejected||statements[id].scenario==='snapshot');
+ $('transferApproval').textContent=peers.length?'Shared transfers: each pair produces one entry. '+(pending.length?'Waiting for '+pending.map(id=>statements[id].name).join(', ')+' to approve their reviewed data before the shared entries are written.':'Both sides of each transfer are approved; the agent can write each shared entry once.'):'';
+ const written=['written','failed'].includes(s.scenario);
+ $('validationTitle').textContent=written?'Ledger write validation':'Review readiness validation';
+ $('validationBadge').textContent=s.scenario==='stale'?'Stale result':s.scenario==='failed'?'Failed':written?'Passed':n?'Not ready':'Passed';
+ $('validationBadge').classList.toggle('warn',['stale','failed'].includes(s.scenario)||n>0);
+ $('validationText').textContent=s.scenario==='stale'?'Ledger or reviewed data changed. Previous validation is stale.':written?s.rows.length+' source rows checked. Expected '+fmt(s.closing)+' EUR · Ledger '+fmt(s.closing-(s.scenario==='failed'?120:0))+' EUR · '+(s.scenario==='failed'?'Mismatch.':'Matched.'):n?'Required input remains unresolved. Transactions have not been written.':s.rows.length+' source rows checked. Proposed import is ready for review. This does not confirm that transactions have been written.';
+ $('validationEvidence').textContent=written?'Synthetic agent outcome · checked just now · linked source rows covered by their shared entries':s.scenario==='stale'?'A fresh validation result is needed.':'Closing balances are checked after ledger writing.';
+ $('balanceStatus').textContent=written?(s.scenario==='failed'?'Mismatch':'Matched'):s.scenario==='stale'?'Stale result':'Not written';$('balanceNote').textContent=written?(s.scenario==='failed'?'Difference −120.00 EUR':'Difference 0.00 EUR'):'Closing balance checked after writing';
+ $('scenarioHint').textContent='Completion requires this statement and linked statements to be approved, with no unsaved edits or snapshot conflicts.';
+ document.querySelectorAll('#scenario option').forEach(o=>{if(['written','failed'].includes(o.value))o.disabled=!approved(s)||s.drafts.size>0||n>0||pending.length>0||s.scenario==='snapshot'});
+ if(s.scenario==='normal'&&!s.touched){
+ const v=s.fixtureValidation;
+ $('validationTitle').textContent=v?.stage==='written'?'Ledger write validation':'Review readiness validation';
+ $('validationBadge').textContent=v?v.state:'Not available';
+ $('validationBadge').classList.toggle('warn',v?.state==='failed');
+ $('validationText').textContent=v?v.records_checked+' source rows checked · '+(v.errors.length?v.errors.join(' '):'Proposed import checked; this does not confirm ledger writing.'):'No validation result recorded in the fixture.';
+ $('validationEvidence').textContent=v?'Synthetic result recorded '+v.checked_at:'Closing balances are checked after ledger writing.';
+ }
+ $('fixtureStatus').textContent=s.status.replaceAll('_',' ');
+ $('fixtureParsed').href='./fixtures/'+s.parsedPath;$('fixtureParsed').textContent=s.parsedPath;
+ renderNav();syncPrices();
+}
+function syncPrices(){
+ const run=sessionData.price_runs[0];
+ $('priceSummary').textContent=Object.keys(statements).length+' statements · '+Object.values(statements).reduce((n,s)=>n+s.rows.length,0)+' source rows · '+sessionData.price_runs.length+' price run';
+ $('priceRun').textContent=run.run_id+' · '+run.requested_date+' · '+run.state;
+ $('priceCoverage').textContent='Required: '+run.required_commodities.join(', ')+' · Coverage: '+run.coverage.join(', ')+' · Preflight '+run.preflight+' · '+run.preflight_job_count+' job';
+ $('priceJob').textContent=run.jobs.map(j=>j.commodity+' · '+j.outcome+' · quote '+j.quote_date).join(' / ');
+ $('priceDirective').textContent=run.jobs.map(j=>j.directive??'').join('\n');
+ $('priceNote').textContent=run.detail;
+ 
+ $('priceConfirmation').textContent=priceApproved?'Price panel confirmation saved. '+(priceState==='written'?'Agent completion recorded.':'Waiting for agent outcome.'):'No panel confirmation. Approval can also be given in conversation.';
+ $('approvePrices').disabled=priceApproved||!['complete','partial'].includes(run.state)||!run.jobs.some(j=>j.outcome==='emitted');$('priceValidationTitle').textContent=priceState==='written'?'Ledger write validation':'Review readiness validation';
+ $('priceValidation').textContent=priceState==='stale'?'Stale validation: ledger or reviewed price data changed.':priceState==='written'?'Passed · 1 price directive checked in the ledger.':(run.validation?run.validation.state+' · '+run.validation.records_checked+' directives checked.':'No validation result recorded in the fixture. Not yet written.');
+ document.querySelector('#priceScenario option[value="written"]').disabled=!priceApproved;
+}
+function tab(name){view=name;document.querySelectorAll('[data-tab]').forEach(b=>b.setAttribute('aria-selected',b.dataset.tab===name));['transactions','changes','activity','prices'].forEach(id=>$(id).classList.toggle('hidden',id!==name));['statementHeading','statementSteps','accountSummary','reviewTabs','bottomActions'].forEach(id=>$(id).classList.toggle('hidden',name==='prices'));sync()}
+function renderAll(){renderHeader();renderRows();renderDetail();renderEvents();sync()}
+ document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>tab(b.dataset.tab));
+ document.querySelectorAll('[data-filter]').forEach(b=>b.onclick=()=>{current().filter=b.dataset.filter;renderHeader();renderRows()});
+ $('search').oninput=()=>{current().search=$('search').value;renderRows()};
+ $('resolve').onclick=()=>{const s=current();s.selected=s.rows.findIndex(r=>r.needs);s.filter='all';s.search='';$('search').value='';tab('transactions');renderAll();$('detail').scrollIntoView({behavior:'smooth',block:'nearest'});$('category')?.focus({preventScroll:true})};
+ $('reviewChanges').onclick=()=>{tab('changes');$('changes').scrollIntoView({behavior:'smooth',block:'nearest'})};
+ $('sessionNav').onclick=()=>tab('prices');
+ $('approve').onclick=()=>{const s=current();s.approval=s.revision;event('Statement panel confirmation saved; agent notified');sync();toast('Demo approval saved for '+s.name+'. Ledger writing is still pending.')};
+ $('reject').onclick=()=>{current().approval=null;current().rejected=true;event('Statement review rejected; agent notified');sync();toast('Demo rejection saved. Waiting for agent rework.')};
+ $('approvePrices').onclick=()=>{priceApproved=true;syncPrices();toast('Demo price approval saved. Price writing is still pending.')};
+ $('scenario').onchange=()=>{current().scenario=$('scenario').value;renderDetail();sync()};
+ $('priceScenario').onchange=()=>{priceState=$('priceScenario').value;syncPrices()};
+ $('reset').onclick=()=>location.reload();
+ async function start(){try{
+ await loadFixtures();initializeView();active=Object.keys(statements)[0];renderAll();
+ $('loading').classList.add('hidden');$('prototypeApp').classList.remove('hidden');
+ }catch(error){$('loading').textContent='Could not load review fixtures: '+error.message+'. Serve this folder over HTTP and check the JSON files. No fallback data is shown.';}}
+ start();
+</script>
+</body>
+</html>
