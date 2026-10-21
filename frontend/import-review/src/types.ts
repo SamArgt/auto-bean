@@ -153,6 +153,15 @@ export type PriceRun = {
 };
 export type Overview = Binding & {
   etag: string;
+  groups: {
+    group_id: string;
+    parsed_group: string;
+    current_status: string;
+    updated_at: string | null;
+    name: string;
+    origin: "user" | "agent";
+    source_files: string[];
+  }[];
   statements: {
     source_file: string;
     status: string;

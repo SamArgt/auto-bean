@@ -300,7 +300,21 @@ def schemas() -> dict[str, Any]:
             "schema_version": {"const": 1},
             "session_id": ID,
             "created_at": TIME,
-            "statements": arr(obj({"source_file": S, "parsed_statement": S})),
+            "groups": arr(
+                obj(
+                    {
+                        "group_id": ID,
+                        "parsed_group": S,
+                        "name": {"type": "string", "pattern": r"\S"},
+                        "origin": enum("user", "agent"),
+                        "source_files": {
+                            **arr(S),
+                            "minItems": 1,
+                            "uniqueItems": True,
+                        },
+                    }
+                )
+            ),
             "price_runs": arr(price),
         }
     )
@@ -310,7 +324,81 @@ def schemas() -> dict[str, Any]:
             "$id": "https://auto-bean.local/schemas/v1/session",
         }
     )
-    return {"parsed-v2": parsed, "session": session}
+    group_parsed = obj(
+        {
+            "schema_version": {"const": 2},
+            "group_id": ID,
+            "statements": {**arr(parsed), "minItems": 1},
+        }
+    )
+    group_parsed.update(
+        {
+            "$schema": parsed["$schema"],
+            "$id": "https://auto-bean.local/schemas/parsed-group",
+        }
+    )
+    status = obj(
+        {
+            "version": {"const": 1},
+            "groups": mapping(
+                obj(
+                    {
+                        "session_id": ID,
+                        "current_status": enum(
+                            "raw_ready",
+                            "process_blocked",
+                            "process_review",
+                            "account_review",
+                            "account_blocked",
+                            "balance_review",
+                            "balance_blocked",
+                            "categorize_ready",
+                            "categorize_blocked",
+                            "categorize_review",
+                            "write_ready",
+                            "write_blocked",
+                            "final_review",
+                            "done",
+                        ),
+                        "parsed_group": S,
+                        "updated_at": TIME,
+                        "user_input_required": {"type": "boolean"},
+                        "manual_resolution_required": {"type": "boolean"},
+                        "sources": {
+                            "type": "object",
+                            "minProperties": 1,
+                            "additionalProperties": obj(
+                                {
+                                    "source_fingerprint": {
+                                        "type": "string",
+                                        "pattern": "^sha256:[0-9a-f]{64}$",
+                                    },
+                                    "process_attempts": INT,
+                                    "last_process_failure_reason": {
+                                        "type": ["string", "null"]
+                                    },
+                                },
+                                ["source_fingerprint"],
+                            ),
+                        },
+                    },
+                    ["session_id", "current_status", "parsed_group", "sources"],
+                )
+            ),
+        }
+    )
+    status.update(
+        {
+            "$schema": parsed["$schema"],
+            "$id": "https://auto-bean.local/schemas/v1/status",
+        }
+    )
+    return {
+        "parsed-v2": parsed,
+        "parsed-group": group_parsed,
+        "session": session,
+        "status": status,
+    }
 
 
 def main() -> None:
@@ -318,12 +406,6 @@ def main() -> None:
         (ROOT / f"schemas/{name}.schema.json").write_text(
             json.dumps(schema, indent=2) + "\n"
         )
-    path = ROOT / "schemas/status.schema.json"
-    status = json.loads(path.read_text())
-    status["properties"]["statements"]["additionalProperties"]["properties"][
-        "workflow_version"
-    ] = {"enum": [1, 2]}
-    path.write_text(json.dumps(status, indent=2) + "\n")
 
 
 if __name__ == "__main__":

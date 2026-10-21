@@ -23,6 +23,9 @@ from auto_bean.validation import (
     invalid,
     load_state,
     validate_state,
+    session_members,
+    session_status,
+    status_members,
 )
 
 
@@ -122,7 +125,7 @@ class ReviewFiles:
         self.session_path = f".auto-bean/import-sessions/{session_id}.json"
 
     def read(self, path: str) -> dict[str, Any]:
-        kind = "session" if path == self.session_path else "parsed"
+        kind = "session" if path == self.session_path else "parsed-group"
         bounded_path(
             self.root,
             path,
@@ -130,39 +133,43 @@ class ReviewFiles:
         )
         data = load_state(checked_path(self.root, path))
         validate_state(kind, self.root, data)
-        if kind == "session" and data["session_id"] != self.session_id:
-            invalid("Session identity disagrees with its filename.")
-        if kind == "parsed" and data.get("schema_version") != 2:
-            invalid("This panel requires the current parsed review schema.")
-        if kind == "parsed":
+        if kind == "session":
+            if data["session_id"] != self.session_id:
+                invalid("Session identity disagrees with its filename.")
+        else:
             session = self.read(self.session_path)
-            member = next(
-                (
-                    item
-                    for item in session["statements"]
-                    if item["parsed_statement"] == path
-                ),
-                None,
+            group = next(
+                (g for g in session["groups"] if g["parsed_group"] == path), None
             )
-            if member is None or member["source_file"] != data["source_file"]:
-                invalid("Parsed source identity is outside this session.")
-            entry = self.status_entry(data["source_file"], path)
-            if entry["source_fingerprint"] != data["source_fingerprint"]:
-                invalid("Parsed source fingerprint disagrees with status.")
+            if (
+                group is None
+                or group["group_id"] != data["group_id"]
+                or set(group["source_files"])
+                != {d["source_file"] for d in data["statements"]}
+            ):
+                invalid("Parsed group identity or membership is outside this session.")
+            for statement in data["statements"]:
+                entry = self.status_entry(statement["source_file"], path)
+                if entry["source_fingerprint"] != statement["source_fingerprint"]:
+                    invalid("Parsed source fingerprint disagrees with status.")
         return data
+
+    def statement(self, source: str) -> dict[str, Any]:
+        group = self.read(self.statement_path(source))
+        return next(d for d in group["statements"] if d["source_file"] == source)
 
     def status_entry(self, source: str, path: str) -> dict[str, Any]:
         status = load_state(checked_path(self.root, "statements/import-status.yml"))
         validate_state("status", self.root, status)
-        entry: dict[str, Any] = status["statements"].get(source, {})
-        if entry.get("workflow_version") != 2 or entry.get("parsed_statement") != path:
-            invalid("Session membership no longer matches its status entry.")
+        session_status(self.read(self.session_path), status)
+        entry: dict[str, Any] = status_members(status).get(source, {})
+        if entry.get("parsed_group") != path:
+            invalid("Session membership no longer matches its group status entry.")
         return entry
 
     def _publish(self, path: str, data: dict[str, Any], expected: str) -> None:
-        """Internal tool publication. Agents edit artifacts using ordinary file tools."""
         validate_state(
-            "session" if path == self.session_path else "parsed", self.root, data
+            "session" if path == self.session_path else "parsed-group", self.root, data
         )
         if etag(self.read(path)) != expected:
             raise WorkflowError(
@@ -171,11 +178,27 @@ class ReviewFiles:
             )
         atomic_write(checked_path(self.root, path), json_bytes(data))
 
+    def _publish_statement(
+        self, source: str, data: dict[str, Any], expected: str
+    ) -> None:
+        path = self.statement_path(source)
+        group = self.read(path)
+        token = etag(group)
+        index = next(
+            i for i, d in enumerate(group["statements"]) if d["source_file"] == source
+        )
+        if etag(group["statements"][index]) != expected:
+            raise WorkflowError(
+                "edit_conflict",
+                "Statement changed during this operation; refresh and retry.",
+            )
+        group["statements"][index] = data
+        self._publish(path, group, token)
+
     def statement_path(self, source: str) -> str:
-        session = self.read(self.session_path)
-        for item in session["statements"]:
+        for item in session_members(self.read(self.session_path)):
             if item["source_file"] == source:
-                path: str = item["parsed_statement"]
+                path: str = item["parsed_group"]
                 self.status_entry(source, path)
                 return path
         invalid("Statement is not a member of this session.")
@@ -207,17 +230,15 @@ class ReviewFiles:
 
     def check_links(self, sources: list[str] | None = None) -> None:
         session = self.read(self.session_path)
-        paths = {i["source_file"]: i["parsed_statement"] for i in session["statements"]}
+        paths = {i["source_file"]: i["parsed_group"] for i in session_members(session)}
         selected = sources if sources is not None else list(paths)
-        documents = {
-            source: self.read(self.statement_path(source)) for source in selected
-        }
+        documents = {source: self.statement(source) for source in selected}
 
         def linked(source: str) -> dict[str, Any] | None:
             if source not in paths:
                 return None
             if source not in documents:
-                documents[source] = self.read(paths[source])
+                documents[source] = self.statement(source)
             return documents[source]
 
         for source in selected:
@@ -274,7 +295,7 @@ class ReviewFiles:
             invalid("Update kind, subject and expected content token are required.")
         with writer_lock(self.root):
             path = self.statement_path(source)
-            data = self.read(path)
+            data = self.statement(source)
             if update["expected_etag"] != etag(data):
                 raise WorkflowError(
                     "edit_conflict",
@@ -360,7 +381,7 @@ class ReviewFiles:
                     invalid("Unsupported review update.")
                 body.pop("approval", None)
             body.pop("validation", None)
-            self._publish(path, data, update["expected_etag"])
+            self._publish_statement(source, data, update["expected_etag"])
             return {
                 "source_file": source,
                 "etag": etag(data),

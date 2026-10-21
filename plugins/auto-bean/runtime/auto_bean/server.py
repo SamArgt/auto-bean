@@ -25,7 +25,15 @@ from auto_bean.review import (
     transaction_decisions,
 )
 from auto_bean.review_export import validation_current
-from auto_bean.validation import FORMATS, invalid, load_state, validate_state
+from auto_bean.validation import (
+    session_members,
+    status_members,
+    session_status,
+    FORMATS,
+    invalid,
+    load_state,
+    validate_state,
+)
 
 UI_BUILD = json.loads((PLUGIN / "ui/build.json").read_text())
 # Hosts cache UI resources by URI. New bundles must have a new resource identity.
@@ -108,7 +116,8 @@ SAVED = obj({"source_file": S, "etag": HASH, "review_digest": S})
 SUMMARY = obj(
     {
         "source_file": S,
-        "parsed_statement": S,
+        "parsed_group": S,
+        "group_id": ID,
         "status": S,
         "updated_at": nullable(S),
         "etag": nullable(HASH),
@@ -142,11 +151,15 @@ PRICE_VIEW = copy.deepcopy(SESSION["properties"]["price_runs"]["items"])
 PRICE_VIEW["properties"]["review_digest"] = S
 PRICE_VIEW["properties"]["validation_current"] = nullable({"type": "boolean"})
 PRICE_VIEW["required"].extend(["review_digest", "validation_current"])
+GROUP_VIEW = copy.deepcopy(SESSION["properties"]["groups"]["items"])
+GROUP_VIEW["properties"].update({"current_status": S, "updated_at": nullable(S)})
+GROUP_VIEW["required"].extend(["current_status", "updated_at"])
 OVERVIEW = obj(
     {
         **BIND,
         "etag": HASH,
         "statements": array(SUMMARY),
+        "groups": array(GROUP_VIEW),
         "price_runs": array(PRICE_VIEW),
     }
 )
@@ -234,9 +247,10 @@ def dispatch(name: str, args: dict[str, Any]) -> dict[str, Any]:
     if name == "read_import_session":
         status = load_state(checked_path(store.root, "statements/import-status.yml"))
         validate_state("status", store.root, status)
+        session_status(session, status)
         statements = []
-        for item in session["statements"]:
-            entry = status["statements"].get(item["source_file"], {})
+        for item in session_members(session):
+            entry = status_members(status).get(item["source_file"], {})
             summary = {
                 **item,
                 "status": entry.get("current_status", "unavailable"),
@@ -247,12 +261,9 @@ def dispatch(name: str, args: dict[str, Any]) -> dict[str, Any]:
                 "error": None,
             }
             try:
-                if (
-                    entry.get("workflow_version") != 2
-                    or entry.get("parsed_statement") != item["parsed_statement"]
-                ):
+                if entry.get("parsed_group") != item["parsed_group"]:
                     invalid("Status pointer no longer matches this session.")
-                doc = store.read(item["parsed_statement"])
+                doc = store.statement(item["source_file"])
                 if (
                     doc["source_file"] != item["source_file"]
                     or doc["source_fingerprint"] != entry["source_fingerprint"]
@@ -280,6 +291,14 @@ def dispatch(name: str, args: dict[str, Any]) -> dict[str, Any]:
             "session_id": store.session_id,
             "etag": etag(session),
             "statements": statements,
+            "groups": [
+                {
+                    **g,
+                    "current_status": status["groups"][g["group_id"]]["current_status"],
+                    "updated_at": status["groups"][g["group_id"]].get("updated_at"),
+                }
+                for g in session["groups"]
+            ],
             "price_runs": [
                 {
                     **run,
@@ -319,9 +338,8 @@ def dispatch(name: str, args: dict[str, Any]) -> dict[str, Any]:
             "etag": etag(store.read(store.session_path)),
             "review_digest": run["approval"]["digest"],
         }
-    source = args.get("source_file")
-    path = store.statement_path(source) if source else store.session_path
-    doc = store.read(path)
+    source = args["source_file"]
+    doc = store.statement(source)
     body = doc.get("review", doc)
     if name == "read_import_statement":
         return {

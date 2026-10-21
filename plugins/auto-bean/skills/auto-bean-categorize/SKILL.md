@@ -1,17 +1,17 @@
 ---
 name: auto-bean-categorize
-description: Categorize one parsed statement assigned by auto-bean-import. Suggest categories and explicit postings from evidence, advisory memory and merchant research; return reconciliation findings and required input for import review.
+description: Categorize parsed statements in a group assigned by auto-bean-import. Suggest categories and explicit postings from evidence, advisory memory and merchant research; return per-statement reconciliation findings and required input for import review.
 ---
 
 Read [common guidance](../../references/common.md) once and the import contract's [state](../../references/import-review.md#state-and-validation) and [ownership](../../references/common.md#ownership) sections. Use [bounded inspection](../../references/import-review.md#reading-evidence) for large documents and the [parsed example](../../references/parsed-statement-output.example.json) when fields are unclear.
 
 ## Scope and proposals
 
-Handle only the assigned complete parsed statement, current status entry, session and supplied reconciliation context/answers. Start at `categorize_ready`, or resume when directed by Import. Do not discover statements, edit shared status or memory, mutate the ledger, ask users directly, or request final approval/commit/push.
+Work as the categorization subagent for the assigned group. Read the assigned group JSON and handle only its complete source sections, current group status entry, session and supplied reconciliation context/answers. Apply the steps below per statement and compare supplied evidence across the group. Start at `categorize_ready`, or resume when directed by Import. Continue independent ready members while holding blocked members and linked transfers. Return findings per source and one group status proposal; any unresolved member keeps the group blocked. Do not discover statements, edit shared status or memory, mutate the ledger, ask users directly, or request final approval/commit/push.
 
 Use `$auto-bean:auto-bean-query` for ledger accounts, constraints, registers, balances and transaction/duplicate checks. Source account names/owner evidence do not establish ledger mapping without a current check or approved mapping.
 
-Edit each `extracted_records[].review` directly according to the [parsed schema](../../references/schemas/parsed-v2.schema.json). Persist explicit split postings, rationale, findings, disposition and source links; preserve answers and extracted facts. Ambiguity uses `state: needs_input`, rationale and optional suggestions beside the record. When a memory hint materially influenced a decision, identify it with the supporting or contradicting evidence in that decision’s rationale.
+Within the relevant `statements[]` source section, edit each `extracted_records[].review` directly according to the [parsed schema](../../references/schemas/parsed-v2.schema.json). Persist explicit split postings, rationale, findings, disposition and source links; preserve answers and extracted facts. Ambiguity uses `state: needs_input`, rationale and optional suggestions beside the record. When a memory hint materially influenced a decision, identify it with the supporting or contradicting evidence in that decision’s rationale.
 
 ## Categorization
 
@@ -42,6 +42,6 @@ Do not auto-net, merge, silently drop or rewrite transactions to resolve ambigui
 
 ## Return to import
 
-Return affected IDs, parsed paths, findings and proposed next status under the [ownership rules](../../references/common.md#ownership). Detailed payloads remain in inline review; Memory later derives reusable rules from accepted decisions. An unusual cross-workflow preference may be returned as an exact Markdown patch suggestion with evidence for the main thread, without adding a tracking field.
+Return affected source/record IDs, the group parsed path, findings and proposed next status under the [ownership rules](../../references/common.md#ownership). Detailed payloads remain in inline review; Memory later derives reusable rules from accepted decisions. An unusual cross-workflow preference may be returned as an exact Markdown patch suggestion with evidence for the main thread, without adding a tracking field.
 
 Propose only `categorize_blocked` for unresolved input/repair, with `user_input_required: true` where relevant, or `categorize_review` when categorization, reconciliation and deduplication are persisted and blockers resolved. Saved answers remain blocking until checked and resolved; preserve the current answer beside its decision. Import alone applies status and releases posting inputs after required input and batch review are complete.

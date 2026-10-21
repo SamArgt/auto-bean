@@ -371,7 +371,7 @@ function ReviewSession({
                 >
                   <strong>{filename(s.source_file)}</strong>
                   <span>
-                    {readable(s.status)}
+                    Group: {readable(s.status)}
                     {s.needs_input > 0
                       ? ` · ⚠ ${s.needs_input} need input`
                       : ""}
@@ -384,7 +384,7 @@ function ReviewSession({
               <>
                 <h2>{filename(source)}</h2>
                 <p className="context">
-                  {readable(selected?.status ?? "unavailable")} ·{" "}
+                  Group status: {readable(selected?.status ?? "unavailable")} ·{" "}
                   {selected?.updated_at
                     ? `Updated ${selected.updated_at}`
                     : "Update time unavailable"}

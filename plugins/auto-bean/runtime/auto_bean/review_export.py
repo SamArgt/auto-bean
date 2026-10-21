@@ -17,7 +17,7 @@ from auto_bean.review import (
     price_material,
     writer_lock,
 )
-from auto_bean.validation import invalid, load_state, validate_state
+from auto_bean.validation import session_members, invalid, load_state, validate_state
 
 CSS = """
 :root{font:14px/1.5 system-ui,sans-serif;color:#202624;background:#f8faf8}
@@ -91,7 +91,7 @@ def validation_current(
                 if link["source_file"] != document["source_file"]
             }
             for source in peers:
-                peer = files.read(files.statement_path(source))
+                peer = files.statement(source)
                 result = peer["review"].get("validation")
                 if (
                     not result
@@ -114,8 +114,8 @@ def _snapshot(store: ReviewFiles, exported_at: str) -> dict[str, Any]:
     status = load_state(checked_path(store.root, "statements/import-status.yml"))
     validate_state("status", store.root, status)
     documents = {
-        member["source_file"]: store.read(member["parsed_statement"])
-        for member in session["statements"]
+        member["source_file"]: store.statement(member["source_file"])
+        for member in session_members(session)
     }
     store.check_links()
     # Ordinary file edits do not acquire the panel lock. Reject a mixed snapshot.
@@ -124,9 +124,9 @@ def _snapshot(store: ReviewFiles, exported_at: str) -> dict[str, Any]:
         or load_state(checked_path(store.root, "statements/import-status.yml"))
         != status
         or any(
-            etag(store.read(member["parsed_statement"]))
+            etag(store.statement(member["source_file"]))
             != etag(documents[member["source_file"]])
-            for member in session["statements"]
+            for member in session_members(session)
         )
     ):
         invalid("Review data changed during export; refresh and retry.")
@@ -137,8 +137,9 @@ def _snapshot(store: ReviewFiles, exported_at: str) -> dict[str, Any]:
         "session": session,
         "status": {
             "version": status["version"],
-            "statements": {
-                source: status["statements"][source] for source in documents
+            "groups": {
+                g["group_id"]: status["groups"][g["group_id"]]
+                for g in session["groups"]
             },
         },
         "documents": documents,
@@ -416,19 +417,31 @@ def _render(snapshot: dict[str, Any]) -> str:
         ),
         '<nav aria-label="Snapshot sections"><a href="#prices">Session &amp; prices</a>',
     ]
-    for index, member in enumerate(session["statements"]):
+    for index, member in enumerate(session_members(session)):
         parts.append(f'<a href="#statement-{index}">{esc(member["source_file"])}</a>')
     parts.append('<a href="#snapshot-data">Snapshot review data</a></nav>')
     parts.append(_prices(session, snapshot["validation_current"]["prices"]))
-    for index, member in enumerate(session["statements"]):
+    parts.append("<section><h2>Statement groups</h2>")
+    for group in session["groups"]:
+        parts.append(f"<h3>{esc(group['name'])}</h3>")
+        parts.append(
+            paragraph("User-defined" if group["origin"] == "user" else "Inferred")
+        )
+        parts.append(
+            "<ul>"
+            + "".join(f"<li>{esc(source)}</li>" for source in group["source_files"])
+            + "</ul>"
+        )
+    parts.append("</section>")
+    for index, member in enumerate(session_members(session)):
         source = member["source_file"]
         document = snapshot["documents"][source]
         review = document["review"]
-        entry = snapshot["status"]["statements"][source]
+        entry = snapshot["status"]["groups"][member["group_id"]]
         parts.append(f'<section id="statement-{index}"><h2>{esc(source)}</h2>')
         parts.append(
             paragraph(
-                f"Status: {entry['current_status']} · Updated: {entry.get('updated_at', 'Unavailable')}"
+                f"Group status: {entry['current_status']} · Updated: {entry.get('updated_at', 'Unavailable')}"
             )
         )
         parts.append(paragraph(f"Extraction: {document['extraction_state']}"))

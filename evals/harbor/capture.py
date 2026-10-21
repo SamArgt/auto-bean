@@ -66,8 +66,9 @@ def checkpoint(root: Path) -> dict[str, object]:
         raise ValueError("Expected exactly one import session for review capture")
     session = json.loads(sessions[0].read_text())
     documents = {
-        item["source_file"]: json.loads((root / item["parsed_statement"]).read_text())
-        for item in session["statements"]
+        doc["source_file"]: doc
+        for group in session["groups"]
+        for doc in json.loads((root / group["parsed_group"]).read_text())["statements"]
     }
     baseline = {
         p.relative_to(root).as_posix(): p.read_text()

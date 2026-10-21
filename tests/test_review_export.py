@@ -13,7 +13,7 @@ from auto_bean.common import WorkflowError, digest
 from auto_bean.review import ReviewFiles, etag, material
 from auto_bean.review_export import export_review_html, render_review_html
 from auto_bean.server import CONTRACTS, dispatch, output_schema, validate
-from test_review import BASE, PARSED, SOURCE, complete, review_store
+from test_review import BASE, PARSED, SOURCE, complete, review_store, save
 
 __all__ = ["review_store"]
 
@@ -41,12 +41,12 @@ def test_export_partial_and_failed_state_without_canonical_mutation(
     review_store: ReviewFiles,
 ) -> None:
     store = review_store
-    document = store.read(PARSED)
+    document = store.statement(SOURCE)
     document["extraction_state"] = "failed"
     document["review"]["processing"].update(
         attempts=1, outcome="failed", failure_reason="Unreadable scan"
     )
-    (store.root / PARSED).write_text(json.dumps(document))
+    save(store, PARSED, document)
     before = files(store.root)
     result = export_review_html(store.root, store.session_id)
     path = Path(result["path"])
@@ -110,7 +110,7 @@ def test_export_includes_all_rows_and_escapes_active_content(
         "postings": [],
         "rationale": "Changed evidence needs confirmation",
     }
-    (store.root / PARSED).write_text(json.dumps(doc))
+    save(store, PARSED, doc)
     page = render_review_html(store.root, store.session_id)
     assert "Transactions (125)" in page
     assert "Export row 125" in page
@@ -148,28 +148,32 @@ def test_export_excludes_other_sessions_and_rejects_corrupt_membership(
     other_source = "statements/raw/unrelated.csv"
     other_parsed = "statements/parsed/unrelated.json"
     (store.root / other_source).write_text("Other private statement")
-    status["statements"][other_source] = {
-        "workflow_version": 2,
+    status["groups"]["other"] = {
+        "session_id": "another-session",
         "current_status": "raw_ready",
-        "source_fingerprint": "sha256:"
-        + digest((store.root / other_source).read_bytes()),
-        "parsed_statement": other_parsed,
+        "parsed_group": other_parsed,
+        "sources": {
+            other_source: {
+                "source_fingerprint": "sha256:"
+                + digest((store.root / other_source).read_bytes())
+            }
+        },
     }
     status_path.write_text(yaml.safe_dump(status))
     other = store.read(store.session_path)
     other["session_id"] = "another-session"
-    other["statements"] = [
-        {"source_file": other_source, "parsed_statement": other_parsed}
-    ]
+    other["groups"][0].update(
+        group_id="other", source_files=[other_source], parsed_group=other_parsed
+    )
     (store.root / ".auto-bean/import-sessions/another-session.json").write_text(
         json.dumps(other)
     )
     page = render_review_html(store.root, store.session_id)
     assert "unrelated.csv" not in page
     assert "another-session" not in page
-    doc = json.loads((store.root / PARSED).read_text())
+    doc = store.statement(SOURCE)
     doc["source_file"] = other_source
-    (store.root / PARSED).write_text(json.dumps(doc))
+    save(store, PARSED, doc)
     with pytest.raises(WorkflowError):
         render_review_html(store.root, store.session_id)
 
@@ -201,7 +205,7 @@ def test_export_shows_statement_approval_without_claiming_validation(
     document = complete(store)
     status_path = store.root / "statements/import-status.yml"
     status = yaml.safe_load(status_path.read_text())
-    status["statements"][SOURCE]["current_status"] = "final_review"
+    status["groups"]["review"]["current_status"] = "final_review"
     status_path.write_text(yaml.safe_dump(status))
     store.submit(
         SOURCE,
@@ -217,7 +221,7 @@ def test_export_shows_statement_approval_without_claiming_validation(
     assert "approved_at" in page
     assert "panel" in page
     assert "Ledger validation is not available yet" in page
-    assert "actions" not in store.read(PARSED)["review"]
+    assert "actions" not in store.statement(SOURCE)["review"]
 
 
 def test_export_price_details_and_tool_contract(review_store: ReviewFiles) -> None:
@@ -299,13 +303,13 @@ def test_export_and_panel_mark_recorded_validation_stale_after_ledger_edit(
         "source_file": SOURCE,
     }
     assert dispatch("read_import_statement", args)["validation_current"] is True
-    original = store.read(PARSED)
+    original = store.statement(SOURCE)
     changed = store.root / changed_path
     changed.write_text(changed.read_text() + "\n; Later user edit\n")
     assert dispatch("read_import_statement", args)["validation_current"] is False
     page = render_review_html(store.root, store.session_id)
     assert "Stale validation: the current ledger" in page
-    assert store.read(PARSED) == original
+    assert store.statement(SOURCE) == original
 
 
 def test_export_separates_review_readiness_from_ledger_write_validation(
@@ -330,9 +334,9 @@ def test_export_rejects_direct_edit_during_snapshot(
 
     def edit_during_read(self: ReviewFiles, sources: list[str] | None = None) -> None:
         original(self, sources)
-        document = self.read(PARSED)
+        document = self.statement(SOURCE)
         document["review"]["processing"]["warnings"].append("Concurrent agent edit")
-        (self.root / PARSED).write_text(json.dumps(document))
+        save(self, PARSED, document)
 
     monkeypatch.setattr(ReviewFiles, "check_links", edit_during_read)
     with pytest.raises(WorkflowError, match="changed during export"):
@@ -348,7 +352,6 @@ def test_peer_edit_marks_local_transfer_validation_stale(
     store = review_store
     document = complete(store)
     peer_source = "statements/raw/savings.csv"
-    peer_path = "statements/parsed/savings.json"
     (store.root / peer_source).write_text("date,amount\n2026-01-02,25\n")
     peer_fingerprint = "sha256:" + digest((store.root / peer_source).read_bytes())
     (store.root / "ledger.beancount").write_text(
@@ -383,20 +386,15 @@ def test_peer_edit_marks_local_transfer_validation_stale(
             {"source_file": SOURCE, "account_id": "checking", "record_id": "row-1"}
         ],
     )
-    (store.root / PARSED).write_text(json.dumps(document))
-    (store.root / peer_path).write_text(json.dumps(peer))
+    save(store, PARSED, document)
+    save(store, PARSED, peer)
     session = store.read(store.session_path)
-    session["statements"].append(
-        {"source_file": peer_source, "parsed_statement": peer_path}
-    )
+    session["groups"][0]["source_files"].append(peer_source)
     (store.root / store.session_path).write_text(json.dumps(session))
     status_path = store.root / "statements/import-status.yml"
     status = yaml.safe_load(status_path.read_text())
-    status["statements"][peer_source] = {
-        "workflow_version": 2,
-        "current_status": "raw_ready",
-        "source_fingerprint": peer_fingerprint,
-        "parsed_statement": peer_path,
+    status["groups"]["review"]["sources"][peer_source] = {
+        "source_fingerprint": peer_fingerprint
     }
     status_path.write_text(yaml.safe_dump(status))
     assert (
@@ -409,10 +407,20 @@ def test_peer_edit_marks_local_transfer_validation_stale(
         "source_file": SOURCE,
     }
     assert dispatch("read_import_statement", args)["validation_current"] is True
-    peer = store.read(peer_path)
+    peer = store.statement(peer_source)
     peer["extracted_records"][0]["description"] = "Corrected transfer evidence"
-    (store.root / peer_path).write_text(json.dumps(peer))
+    save(store, PARSED, peer)
     assert dispatch("read_import_statement", args)["validation_current"] is False
     assert "Stale validation: the current ledger" in render_review_html(
         store.root, store.session_id
     )
+
+
+def test_export_displays_saved_statement_groups(review_store: ReviewFiles) -> None:
+    session = review_store.read(review_store.session_path)
+    session["groups"][0].update(name="January <accounts>", origin="user")
+    (review_store.root / review_store.session_path).write_text(json.dumps(session))
+    page = render_review_html(review_store.root, review_store.session_id)
+    assert "Statement groups" in page
+    assert "January &lt;accounts&gt;" in page
+    assert "User-defined" in page

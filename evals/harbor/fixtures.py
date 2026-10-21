@@ -111,7 +111,7 @@ def import_ledger(root: Path, plugin: Path, raw: Path) -> dict[str, object]:
     (root / "statements/parsed").mkdir(exist_ok=True)
     for name in ("checking.csv", "savings.pdf"):
         shutil.copy2(raw / name, root / "statements/raw" / name)
-    (root / "statements/import-status.yml").write_text("version: 1\nstatements: {}\n")
+    (root / "statements/import-status.yml").write_text("version: 1\ngroups: {}\n")
     (root / "personal-notes.txt").write_text("Keep this unrelated user document.\n")
     for args in (
         ("init", "-b", "main"),

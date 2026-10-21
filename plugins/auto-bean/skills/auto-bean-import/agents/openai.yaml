@@ -1,7 +1,7 @@
 interface:
   display_name: "Import Statements"
   short_description: "Run the full statement import workflow"
-  default_prompt: "Use $auto-bean:auto-bean-import to import or resume statements with serialized status and ledger writes."
+  default_prompt: "Use $auto-bean:auto-bean-import to import or resume statement groups with separate processing and categorization subagents, serialized status and ledger writes."
 
 policy:
   allow_implicit_invocation: true

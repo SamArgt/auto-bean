@@ -126,6 +126,19 @@ export function SessionPrices({
         {overview.statements.reduce((sum, s) => sum + s.needs_input, 0)}{" "}
         outstanding inputs
       </p>
+      <h3>Statement groups</h3>
+      {overview.groups.map((group) => (
+        <section className="card" key={group.group_id}>
+          <h4>{group.name}</h4>
+          <p>Group status: {readable(group.current_status)}</p>
+          <p>{group.origin === "user" ? "User-defined" : "Inferred"}</p>
+          <ul>
+            {group.source_files.map((source) => (
+              <li key={source}>{source}</li>
+            ))}
+          </ul>
+        </section>
+      ))}
       {overview.price_runs.length === 0 ? (
         <p className="muted">Price results are not available yet.</p>
       ) : (

@@ -22,6 +22,7 @@ class Command:
     current: bool
     argv: tuple[str, ...]
     cwd: str
+    agent_id: str | None = None
 
 
 SKILLS = {
@@ -349,12 +350,20 @@ def load_commands(logs: Path) -> list[Command]:
                         event["timestamp"] >= boundary,
                         command,
                         directory,
+                        str(meta.get("id", meta.get("session_id")))
+                        if meta.get("id", meta.get("session_id")) != root_id
+                        else None,
                     )
                 )
     return result
 
 
-def grade_trace(logs: Path, phase: str) -> dict[str, Any]:
+def grade_trace(
+    logs: Path,
+    phase: str,
+    stage_groups: dict[str, list[dict[str, Any]]] | None = None,
+    parsed_paths: list[str] | None = None,
+) -> dict[str, Any]:
     report: dict[str, Any] = {"phase": phase, "passed": False, "checks": []}
     try:
         commands = load_commands(logs)
@@ -379,6 +388,49 @@ def grade_trace(logs: Path, phase: str) -> dict[str, Any]:
         )
 
     current = [c for c in commands if c.current]
+    assignments: list[set[str]] = []
+    for stage, groups in (stage_groups or {}).items():
+        for group in groups:
+            candidates = {
+                c.agent_id
+                for c in commands
+                if c.agent_id and plugin_read(c, f"skills/auto-bean-{stage}/SKILL.md")
+            }
+            candidates = {
+                agent
+                for agent in candidates
+                if all(
+                    any(
+                        c.agent_id == agent
+                        and (
+                            workspace_read(c, path)
+                            or (stage == "process" and operation(c, "docling", path))
+                        )
+                        for c in current
+                    )
+                    for path in group["paths"]
+                )
+            }
+            check(
+                f"subagent:{stage}:{group['group_id']}",
+                [c for c in current if c.agent_id in candidates],
+            )
+            assignments.append(candidates)
+
+    def distinct_workers(pending: list[set[str]], used: set[str]) -> bool:
+        if not pending:
+            return True
+        return any(
+            distinct_workers(pending[1:], used | {agent}) for agent in pending[0] - used
+        )
+
+    if assignments:
+        check(
+            "subagents:separate-group-stage-workers",
+            [c for c in current if c.agent_id]
+            if distinct_workers(sorted(assignments, key=len), set())
+            else [],
+        )
     for skill in SKILLS[phase]:
         check(
             f"skill:{skill}",
@@ -393,6 +445,7 @@ def grade_trace(logs: Path, phase: str) -> dict[str, Any]:
         references += [
             "import-review.md",
             "schemas/parsed-v2.schema.json",
+            "schemas/parsed-group.schema.json",
             "schemas/session.schema.json",
             "schemas/status.schema.json",
         ]
@@ -411,7 +464,11 @@ def grade_trace(logs: Path, phase: str) -> dict[str, Any]:
             "beancount/accounts.beancount",
         ]
     if phase in {"correct", "approve", "stale"}:
-        files += ["statements/parsed/checking.json", "statements/parsed/savings.json"]
+        files += (
+            parsed_paths
+            if parsed_paths is not None
+            else ["statements/parsed/january.json"]
+        )
     if phase == "approve":
         files += [
             ".auto-bean/memory/account_mappings.json",

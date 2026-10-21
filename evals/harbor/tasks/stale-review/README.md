@@ -3,6 +3,8 @@
 Test that approval cannot authorize a decision that changed after review.
 Success means renewed review with no ledger writes.
 
+The user keeps both statements in one explicit group named January accounts. The saved group must remain unchanged in the stale-review turn. Processing and categorization require separate group subagents.
+
 ```mermaid
 flowchart LR
     A[Prepare review] --> B[Review grader passes]
@@ -28,7 +30,7 @@ The task uses the [same CSV, PDF, ledger, and confirmed decisions](../import-two
 as the normal import task. All account mappings and categories are known.
 
 Before the second turn, the [setup script](steps/stale/workdir/setup.sh) changes
-one field in `statements/parsed/checking.json`:
+one field in the checking source section of the group JSON:
 
 - Record: `C-001`, the Example Market purchase.
 - Field: `review.rationale`.

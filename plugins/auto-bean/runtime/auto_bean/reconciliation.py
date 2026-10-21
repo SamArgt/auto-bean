@@ -22,7 +22,13 @@ from auto_bean.review import (
     require_ready,
     writer_lock,
 )
-from auto_bean.validation import invalid, load_state, validate_state
+from auto_bean.validation import (
+    session_members,
+    session_status,
+    invalid,
+    load_state,
+    validate_state,
+)
 
 
 def financial_files(root: Path) -> dict[str, str]:
@@ -298,7 +304,7 @@ def _inspect_statement(
     """Compute a fresh report; caller holds the workspace lock when publishing."""
     from beancount.core.data import Transaction
 
-    doc = store.read(store.statement_path(source))
+    doc = store.statement(source)
     result: dict[str, Any] = {
         "state": "failed",
         "stage": stage,
@@ -382,7 +388,7 @@ def _inspect_statement(
                             "A paired transfer requires exactly two reciprocal source rows."
                         )
                     link = decision["linked_records"][0]
-                    peer_doc = store.read(store.statement_path(link["source_file"]))
+                    peer_doc = store.statement(link["source_file"])
                     require_ready(peer_doc)
                     if (
                         "sha256:"
@@ -509,12 +515,11 @@ def _validate_statement(
     store: ReviewFiles, source: str, stage: str = "written"
 ) -> dict[str, Any]:
     with writer_lock(store.root):
-        path = store.statement_path(source)
-        doc = store.read(path)
+        doc = store.statement(source)
         token = etag(doc)
         result = _inspect_statement(store, source, stage)
         result = stable_report(doc["review"].get("validation"), result)
-        if etag(store.read(path)) != token:
+        if etag(store.statement(source)) != token:
             invalid("Parsed evidence changed during validation; retry.")
         if (
             "sha256:" + digest(checked_path(store.root, source).read_bytes())
@@ -526,7 +531,7 @@ def _validate_statement(
             )
         if doc["review"].get("validation") != result:
             doc["review"]["validation"] = result
-            store._publish(path, doc, token)
+            store._publish_statement(source, doc, token)
         return result
 
 
@@ -609,8 +614,8 @@ def _check_proposals(
 
     account_entries = list(entries)
     # Shared transfers can use an account whose opening belongs to another member.
-    for member in store.read(store.session_path)["statements"]:
-        other = store.read(member["parsed_statement"])
+    for member in session_members(store.read(store.session_path)):
+        other = store.statement(member["source_file"])
         for account in other["statement_metadata"]["accounts"]:
             for text in account.get("review", {}).get("proposed_directives", []):
                 proposed, problems, _ = parser.parse_string(text + "\n")
@@ -663,7 +668,7 @@ def _check_proposals(
                         "A paired transfer requires exactly two reciprocal source rows."
                     )
                 link = decision["linked_records"][0]
-                peer_doc = store.read(store.statement_path(link["source_file"]))
+                peer_doc = store.statement(link["source_file"])
                 require_ready(peer_doc)
                 peer = next(
                     r
@@ -734,6 +739,7 @@ def validate_import(
         "stage": stage,
         "statements": {},
         "prices": {},
+        "groups": {},
         "errors": [],
     }
     try:
@@ -755,8 +761,9 @@ def validate_import(
         else:
             files = ReviewFiles(root, session_id)
             session = files.read(files.session_path)
+            session_status(session, status)
             result["session_id"] = session_id
-            for item in session["statements"]:
+            for item in session_members(session):
                 source = item["source_file"]
                 try:
                     report = _validate_statement(files, source, stage)
@@ -764,16 +771,26 @@ def validate_import(
                     result["errors"].extend(
                         f"{source}: {error}" for error in report["errors"]
                     )
-                    entry = status["statements"][source]
-                    if entry.get("current_status") == "done" and (
-                        entry.get("user_input_required")
-                        or entry.get("manual_resolution_required")
-                    ):
-                        result["errors"].append(
-                            f"{source}: done conflicts with unresolved input flags."
-                        )
                 except (WorkflowError, OSError, ValueError) as error:
                     result["errors"].append(f"{source}: {error}")
+            for group in session["groups"]:
+                reports = [
+                    result["statements"].get(source) for source in group["source_files"]
+                ]
+                passed = all(
+                    report and report["state"] == "passed" for report in reports
+                )
+                result["groups"][group["group_id"]] = {
+                    "state": "passed" if passed else "failed",
+                    "stage": stage,
+                    "source_files": group["source_files"],
+                }
+                if status["groups"][group["group_id"]]["current_status"] == "done" and (
+                    stage == "written" and not passed
+                ):
+                    result["errors"].append(
+                        f"{group['group_id']}: done requires written validation for every member."
+                    )
             for run in session["price_runs"]:
                 try:
                     report = _validate_prices(files, run["run_id"], stage)
@@ -786,7 +803,9 @@ def validate_import(
             # Direct edits do not participate in the panel lock. Check the whole
             # session again so sequential checks cannot report a mixed baseline.
             current = files.read(files.session_path)
-            if current["statements"] != session["statements"] or [
+            if load_state(checked_path(root, "statements/import-status.yml")) != status:
+                invalid("Group status changed during validation; retry.")
+            if current["groups"] != session["groups"] or [
                 price_material(r) for r in current["price_runs"]
             ] != [price_material(r) for r in session["price_runs"]]:
                 invalid(
@@ -794,7 +813,7 @@ def validate_import(
                 )
             hashes = financial_files(root)
             for source, report in result["statements"].items():
-                doc = files.read(files.statement_path(source))
+                doc = files.statement(source)
                 if report["state"] == "passed" and (
                     report["digest"] != material(doc)
                     or report["ledger_hashes"] != hashes

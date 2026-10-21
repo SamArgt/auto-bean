@@ -38,7 +38,7 @@ Agents edit their assigned files directly with ordinary file tools; no runtime p
 | Parsed account mappings, reconciliation and proposed directives | Import |
 | Parsed transaction postings, dispositions, rationale and links | Categorize; Import coordinates shared decisions. |
 | Inline user answers and corrections | Owning agent follows the explicit user instruction; panel submissions save the same fields. |
-| `statements/import-status.yml` and session membership | Import |
+| `statements/import-status.yml`, session membership and groups | Import |
 | Session `price_runs` | Prices |
 | Canonical transactions and minimal supporting directives | Write |
 | Canonical price directives | Prices |
@@ -47,7 +47,7 @@ Agents edit their assigned files directly with ordinary file tools; no runtime p
 | Optional `approval` fields | Panel-managed; agents do not construct or edit them. |
 | `validation` fields and HTML exports | Validator/exporter-generated; agents do not hand-author results. |
 
-Reread before each scoped edit and preserve unrelated fields, explicit answers, custom content and staged/unstaged user changes. Import serializes edits to the same parsed document and all ledger writes; parallel workers use distinct documents and return cross-stage requests. Coordinate independent chats before they share a workspace. An unresolved partial write blocks dependent writes; inspect actual provenance before resuming instead of appending again or restoring whole files.
+Reread before each scoped edit and preserve unrelated fields, explicit answers, custom content and staged/unstaged user changes. Import serializes edits to the same parsed document and all ledger writes; parallel workers use distinct group documents and return cross-stage requests. Coordinate independent chats before they share a workspace. An unresolved partial write blocks dependent writes; inspect actual provenance before resuming instead of appending again or restoring whole files.
 
 Approval comes from the user's conversation instruction or current panel confirmation. A correction, schema-valid document or successful validation is not approval. Material changes to what the user reviewed require renewed review. Approval does not authorize unrelated edits, commits or pushes. Queries disclose incomplete/unapproved ledger work rather than treating it as accepted history.
 
@@ -78,7 +78,7 @@ auto_bean validate --workspace "$AUTO_BEAN_WORKSPACE" --session <session-id> --s
 
 `review` checks import artifact structure, references, complete decisions, proposed postings and the baseline ledger. It does not claim those transactions are written. `written` checks actual source-row coverage, reviewed postings, supporting directives, available closing balances and price results. It is the default stage. The operation generates validation evidence but never grants approval, writes financial entries or advances status.
 
-For imports, Import owns review validation, Write owns validation after statement writes, and Prices owns validation after its price outcome. Current returned reports can be reused at handoff. The command reports every session member, so its overall failure can include unrelated pending statements or prices. Assess the relevant per-statement or price-run result; shared ledger errors, changed inputs, invalid session membership and linked-transfer failures still block dependent completion. Rerun when relevant inputs change, and never dismiss an unexplained error as unrelated.
+For imports, Import owns review validation, Write owns validation after statement writes, and Prices owns validation after its price outcome. Current returned reports can be reused at handoff. The command reports every session member, so its overall failure can include unrelated pending statements or prices. Assess the group, per-source and price-run results; a group is complete only when every source passes written validation; shared ledger errors, changed inputs, invalid session membership and linked-transfer failures still block dependent completion. Rerun when relevant inputs change, and never dismiss an unexplained error as unrelated.
 
 Without `--session`, it validates the canonical ledger, status and governed memory for standalone work. Use the command's reported errors to repair only the affected owning surface. Unknown formats, duplicate keys/IDs, unsafe paths, non-finite values and unresolved references block dependent work. Preserve completed imports and their artifacts.
 

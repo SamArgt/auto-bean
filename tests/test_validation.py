@@ -25,10 +25,16 @@ def parsed() -> dict[str, Any]:
 def index(status: str, *, fingerprint: str = "a" * 64) -> dict[str, Any]:
     return {
         "version": 1,
-        "statements": {
-            "statements/raw/checking.csv": {
+        "groups": {
+            "checking": {
+                "session_id": "test",
                 "current_status": status,
-                "source_fingerprint": "sha256:" + fingerprint,
+                "parsed_group": "statements/parsed/checking.json",
+                "sources": {
+                    "statements/raw/checking.csv": {
+                        "source_fingerprint": "sha256:" + fingerprint
+                    }
+                },
             }
         },
     }
@@ -130,17 +136,10 @@ def test_duplicate_keys_fail_without_silent_data_loss(
 
 def test_status_dates_and_pointers_are_checked(current: Path) -> None:
     data = index("raw_ready")
-    entry = next(iter(data["statements"].values()))
+    entry = data["groups"]["checking"]
     entry["updated_at"] = "2026-10-19T10:00:00Z"
-    path = current / "status.yml"
-    path.write_text(
-        "version: 1\nstatements:\n  statements/raw/checking.csv:\n    current_status: raw_ready\n    source_fingerprint: sha256:"
-        + "a" * 64
-        + "\n    updated_at: 2026-10-19T10:00:00Z\n"
-    )
-    validate_state("status", current, load_state(path))
-    entry["parsed_statement"] = "statements/parsed/same.json"
-    data["statements"]["statements/raw/savings.csv"] = copy.deepcopy(entry)
+    validate_state("status", current, data)
+    data["groups"]["savings"] = copy.deepcopy(entry)
     with pytest.raises(WorkflowError, match="conflicting"):
         validate_state("status", current, data)
 
@@ -201,8 +200,99 @@ def test_non_finite_state_is_rejected(
 
 def test_raw_source_aliases_are_not_two_statements(current: Path) -> None:
     data = index("raw_ready")
-    data["statements"]["./statements/raw/checking.csv"] = copy.deepcopy(
-        next(iter(data["statements"].values()))
-    )
+    data["groups"]["checking"]["sources"]["./statements/raw/checking.csv"] = {
+        "source_fingerprint": "sha256:" + "a" * 64
+    }
     with pytest.raises(WorkflowError, match="same raw source"):
+        validate_state("status", current, data)
+
+
+@pytest.mark.parametrize("grouped", [False, True])
+def test_session_groups_partition_statements(current: Path, grouped: bool) -> None:
+    data = load_state(PLUGIN / "references/import-session.example.json")
+    data["price_runs"] = []
+    peer = "statements/raw/savings.csv"
+    if grouped:
+        data["groups"][0]["source_files"].append(peer)
+        data["groups"][0]["origin"] = "user"
+    else:
+        data["groups"].append(
+            {
+                "group_id": "savings",
+                "parsed_group": "statements/parsed/savings.json",
+                "name": "Savings",
+                "origin": "agent",
+                "source_files": [peer],
+            }
+        )
+    validate_state("session", current, data)
+
+
+@pytest.mark.parametrize(
+    "defect",
+    [
+        "missing_groups",
+        "missing_path",
+        "escaping_member",
+        "overlap",
+        "duplicate_id",
+        "empty_group",
+        "duplicate_member",
+        "blank_name",
+    ],
+)
+def test_invalid_session_groups_are_rejected(current: Path, defect: str) -> None:
+    data = load_state(PLUGIN / "references/import-session.example.json")
+    data["price_runs"] = []
+    group = data["groups"][0]
+    if defect == "missing_groups":
+        del data["groups"]
+    elif defect == "missing_path":
+        del group["parsed_group"]
+    elif defect == "escaping_member":
+        group["source_files"] = ["../unknown.csv"]
+    elif defect in {"overlap", "duplicate_id"}:
+        other = copy.deepcopy(group)
+        if defect == "overlap":
+            other["group_id"] = "other"
+        data["groups"].append(other)
+    elif defect == "empty_group":
+        group["source_files"] = []
+    elif defect == "duplicate_member":
+        group["source_files"] *= 2
+    elif defect == "blank_name":
+        group["name"] = "   "
+    with pytest.raises(WorkflowError):
+        validate_state("session", current, data)
+
+
+def test_empty_session_has_no_groups(current: Path) -> None:
+    data = load_state(PLUGIN / "references/import-session.example.json")
+    data.update(groups=[], price_runs=[])
+    validate_state("session", current, data)
+
+
+def test_group_examples_agree_on_identity_and_membership(current: Path) -> None:
+    from auto_bean.validation import session_status
+
+    session = load_state(PLUGIN / "references/import-session.example.json")
+    status = load_state(PLUGIN / "references/import-status.example.yml")
+    parsed = load_state(PLUGIN / "references/parsed-statement-output.example.json")
+    validate_state("session", current, session)
+    validate_state("status", current, status)
+    validate_state("parsed-group", current, parsed)
+    session_status(session, status)
+    group = session["groups"][0]
+    assert group["group_id"] == parsed["group_id"]
+    assert set(group["source_files"]) == {
+        s["source_file"] for s in parsed["statements"]
+    }
+
+
+def test_source_cannot_carry_a_lifecycle_status(current: Path) -> None:
+    data = index("raw_ready")
+    data["groups"]["checking"]["sources"]["statements/raw/checking.csv"][
+        "current_status"
+    ] = "done"
+    with pytest.raises(WorkflowError):
         validate_state("status", current, data)

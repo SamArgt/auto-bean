@@ -16,7 +16,7 @@ from pydantic import AnyUrl
 from auto_bean.common import PLUGIN, digest
 from auto_bean.review import ReviewFiles, etag
 from auto_bean.server import CONTRACTS, dispatch, output_schema, validate
-from test_review import PARSED, SOURCE, complete, review_store
+from test_review import PARSED, SOURCE, complete, review_store, save
 
 __all__ = ["review_store"]
 
@@ -179,9 +179,9 @@ def test_unified_tool_rows_and_pending_input_filter(review_store: ReviewFiles) -
     assert page["rows"][0]["record_id"] == "row-1"
     assert page["rows"][0]["review"]["postings"]
     assert "record" not in page["rows"][0] and "decision" not in page["rows"][0]
-    document = store.read(PARSED)
+    document = store.statement(SOURCE)
     document["extracted_records"][0].pop("review")
-    (store.root / PARSED).write_text(json.dumps(document))
+    save(store, PARSED, document)
     assert "review" not in dispatch("list_import_transactions", args)["rows"][0]
     assert (
         dispatch("list_import_transactions", {**args, "needs_input": True})["total"]
@@ -222,7 +222,7 @@ def test_stdio_saves_inline_correction_and_rejects_stale_retry(
                 assert result.structuredContent
                 receipt = result.structuredContent["result"]
                 assert set(receipt) == {"source_file", "etag", "review_digest"}
-                assert receipt["etag"] == etag(store.read(PARSED))
+                assert receipt["etag"] == etag(store.statement(SOURCE))
                 stale = await client.call_tool("update_import_review", args)
                 assert stale.isError
                 assert stale.structuredContent
@@ -331,12 +331,12 @@ def test_direct_artifact_edit_invalidates_panel_snapshot(
         "source_file": SOURCE,
     }
     detail = dispatch("read_import_statement", args)
-    document = store.read(PARSED)
+    document = store.statement(SOURCE)
     assert "revision" not in document
     document["review"]["processing"]["warnings"].append(
         "Agent added extraction context"
     )
-    (store.root / PARSED).write_text(json.dumps(document))
+    save(store, PARSED, document)
     with pytest.raises(WorkflowError, match="changed"):
         dispatch(
             "update_import_review",
@@ -350,7 +350,17 @@ def test_direct_artifact_edit_invalidates_panel_snapshot(
                 },
             },
         )
-    assert store.read(PARSED) == document
+    assert store.statement(SOURCE) == document
     current = dispatch("read_import_statement", args)
     assert current["etag"] != detail["etag"]
     assert dispatch("list_import_transactions", args)["etag"] == current["etag"]
+
+
+def test_session_overview_preserves_group_membership(review_store: ReviewFiles) -> None:
+    result = dispatch(
+        "read_import_session",
+        {"workspace": str(review_store.root), "session_id": review_store.session_id},
+    )
+    assert result["groups"][0]["current_status"] == "raw_ready"
+    assert result["groups"][0]["source_files"] == [SOURCE]
+    Draft202012Validator(CONTRACTS["read_import_session"][1]).validate(result)

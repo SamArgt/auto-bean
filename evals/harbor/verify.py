@@ -20,7 +20,13 @@ from beancount import loader
 from beancount.core.data import Open, Price, Transaction
 
 # These imports resolve to the verifier's immutable bundle, never the ledger.
-from auto_bean.validation import load_state, validate_state
+from auto_bean.validation import (
+    session_members,
+    status_members,
+    session_status,
+    load_state,
+    validate_state,
+)
 from evals.harbor.fixtures import OPENING, SOURCES, sha256, write_json
 from evals.harbor.capture import write_review_html
 from evals.harbor.trace import grade_trace
@@ -220,10 +226,24 @@ def source_checks(root: Path, expected: dict[str, Any]) -> dict[str, Any]:
     status = load_state(inside(root, "statements/import-status.yml"))
     validate_state("status", root, status)
     require(
-        set(status["statements"]) == set(SOURCES),
+        set(status_members(status)) == set(SOURCES),
         "Status must describe exactly the two raw statements",
     )
     return status
+
+
+def parsed_source(root: Path, path: str, source: str) -> dict[str, Any]:
+    group = load_state(inside(root, path))
+    validate_state("parsed-group", root, group)
+    status = load_state(inside(root, "statements/import-status.yml"))
+    entry = status["groups"].get(group["group_id"], {})
+    require(
+        entry.get("parsed_group") == path
+        and set(entry.get("sources", {}))
+        == {d["source_file"] for d in group["statements"]},
+        "Parsed group membership differs from status",
+    )
+    return next(d for d in group["statements"] if d["source_file"] == source)
 
 
 def financial_hashes(root: Path) -> dict[str, str]:
@@ -308,7 +328,7 @@ def memory_checks(
         ("category_mappings.json", SOURCES[0], "Example Market", "Expenses:Food"),
     )
     parsed_paths = {
-        m["source_file"]: m["parsed_statement"] for m in session["statements"]
+        m["source_file"]: m["parsed_group"] for m in session_members(session)
     }
     for filename, source, match, account in expected_records:
         records = files[filename]["records"]
@@ -449,7 +469,13 @@ def financial_checks(root: Path, documents: dict[str, Any]) -> None:
 
 
 def import_checks(
-    root: Path, plugin: Path, evidence: Path, expected: dict[str, Any], phase: str
+    root: Path,
+    plugin: Path,
+    evidence: Path,
+    expected: dict[str, Any],
+    phase: str,
+    *,
+    explicit_group: bool = True,
 ) -> None:
     import hashlib
     import tempfile
@@ -458,24 +484,29 @@ def import_checks(
     status = source_checks(root, expected)
     wanted = "final_review" if phase == "review" else "done"
     require(
-        all(i["current_status"] == wanted for i in status["statements"].values()),
+        all(i["current_status"] == wanted for i in status_members(status).values()),
         f"Both statements must be {wanted}",
     )
     sessions = list((root / ".auto-bean/import-sessions").glob("*.json"))
     require(len(sessions) == 1, "Exactly one explicit import session is required")
     session = load_state(sessions[0])
     validate_state("session", root, session)
+    session_status(session, status)
+    if explicit_group:
+        require(
+            len(session["groups"]) == 1
+            and session["groups"][0]["name"] == "January accounts"
+            and session["groups"][0]["origin"] == "user",
+            "Explicit January accounts group was not preserved",
+        )
     require(
-        {i["source_file"]: i["parsed_statement"] for i in session["statements"]}
-        == {raw: i["parsed_statement"] for raw, i in status["statements"].items()},
+        {i["source_file"]: i["parsed_group"] for i in session_members(session)}
+        == {raw: i["parsed_group"] for raw, i in status_members(status).items()},
         "Session mixing or mismatched membership",
     )
     documents = {}
-    for raw, item in status["statements"].items():
-        require(
-            item.get("workflow_version") == 2, "Expected structured workflow status"
-        )
-        parsed = load_state(inside(root, item["parsed_statement"]))
+    for raw, item in status_members(status).items():
+        parsed = parsed_source(root, item["parsed_group"], raw)
         validate_state("parsed", root, parsed)
         require(
             parsed.get("schema_version") == 2
@@ -674,8 +705,11 @@ def import_checks(
         )
     require(
         set(checkpoint["documents"]) == set(documents)
-        and checkpoint["session"]["statements"] == session["statements"],
+        and checkpoint["session"]["groups"] == session["groups"],
         "Reviewed statement membership changed",
+    )
+    require(
+        checkpoint["session"]["groups"] == session["groups"], "Reviewed groups changed"
     )
     for raw, doc in documents.items():
         reviewed = checkpoint["documents"][raw]
@@ -797,7 +831,7 @@ def correction_checks(root: Path) -> None:
         (SOURCES[0], "C-001", "Expenses:Food"),
         (SOURCES[1], "savings", "Assets:Savings"),
     ):
-        doc = load_state(inside(root, status["statements"][raw]["parsed_statement"]))
+        doc = parsed_source(root, status_members(status)[raw]["parsed_group"], raw)
         decisions = (
             transaction_decisions(doc) if raw == SOURCES[0] else account_decisions(doc)
         )
@@ -824,13 +858,14 @@ def scenario_checks(
     require(len(sessions) == 1, "Exactly one import session is required")
     session = load_state(sessions[0])
     validate_state("session", root, session)
+    session_status(session, status)
     require(
-        {s["source_file"] for s in session["statements"]} == set(SOURCES),
+        {s["source_file"] for s in session_members(session)} == set(SOURCES),
         "Session mixing",
     )
     documents = {
-        raw: load_state(inside(root, item["parsed_statement"]))
-        for raw, item in status["statements"].items()
+        raw: parsed_source(root, item["parsed_group"], raw)
+        for raw, item in status_members(status).items()
     }
     for raw, doc in documents.items():
         validate_state("parsed", root, doc)
@@ -882,6 +917,10 @@ def scenario_checks(
     else:
         checkpoint = load_state(inside(evidence, "review.json"))
         require(
+            checkpoint["session"]["groups"] == session["groups"],
+            "Reviewed groups changed",
+        )
+        require(
             checkpoint["financial_hashes"] == expected["financial_hashes"],
             "Missing original review baseline",
         )
@@ -901,7 +940,7 @@ def scenario_checks(
         require(
             all(
                 item["current_status"] == "final_review"
-                for item in status["statements"].values()
+                for item in status_members(status).values()
             ),
             "Stale review needs renewed approval",
         )
@@ -1005,6 +1044,7 @@ def main() -> int:
                     args.evidence,
                     json.loads(args.expected.read_text()),
                     "review" if args.phase == "correct" else args.phase,
+                    explicit_group=args.phase == "review",
                 )
                 if args.phase == "correct":
                     correction_checks(args.ledger)
@@ -1012,7 +1052,42 @@ def main() -> int:
     except Exception as exc:
         report["failure"] = str(exc)
     report["state_passed"] = report["passed"]
-    trace = grade_trace(args.agent_logs, args.phase)
+    stage_groups: dict[str, list[dict[str, Any]]] = {}
+    parsed_paths: list[str] = []
+    if report["state_passed"] and args.phase != "init":
+        session = load_state(
+            next((args.ledger / ".auto-bean/import-sessions").glob("*.json"))
+        )
+        parsed_paths = [g["parsed_group"] for g in session["groups"]]
+    if report["state_passed"] and args.phase in {"review", "needs-input", "correct"}:
+        session = load_state(
+            next((args.ledger / ".auto-bean/import-sessions").glob("*.json"))
+        )
+        members = {
+            m["source_file"]: m["parsed_group"] for m in session_members(session)
+        }
+        for stage in (
+            ["process", "categorize"] if args.phase != "correct" else ["categorize"]
+        ):
+            stage_groups[stage] = []
+            for group in session["groups"]:
+                paths = [
+                    source if stage == "process" else members[source]
+                    for source in group["source_files"]
+                    if stage == "process"
+                    or args.phase != "needs-input"
+                    or any(
+                        row.get("review")
+                        for row in parsed_source(args.ledger, members[source], source)[
+                            "extracted_records"
+                        ]
+                    )
+                ]
+                if paths:
+                    stage_groups[stage].append(
+                        {"group_id": group["group_id"], "paths": paths}
+                    )
+    trace = grade_trace(args.agent_logs, args.phase, stage_groups, parsed_paths)
     report["trace_passed"] = trace["passed"]
     report["trace_policy"] = args.trace_policy
     report["passed"] = report["state_passed"] and (

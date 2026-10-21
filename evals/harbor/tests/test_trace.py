@@ -59,7 +59,7 @@ def passing_events(phase: str) -> list[dict[str, Any]]:
         f"cat {PLUGIN}/skills/{{{','.join('auto-bean-' + s for s in skills.split(','))}}}/SKILL.md",
         f"cat {PLUGIN}/references/common.md {PLUGIN}/references/import-review.md {PLUGIN}/references/schemas/*.json",
         "cat ledger.beancount .auto-bean/workspace.json beancount/accounts.beancount statements/import-status.yml .auto-bean/memory/MEMORY.md",
-        "cat statements/parsed/checking.json statements/parsed/savings.json .auto-bean/memory/account_mappings.json .auto-bean/memory/category_mappings.json",
+        "cat statements/parsed/january.json statements/parsed/january.json .auto-bean/memory/account_mappings.json .auto-bean/memory/category_mappings.json",
         "git status --short",
     ]
     launcher = f"sh {PLUGIN}/runtime/launch.sh"
@@ -290,3 +290,96 @@ def test_session_context_can_be_reused_but_ledger_must_be_reread(
     events.pop()
     save(tmp_path, events)
     assert not grade_trace(tmp_path, "approve")["passed"]
+
+
+@pytest.mark.parametrize(
+    "defect", [None, "root_only", "shared_worker", "missing_source", "unrelated_child"]
+)
+def test_group_stage_delegation_needs_distinct_descendants(
+    tmp_path: Path, defect: str | None
+) -> None:
+    save(tmp_path, passing_events("review"))
+    groups = {
+        "process": [
+            {
+                "group_id": "january",
+                "paths": ["statements/raw/checking.csv", "statements/raw/savings.pdf"],
+            }
+        ],
+        "categorize": [
+            {
+                "group_id": "january",
+                "paths": [
+                    "statements/parsed/january.json",
+                    "statements/parsed/january.json",
+                ],
+            }
+        ],
+    }
+    for stage, entries in groups.items():
+        paths = entries[0]["paths"]
+        if defect == "missing_source":
+            paths = paths[:1]
+        events = [
+            event(f"cat {PLUGIN}/skills/auto-bean-{stage}/SKILL.md"),
+            event("cat " + " ".join(paths)),
+        ]
+        if defect == "root_only":
+            with (tmp_path / "sessions/root.jsonl").open("a") as stream:
+                stream.write("".join(json.dumps(e) + "\n" for e in events))
+            continue
+        path = save(tmp_path, events, child=True)
+        records = [json.loads(line) for line in path.read_text().splitlines()]
+        records[0]["payload"]["id"] = "shared" if defect == "shared_worker" else stage
+        if defect == "unrelated_child":
+            records[0]["payload"]["source"]["subagent"]["spawn"]["parent_thread_id"] = (
+                "unrelated"
+            )
+        path.unlink()
+        (path.parent / f"{stage}.jsonl").write_text(
+            "".join(json.dumps(row) + "\n" for row in records)
+        )
+    report = grade_trace(tmp_path, "review", groups)
+    assert report["passed"] is (defect is None), report
+
+
+def save_group_workers(logs: Path) -> None:
+    for stage, paths in {
+        "process": "statements/raw/checking.csv statements/raw/savings.pdf",
+        "categorize": "statements/parsed/january.json statements/parsed/january.json",
+    }.items():
+        path = save(
+            logs,
+            [
+                event(f"cat {PLUGIN}/skills/auto-bean-{stage}/SKILL.md"),
+                event(f"cat {paths}"),
+            ],
+            child=True,
+        )
+        records = [json.loads(line) for line in path.read_text().splitlines()]
+        records[0]["payload"]["id"] = stage
+        path.unlink()
+        (path.parent / f"{stage}.jsonl").write_text(
+            "".join(json.dumps(row) + "\n" for row in records)
+        )
+
+
+def test_distinct_groups_cannot_share_a_stage_worker(tmp_path: Path) -> None:
+    save(tmp_path, passing_events("review"))
+    save_group_workers(tmp_path)
+    groups = {
+        "process": [
+            {"group_id": "checking", "paths": ["statements/raw/checking.csv"]},
+            {"group_id": "savings", "paths": ["statements/raw/savings.pdf"]},
+        ],
+    }
+    report = grade_trace(tmp_path, "review", groups)
+    assert not report["passed"]
+    # A second descendant can own the savings group independently.
+    path = tmp_path / "sessions/process.jsonl"
+    records = [json.loads(line) for line in path.read_text().splitlines()]
+    records[0]["payload"]["id"] = "process-savings"
+    (path.parent / "process-savings.jsonl").write_text(
+        "".join(json.dumps(row) + "\n" for row in records)
+    )
+    assert grade_trace(tmp_path, "review", groups)["passed"]

@@ -12,21 +12,43 @@
       "type": "string",
       "format": "date-time"
     },
-    "statements": {
+    "groups": {
       "type": "array",
       "items": {
         "type": "object",
         "properties": {
-          "source_file": {
+          "group_id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+          },
+          "parsed_group": {
             "type": "string"
           },
-          "parsed_statement": {
-            "type": "string"
+          "name": {
+            "type": "string",
+            "pattern": "\\S"
+          },
+          "origin": {
+            "enum": [
+              "user",
+              "agent"
+            ]
+          },
+          "source_files": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "uniqueItems": true
           }
         },
         "required": [
-          "source_file",
-          "parsed_statement"
+          "group_id",
+          "parsed_group",
+          "name",
+          "origin",
+          "source_files"
         ],
         "additionalProperties": false
       }
@@ -309,7 +331,7 @@
     "schema_version",
     "session_id",
     "created_at",
-    "statements",
+    "groups",
     "price_runs"
   ],
   "additionalProperties": false,

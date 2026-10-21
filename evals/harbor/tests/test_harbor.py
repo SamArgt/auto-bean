@@ -14,7 +14,12 @@ import yaml
 from auto_bean import init
 from auto_bean.common import WorkflowError
 from evals.harbor.adapter import AutoBeanCodex
-from evals.harbor.fixtures import import_ledger, raw_inputs, write_json
+from evals.harbor.fixtures import (
+    import_ledger,
+    raw_inputs,
+    write_json as write_fixture_json,
+)
+from auto_bean.validation import session_members
 
 from evals.harbor.capture import metadata, checkpoint
 from evals.harbor.verify import (
@@ -38,6 +43,30 @@ reference = runpy.run_path(
     )
 )
 approve, draft = reference["approve"], reference["draft"]
+
+
+def read_fixture(
+    path: Path, source: str = "statements/raw/checking.csv"
+) -> dict[str, Any]:
+    data = json.loads(path.read_text())
+    if "group_id" in data and "statements" in data:
+        return next(d for d in data["statements"] if d["source_file"] == source)
+    return dict(data)
+
+
+def write_json(path: Path, data: Any) -> None:
+    if (
+        isinstance(data, dict)
+        and "source_file" in data
+        and path.parent.name == "parsed"
+    ):
+        group = json.loads(path.read_text())
+        group["statements"] = [
+            d if d["source_file"] != data["source_file"] else data
+            for d in group["statements"]
+        ]
+        data = group
+    write_fixture_json(path, data)
 
 
 @pytest.fixture
@@ -106,7 +135,7 @@ def test_memory_uses_actual_governed_records(
     root, evidence, expected = reviewed
     complete(root, evidence)
     path = root / ".auto-bean/memory/category_mappings.json"
-    data = json.loads(path.read_text())
+    data = read_fixture(path)
     record = data["records"][0]
     if defect == "missing":
         data["records"] = []
@@ -150,9 +179,9 @@ def test_unapplied_decisions_cannot_be_learned(
         (root / name).write_text(content)
     (root / "beancount/imports.beancount").unlink()
     (root / "statements/import-status.yml").write_text(checkpoint_data["status"])
-    for member in checkpoint_data["session"]["statements"]:
+    for member in session_members(checkpoint_data["session"]):
         write_json(
-            root / member["parsed_statement"],
+            root / member["parsed_group"],
             checkpoint_data["documents"][member["source_file"]],
         )
     write_json(
@@ -185,7 +214,7 @@ def test_epilogues_are_required_at_completion_not_before_user_approval(
     import_checks(root, PLUGIN, evidence, expected, "review")
     complete(root, evidence)
     path = root / ".auto-bean/import-sessions/harbor-import.json"
-    doc = json.loads(path.read_text())
+    doc = read_fixture(path)
     doc["price_runs"] = []
     write_json(path, doc)
     with pytest.raises(AssertionError, match="prices stage"):
@@ -223,8 +252,8 @@ def test_invalid_parsed_state_fails(
     reviewed: tuple[Path, Path, dict[str, Any]],
 ) -> None:
     root, evidence, expected = reviewed
-    path = root / "statements/parsed/checking.json"
-    data = json.loads(path.read_text())
+    path = root / "statements/parsed/january.json"
+    data = read_fixture(path)
     data["extracted_records"][0]["account_id"] = "missing-account"
     write_json(path, data)
     with pytest.raises(Exception, match="account_id"):
@@ -478,8 +507,8 @@ def test_structured_reference_corruption_fails(
     reviewed: tuple[Path, Path, dict[str, Any]], defect: str
 ) -> None:
     root, evidence, expected = reviewed
-    path = root / "statements/parsed/checking.json"
-    doc = json.loads(path.read_text())
+    path = root / "statements/parsed/january.json"
+    doc = read_fixture(path)
     if defect == "account":
         account_decisions(doc)["checking"]["ledger_account"] = "Assets:Savings"
     elif defect == "record":
@@ -490,8 +519,8 @@ def test_structured_reference_corruption_fails(
         )
     else:
         path = root / ".auto-bean/import-sessions/harbor-import.json"
-        doc = json.loads(path.read_text())
-        doc["statements"].pop()
+        doc = read_fixture(path)
+        doc["groups"][0]["source_files"].pop()
     write_json(path, doc)
     with pytest.raises(Exception):
         import_checks(root, PLUGIN, evidence, expected, "review")
@@ -668,8 +697,8 @@ def test_inline_unresolved_input_rejects_review(
     reviewed: tuple[Path, Path, dict[str, Any]], subject: str
 ) -> None:
     root, evidence, expected = reviewed
-    path = root / "statements/parsed/checking.json"
-    doc = json.loads(path.read_text())
+    path = root / "statements/parsed/january.json"
+    doc = read_fixture(path)
     if subject == "account":
         decision = account_decisions(doc)["checking"]
     elif subject == "transaction":
@@ -692,7 +721,7 @@ def test_independent_inline_material_hash_matches_runtime(
     from auto_bean.review import material
 
     root, _, _ = reviewed
-    doc = json.loads((root / "statements/parsed/checking.json").read_text())
+    doc = read_fixture(root / "statements/parsed/january.json")
     original = material_hash(doc)
     assert original == material(doc)
     doc["review"]["processing"]["attempts"] += 1
@@ -708,8 +737,8 @@ def test_independent_inline_material_hash_matches_runtime(
 
 
 def delegated_transfer(root: Path, evidence: Path) -> None:
-    path = root / "statements/parsed/savings.json"
-    doc = json.loads(path.read_text())
+    path = root / "statements/parsed/january.json"
+    doc = read_fixture(path, "statements/raw/savings.pdf")
     transaction_decisions(doc)["XFER-001"]["postings"] = []
     write_json(path, doc)
     write_json(evidence / "review.json", checkpoint(root))
@@ -723,8 +752,8 @@ def test_current_written_validation_is_required(
 ) -> None:
     root, evidence, expected = reviewed
     complete(root, evidence)
-    path = root / "statements/parsed/checking.json"
-    doc = json.loads(path.read_text())
+    path = root / "statements/parsed/january.json"
+    doc = read_fixture(path)
     if defect == "missing":
         doc["review"].pop("validation")
     elif defect == "digest":
@@ -794,8 +823,8 @@ def test_checkpoint_prevents_redefining_reviewed_transactions(
     reviewed: tuple[Path, Path, dict[str, Any]],
 ) -> None:
     root, evidence, expected = reviewed
-    path = root / "statements/parsed/checking.json"
-    doc = json.loads(path.read_text())
+    path = root / "statements/parsed/january.json"
+    doc = read_fixture(path)
     transaction_decisions(doc)["C-001"]["rationale"] = "Different reviewed explanation"
     write_json(path, doc)
     with pytest.raises(AssertionError, match="changed after review"):
@@ -817,11 +846,11 @@ def test_human_correction_requires_separate_approval(tmp_path: Path) -> None:
     (evidence / "last-response.txt").write_text(
         "checking.csv and savings.pdf\n\n## Import Status: Ready For Review\n\n**Next Step:** Approve transactions.\n"
     )
-    import_checks(root, PLUGIN, evidence, expected, "review")
+    import_checks(root, PLUGIN, evidence, expected, "review", explicit_group=False)
     correction_checks(root)
-    doc = json.loads((root / "statements/parsed/checking.json").read_text())
+    doc = read_fixture(root / "statements/parsed/january.json")
     transaction_decisions(doc)["C-001"].pop("answer")
-    write_json(root / "statements/parsed/checking.json", doc)
+    write_json(root / "statements/parsed/january.json", doc)
     with pytest.raises(AssertionError, match="human answer"):
         correction_checks(root)
 
@@ -830,8 +859,8 @@ def test_stale_review_preserves_intervening_decision(
     reviewed: tuple[Path, Path, dict[str, Any]],
 ) -> None:
     root, evidence, expected = reviewed
-    path = root / "statements/parsed/checking.json"
-    doc = json.loads(path.read_text())
+    path = root / "statements/parsed/january.json"
+    doc = read_fixture(path)
     transaction_decisions(doc)["C-001"]["rationale"] = STALE_RATIONALE
     write_json(path, doc)
     reference["stale"](root, evidence / "review.json")
@@ -854,8 +883,8 @@ def test_transfer_requires_reciprocal_owner(
 ) -> None:
     root, evidence, expected = reviewed
     delegated_transfer(root, evidence)
-    path = root / "statements/parsed/checking.json"
-    doc = json.loads(path.read_text())
+    path = root / "statements/parsed/january.json"
+    doc = read_fixture(path)
     decision = transaction_decisions(doc)["XFER-001"]
     if defect == "missing_postings":
         decision["postings"] = []
@@ -875,7 +904,7 @@ def test_obsolete_execution_artifacts_are_rejected(
 ) -> None:
     root, evidence, expected = reviewed
     path = root / ".auto-bean/import-sessions/harbor-import.json"
-    doc = json.loads(path.read_text())
+    doc = read_fixture(path)
     doc["changes"] = []
     doc["actions"] = []
     write_json(path, doc)
@@ -940,8 +969,8 @@ def test_written_validation_cannot_predate_review(
 ) -> None:
     root, evidence, expected = reviewed
     complete(root, evidence)
-    path = root / "statements/parsed/checking.json"
-    doc = json.loads(path.read_text())
+    path = root / "statements/parsed/january.json"
+    doc = read_fixture(path)
     doc["review"]["validation"]["checked_at"] = "2020-01-01T00:00:00Z"
     write_json(path, doc)
     with pytest.raises(AssertionError, match="predates review"):
@@ -953,8 +982,8 @@ def test_fabricated_panel_approval_is_not_chat_authorization(
 ) -> None:
     root, evidence, expected = reviewed
     complete(root, evidence)
-    path = root / "statements/parsed/checking.json"
-    doc = json.loads(path.read_text())
+    path = root / "statements/parsed/january.json"
+    doc = read_fixture(path)
     assert "approval" not in doc["review"]
     doc["review"]["approval"] = {
         "digest": material_hash(doc),
@@ -971,8 +1000,8 @@ def test_direct_edit_after_review_cannot_use_prior_chat_approval(
 ) -> None:
     root, evidence, _ = reviewed
     before = (root / "ledger.beancount").read_bytes()
-    path = root / "statements/parsed/checking.json"
-    doc = json.loads(path.read_text())
+    path = root / "statements/parsed/january.json"
+    doc = read_fixture(path)
     transaction_decisions(doc)["C-001"]["rationale"] = "Changed after review"
     write_json(path, doc)
     with pytest.raises(AssertionError, match="changed"):
@@ -1002,9 +1031,9 @@ def test_revision_bookkeeping_is_not_part_of_agent_artifacts(
     path = root / (
         ".auto-bean/import-sessions/harbor-import.json"
         if artifact == "session"
-        else "statements/parsed/checking.json"
+        else "statements/parsed/january.json"
     )
-    doc = json.loads(path.read_text())
+    doc = read_fixture(path)
     doc["revision"] = 1
     write_json(path, doc)
     with pytest.raises(WorkflowError):
@@ -1028,7 +1057,7 @@ def test_trace_and_state_joint_reward(
     wanted: int,
 ) -> None:
     from evals.harbor.verify import main
-    from evals.harbor.tests.test_trace import passing_events, save
+    from evals.harbor.tests.test_trace import passing_events, save, save_group_workers
 
     root, evidence, expected = reviewed
     logs, agent_logs = tmp_path / "verifier", tmp_path / "agent"
@@ -1036,6 +1065,7 @@ def test_trace_and_state_joint_reward(
     write_json(baseline, expected)
     if has_trace:
         save(agent_logs, passing_events("review"))
+        save_group_workers(agent_logs)
     monkeypatch.setattr(
         "sys.argv",
         [
@@ -1064,3 +1094,28 @@ def test_trace_and_state_joint_reward(
     assert report["trace_policy"] == policy
     assert (logs / "reward.txt").read_text().strip() == str(1 - wanted)
     assert (logs / "trace-report.json").is_file()
+
+
+def test_explicit_group_cannot_be_replaced_by_inferred_groups(
+    reviewed: tuple[Path, Path, dict[str, Any]],
+) -> None:
+    root, evidence, expected = reviewed
+    path = root / ".auto-bean/import-sessions/harbor-import.json"
+    session = read_fixture(path)
+    session["groups"][0]["origin"] = "agent"
+    write_json(path, session)
+    with pytest.raises(AssertionError, match="Explicit January accounts group"):
+        import_checks(root, PLUGIN, evidence, expected, "review")
+
+
+def test_group_ids_are_preserved_across_approval(
+    reviewed: tuple[Path, Path, dict[str, Any]],
+) -> None:
+    root, evidence, expected = reviewed
+    complete(root, evidence)
+    path = root / ".auto-bean/import-sessions/harbor-import.json"
+    session = read_fixture(path)
+    session["groups"][0]["group_id"] = "changed"
+    write_json(path, session)
+    with pytest.raises(WorkflowError, match="group membership"):
+        import_checks(root, PLUGIN, evidence, expected, "approve")

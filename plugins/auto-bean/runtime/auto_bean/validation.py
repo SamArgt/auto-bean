@@ -161,12 +161,17 @@ def validate_review(
 
 
 def validate_session(root: Path, data: dict[str, Any]) -> None:
-    unique_ids(data["statements"], "source_file")
-    unique_ids(data["statements"], "parsed_statement")
+    unique_ids(data["groups"], "group_id")
+    unique_ids(data["groups"], "parsed_group")
     unique_ids(data["price_runs"], "run_id")
-    for statement in data["statements"]:
-        bounded_path(root, statement["source_file"], "statements/raw")
-        bounded_path(root, statement["parsed_statement"], "statements/parsed")
+    sources: set[Path] = set()
+    for group in data["groups"]:
+        bounded_path(root, group["parsed_group"], "statements/parsed")
+        for raw in group["source_files"]:
+            path = bounded_path(root, raw, "statements/raw")
+            if path in sources:
+                invalid("Session groups must assign every statement exactly once.")
+            sources.add(path)
     for run in data["price_runs"]:
         if run["state"] in {"complete", "no_op", "failed", "partial"} and run[
             "execution"
@@ -209,29 +214,72 @@ def validate_session(root: Path, data: dict[str, Any]) -> None:
             invalid("Price completion lacks preflight or required commodity coverage.")
 
 
+def session_members(session: dict[str, Any]) -> list[dict[str, Any]]:
+    """Read-only source projection; lifecycle and storage belong to each group."""
+    return [
+        {
+            "source_file": source,
+            "parsed_group": group["parsed_group"],
+            "group_id": group["group_id"],
+        }
+        for group in session["groups"]
+        for source in group["source_files"]
+    ]
+
+
+def status_members(status: dict[str, Any]) -> dict[str, Any]:
+    """Project group state onto sources for accounting checks, never for writing YAML."""
+    return {
+        source: {
+            **{k: v for k, v in group.items() if k != "sources"},
+            **facts,
+            "group_id": group_id,
+        }
+        for group_id, group in status["groups"].items()
+        for source, facts in group["sources"].items()
+    }
+
+
+def session_status(session: dict[str, Any], status: dict[str, Any]) -> None:
+    for group in session["groups"]:
+        entry = status["groups"].get(group["group_id"], {})
+        if (
+            entry.get("session_id") != session["session_id"]
+            or entry.get("parsed_group") != group["parsed_group"]
+            or set(entry.get("sources", {})) != set(group["source_files"])
+        ):
+            invalid("Session group membership no longer matches its status entry.")
+    if {
+        key
+        for key, group in status["groups"].items()
+        if group["session_id"] == session["session_id"]
+    } != {group["group_id"] for group in session["groups"]}:
+        invalid("Status contains groups outside this session membership.")
+
+
 def validate_status(root: Path, data: dict[str, Any]) -> None:
-    pointers: set[str] = set()
+    pointers: set[Path] = set()
     sources: set[Path] = set()
-    for raw, entry in data["statements"].items():
-        source = bounded_path(root, raw, "statements/raw")
-        if source in sources:
-            invalid("Multiple status entries point to the same raw source.")
-        sources.add(source)
-        if entry.get("source_path", raw) != raw:
-            invalid("Status source_path disagrees with its entry key.")
-        paths = []
-        if "parsed_statement" in entry:
-            paths.append((entry["parsed_statement"], "statements/parsed"))
-        paths.extend(
-            (value, f".auto-bean/artifacts/{stage}")
-            for stage, value in entry.get("artifacts", {}).items()
-        )
-        for value, prefix in paths:
-            path = bounded_path(root, value, prefix)
-            canonical = path.as_posix()
-            if canonical in pointers:
-                invalid("Statements have conflicting parsed or artifact pointers.")
-            pointers.add(canonical)
+    for group in data["groups"].values():
+        path = bounded_path(root, group["parsed_group"], "statements/parsed")
+        if path in pointers:
+            invalid("Groups have conflicting parsed pointers.")
+        pointers.add(path)
+        if group["current_status"] == "done" and (
+            group.get("user_input_required") or group.get("manual_resolution_required")
+        ):
+            invalid("Group done conflicts with unresolved input flags.")
+        for raw in group["sources"]:
+            source = bounded_path(root, raw, "statements/raw")
+            if source in sources:
+                invalid("Multiple groups point to the same raw source.")
+            sources.add(source)
+
+
+def validate_parsed_group(root: Path, data: dict[str, Any]) -> None:
+    unique_ids(data["statements"], "source_file")
+    for statement in data["statements"]:
+        validate_parsed(root, statement)
 
 
 def validate_memory(root: Path, data: dict[str, Any]) -> None:
@@ -272,6 +320,7 @@ def validate_state(kind: str, root: Path, data: dict[str, Any]) -> None:
         invalid(f"Schema violation at {location} ({error.validator}).")
     {
         "parsed": validate_parsed,
+        "parsed-group": validate_parsed_group,
         "status": validate_status,
         "memory": validate_memory,
         "session": validate_session,

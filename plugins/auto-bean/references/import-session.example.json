@@ -58,10 +58,15 @@
   ],
   "schema_version": 1,
   "session_id": "january-2026",
-  "statements": [
+  "groups": [
     {
-      "parsed_statement": "statements/parsed/checking-jan-2026.json",
-      "source_file": "statements/raw/checking/jan-2026.pdf"
+      "group_id": "checking-january",
+      "name": "January checking",
+      "origin": "agent",
+      "source_files": [
+        "statements/raw/checking/jan-2026.pdf"
+      ],
+      "parsed_group": "statements/parsed/checking-jan-2026.json"
     }
   ]
 }

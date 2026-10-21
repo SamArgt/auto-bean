@@ -4,22 +4,23 @@ Use this reference for field meanings and edge cases. The Import, Process, Categ
 
 ## Process flow
 
-This is the canonical process diagram for [Import](../skills/auto-bean-import/SKILL.md). **∥** marks work that can run in parallel on separate statements. **◆** marks coordination owned by the main import agent, not a measured runtime delay. Orange nodes show human input; dotted links are conditional clarification loops.
+This is the canonical process diagram for [Import](../skills/auto-bean-import/SKILL.md). Each session has user-defined or agent-inferred statement groups, usually one statement per group. Import spawns a separate subagent for each group's processing and categorization stages when needed. **∥** marks work that can run in parallel across independent groups. **◆** marks coordination owned by the main import agent, not a measured runtime delay. Orange nodes show human input; dotted links are conditional clarification loops.
 
-Each statement resumes at its relevant stage from saved status and evidence; the diagram shows the full path for a new import. Independent safe work continues while questions are pending. Unresolved transfers or duplicates hold the affected group of rows. Edits to the same parsed document and all ledger writes are serialized under the [ownership rules](common.md#ownership).
+Each group resumes from its saved status and source sections; the diagram shows the full path for a new import. Independent safe work continues while questions are pending. Unresolved transfers or duplicates hold the affected group of rows. Edits to the same parsed document and all ledger writes are serialized under the [ownership rules](common.md#ownership).
 
 ```mermaid
 flowchart TD
     S([Start or resume import]) --> D["Discover sources<br/>Read status and fingerprints"]
-    D --> E{"Already done?"}
+    D --> G["◆ Define statement groups<br/>Use user groups or infer; default one statement"]
+    G --> E{"Already done?"}
     E -- Yes --> R{"Explicit rework requested?"}
     R -- No --> SK([Skip statement])
     R -- Yes --> P
-    E -- No --> P["∥ Process source<br/>Extract and validate evidence"]
+    E -- No --> P["∥ Spawn processing subagent per group<br/>Extract and validate each source"]
 
     P --> A["◆ Inspect accounts<br/>Plan openings and document references"]
     A --> B["Check opening balances<br/>Resolve account and balance decisions"]
-    B --> C["∥ Categorize transactions"]
+    B --> C["∥ Spawn categorization subagent per group<br/>Categorize ready statements"]
     C --> X["◆ Review batch transfers and duplicates<br/>Assign dispositions and one posting owner"]
     X --> F["◆ Validate and prepare final review<br/>Mappings, parsed postings and supporting directives"]
 
@@ -35,7 +36,7 @@ flowchart TD
     H -- "Correct and revalidate" --> F
     AP -- Yes --> W["Write approved entries serially<br/>Directly from parsed JSON"]
     W --> V["Validate written transactions<br/>Check ledger and closing balances"]
-    V -- Passed --> DN["Mark validated statements done"]
+    V -- Passed --> DN["Mark group done only when all members pass"]
 
     DN --> PR["After statement writes/reviews:<br/>Run or resume price epilogue"]
     PR --> PC{"Price edits?"}
@@ -53,15 +54,19 @@ flowchart TD
 
 Before first approval, proposed postings and supporting directives remain in parsed JSON and the ledger is unchanged. The statement review covers mappings, openings and transactions together; clarification loops are conditional, not extra approval rounds. A shared transfer requires approval for all affected statements. Write returns its written validation result to Import for `done`; failures return to the owning stage for repair. Material corrections require renewed review. Interrupted writes resume from actual provenance without duplicate appends or whole-file restoration.
 
-The price epilogue runs after the current statement pass, including when some work remains pending. It records a zero-job result when no commodities need prices. Price questions or approval can remain pending while statements stay `done`. Memory uses only accepted, verified work; unresolved proposals are not learned. The overall import is `Complete` only when every in-scope statement is done and no price or follow-up action remains.
+The price epilogue runs after the current statement pass, including when some work remains pending. It records a zero-job result when no commodities need prices. Price questions or approval can remain pending while groups stay `done`. Memory uses only accepted, verified work; unresolved proposals are not learned. The overall import is `Complete` only when every in-scope group is done and no price or follow-up action remains.
 
 ## State and validation
 
 There are three authoritative import surfaces:
 
-- `statements/import-status.yml` ([status schema](schemas/status.schema.json)): lifecycle, retry information, compact flags and the current parsed-document pointer.
-- One parsed JSON per statement ([parsed schema](schemas/parsed-v2.schema.json)): source facts, inline account/transaction decisions and generated validation.
-- `.auto-bean/import-sessions/<session-id>.json` ([session schema](schemas/session.schema.json)): explicit statement membership and session price runs. It does not contain another transaction list.
+- `statements/import-status.yml` ([status schema](schemas/status.schema.json)): one `groups.<group_id>` entry with `session_id`, `parsed_group`, `current_status` and group input/repair flags. Its `sources` map holds raw-path fingerprints and retry information, never source lifecycle statuses.
+- One parsed JSON per group ([group schema](schemas/parsed-group.schema.json)): `group_id` and a `statements` list. Each source section follows the embedded [statement schema](schemas/parsed-v2.schema.json), with source identity, extraction facts, inline decisions and generated validation. All member sections share this one physical file.
+- `.auto-bean/import-sessions/<session-id>.json` ([session schema](schemas/session.schema.json)): groups and price runs. It does not contain a second statement or transaction list.
+
+Each session group has a stable workspace-unique `group_id`, `name`, `origin` (`user` or `agent`), nonempty `source_files` and one `parsed_group` path. A source belongs to exactly one group. Distinct groups cannot share a parsed path. Session, YAML and parsed JSON must agree on group identity and exact source membership. An empty session has no groups.
+
+Keep a group's lifecycle at its earliest unresolved stage. Input and repair flags summarize all its members. Ready members may make safe progress while another is blocked, but serialize every edit to the shared JSON. Import may explicitly dispatch categorization for ready sections; it cannot advance the whole group until all members are ready. Preserve completed member sections on retry. `final_review` and `write_blocked` cover interrupted or partial writes. Only current passed written validation for every member permits group `done`. Per-source reports and approvals remain inside the group file; they are not separate lifecycle entries.
 
 Pending/running/failed extraction requires source identity/fingerprint, source format, extraction state, account/record arrays and `review.processing`. Arrays may be empty; parser metadata and completion time are required only for complete extraction. Partial evidence never enters accounting stages.
 
@@ -107,6 +112,6 @@ Inspect source identity, extraction state, account IDs and record count before r
 
 ## Examples
 
-The single [parsed example](parsed-statement-output.example.json) shows two accounts and six rows, including a split, refund, answered question and reciprocal transfer. The [session example](import-session.example.json) contains membership and a synthetic price run. The [status example](import-status.example.yml) points to that statement.
+The [group parsed example](parsed-statement-output.example.json) shows two accounts and six rows, including a split, refund, answered question and reciprocal transfer. The [session example](import-session.example.json) contains group membership, its parsed path and a synthetic price run. The [status example](import-status.example.yml) tracks that group.
 
 These illustrate structure, not instructions or approval. Never copy generated confirmations, hashes or successful results into a real import. The panel and validator produce their own evidence from the selected workspace.

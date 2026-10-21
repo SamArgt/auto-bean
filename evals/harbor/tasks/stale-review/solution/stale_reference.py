@@ -30,10 +30,29 @@ def session_path(root: Path) -> Path:
 def parsed_path(root: Path, source: str) -> Path:
     session = load_state(session_path(root))
     return root / next(
-        str(m["parsed_statement"])
-        for m in session["statements"]
-        if m["source_file"] == source
+        str(g["parsed_group"]) for g in session["groups"] if source in g["source_files"]
     )
+
+
+def read_statement(root: Path, source: str) -> dict[str, Any]:
+    return next(
+        d
+        for d in load_state(parsed_path(root, source))["statements"]
+        if d["source_file"] == source
+    )
+
+
+def save_statement(root: Path, source: str, data: dict[str, Any]) -> None:
+    path = parsed_path(root, source)
+    group = (
+        load_state(path)
+        if path.exists()
+        else {"schema_version": 2, "group_id": "january", "statements": []}
+    )
+    group["statements"] = [
+        d for d in group["statements"] if d["source_file"] != source
+    ] + [data]
+    write_json(path, group)
 
 
 def account_decisions(doc: dict[str, Any]) -> dict[str, Any]:
@@ -77,16 +96,21 @@ SESSION = "harbor-import"
 def draft(
     root: Path, plugin: Path, *, extract: bool = True, defer: bool = False
 ) -> None:
-    status: dict[str, Any] = {"version": 1, "statements": {}}
     fingerprints = {Path(raw).stem: "sha256:" + sha256(root / raw) for raw in SOURCES}
-    for raw in SOURCES:
-        name = Path(raw).stem
-        status["statements"][raw] = {
-            "workflow_version": 2,
-            "current_status": "raw_ready",
-            "source_fingerprint": fingerprints[name],
-            "parsed_statement": f"statements/parsed/{name}.json",
-        }
+    status: dict[str, Any] = {
+        "version": 1,
+        "groups": {
+            "january": {
+                "session_id": SESSION,
+                "current_status": "raw_ready",
+                "parsed_group": "statements/parsed/january.json",
+                "sources": {
+                    raw: {"source_fingerprint": fingerprints[Path(raw).stem]}
+                    for raw in SOURCES
+                },
+            }
+        },
+    }
     (root / "statements/import-status.yml").write_text(yaml.safe_dump(status))
     write_json(
         session_path(root),
@@ -94,12 +118,14 @@ def draft(
             "schema_version": 1,
             "session_id": SESSION,
             "created_at": now(),
-            "statements": [
+            "groups": [
                 {
-                    "source_file": raw,
-                    "parsed_statement": status["statements"][raw]["parsed_statement"],
+                    "group_id": "january",
+                    "name": "January accounts",
+                    "origin": "agent" if defer else "user",
+                    "source_files": list(SOURCES),
+                    "parsed_group": "statements/parsed/january.json",
                 }
-                for raw in SOURCES
             ],
             "price_runs": [],
         },
@@ -250,14 +276,14 @@ def draft(
                 decision["posting_owner"] = SOURCES[0]
             row["review"] = decision
         data["review"] = review
-        write_json(parsed_path(root, raw), data)
+        save_statement(root, raw, data)
 
     if defer:
         for raw, subject, kind in (
             (SOURCES[0], "C-001", "transaction"),
             (SOURCES[1], "savings", "account"),
         ):
-            doc = load_state(parsed_path(root, raw))
+            doc = read_statement(root, raw)
             if kind == "transaction":
                 transaction_decisions(doc)[subject].update(
                     state="needs_input",
@@ -273,10 +299,9 @@ def draft(
                     rationale="Which ledger account belongs to SAVINGS-TEST?",
                     suggestions=["Assets:Savings", "Assets:Checking"],
                 )
-            write_json(parsed_path(root, raw), doc)
-            status["statements"][raw]["current_status"] = (
-                "categorize_blocked" if kind == "transaction" else "account_blocked"
-            )
+            save_statement(root, raw, doc)
+            status["groups"]["january"]["current_status"] = "account_blocked"
+            status["groups"]["january"]["user_input_required"] = True
         (root / "statements/import-status.yml").write_text(yaml.safe_dump(status))
     else:
         stage(root)
@@ -285,14 +310,15 @@ def draft(
 def stage(root: Path) -> None:
     """Review is the current parsed postings; canonical files remain untouched."""
     status = yaml.safe_load((root / "statements/import-status.yml").read_text())
-    for item in status["statements"].values():
+    for item in status["groups"].values():
         item["current_status"] = "final_review"
+        item["user_input_required"] = False
     (root / "statements/import-status.yml").write_text(yaml.safe_dump(status))
 
 
 def write_reviewed(root: Path) -> None:
     """Reference Write step edits canonical files from reviewed rows exactly once."""
-    docs = {raw: load_state(parsed_path(root, raw)) for raw in SOURCES}
+    docs = {raw: read_statement(root, raw) for raw in SOURCES}
     blocks = []
     for raw, doc in docs.items():
         for row in doc["extracted_records"]:
@@ -349,7 +375,7 @@ def approve(root: Path, checkpoint_path: Path) -> None:
 
     checkpoint = load_state(checkpoint_path)
     for raw in SOURCES:
-        doc = load_state(parsed_path(root, raw))
+        doc = read_statement(root, raw)
         assert material(doc) == checkpoint["review_digests"][raw], (
             "Reviewed decisions changed; renewed approval required"
         )
@@ -378,7 +404,7 @@ def approve(root: Path, checkpoint_path: Path) -> None:
     result = validate_import(root, SESSION, stage="written")
     assert result["state"] == "passed", result
     status = yaml.safe_load((root / "statements/import-status.yml").read_text())
-    for item in status["statements"].values():
+    for item in status["groups"].values():
         item["current_status"] = "done"
     (root / "statements/import-status.yml").write_text(yaml.safe_dump(status))
     remember_applied_decisions(root)
@@ -390,7 +416,7 @@ def remember_applied_decisions(root: Path) -> None:
     timestamp = now()
     for raw in SOURCES:
         name = Path(raw).stem
-        doc = load_state(parsed_path(root, raw))
+        doc = read_statement(root, raw)
         scope = {
             "account_names": [name.upper() + "-TEST"],
             "account_owner": "Alex Example",
@@ -457,7 +483,7 @@ def remember_applied_decisions(root: Path) -> None:
 
 
 def correct(root: Path) -> None:
-    checking = load_state(parsed_path(root, SOURCES[0]))
+    checking = read_statement(root, SOURCES[0])
     transaction_decisions(checking)["C-001"].update(
         answer="Expenses:Food",
         disposition="post",
@@ -467,18 +493,18 @@ def correct(root: Path) -> None:
             {"account": "Expenses:Food", "amount": "25", "currency": "EUR"},
         ],
     )
-    write_json(parsed_path(root, SOURCES[0]), checking)
-    savings = load_state(parsed_path(root, SOURCES[1]))
+    save_statement(root, SOURCES[0], checking)
+    savings = read_statement(root, SOURCES[1])
     account_decisions(savings)["savings"].update(
         answer="Assets:Savings", ledger_account="Assets:Savings", state="confirmed"
     )
-    write_json(parsed_path(root, SOURCES[1]), savings)
+    save_statement(root, SOURCES[1], savings)
     stage(root)
 
 
 def stale(root: Path, checkpoint_path: Path | None = None) -> None:
     checkpoint = load_state(checkpoint_path or Path("/opt/eval-evidence/review.json"))
-    doc = load_state(parsed_path(root, SOURCES[0]))
+    doc = read_statement(root, SOURCES[0])
     assert material(doc) != checkpoint["review_digests"][SOURCES[0]], (
         "Expected changed review evidence"
     )

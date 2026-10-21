@@ -9,13 +9,17 @@ For the end-to-end overview, including human-input loops and parallel work, see 
 
 ## Select and process
 
-Create one session JSON for a new import conversation using the [session schema](../../references/schemas/session.schema.json), or reuse its existing session on resume. Select raw/parsed membership and open its review panel; Process creates a missing parsed document before extraction. Resume unfinished statements from their saved stage, preserving decisions and answers. Skip completed statements unless the user requests rework. Use ordinary file edits. Route required structural status migration to `$auto-bean:auto-bean-migrate`.
+Create one session JSON for a new import conversation using the [session schema](../../references/schemas/session.schema.json), or reuse its existing session on resume. Select raw sources and groups. Process creates each group's parsed JSON before extraction. Resume unfinished groups from their saved status and source sections, preserving decisions and answers. Skip completed groups unless the user requests rework. Use ordinary file edits. Route required structural status migration to `$auto-bean:auto-bean-migrate`.
 
-Inspect Git state, fingerprint selected PDF/CSV/XLSX/XLS sources and select matching indexed source hints. Assign each source to `$auto-bean:auto-bean-process` with the [shared ownership context](../../references/common.md#ownership). Accept only its documented status proposals. Broker inline input; a saved answer/correction is not approval or a resolved blocker. Never release partial/untrustworthy extraction downstream.
+Organize each session into statement groups. Use the user's explicit groups; otherwise infer groups from the sources and task context. Default to one statement per group. Group related statements when they benefit from shared processing or reconciliation context. Persist each group in session `groups` with a stable `group_id`, a `name`, `origin` (`user` or `agent`), `source_files` and one `parsed_group` path. Summarize the groups in conversation. Each selected statement belongs to exactly one group. Preserve saved grouping and IDs on resume unless the user changes them or new evidence requires an explained revision. Each group owns one parsed JSON and one YAML status entry. Its parsed `statements` list keeps source-specific facts, inline decisions and approvals together; do not create per-statement parsed files or lifecycle entries.
 
-Only Import edits the lifecycle status YAML, following the [status schema](../../references/schemas/status.schema.json). Keep source facts and decisions in parsed JSON, membership/prices in the session, and operational pointers/flags in YAML. Do not introduce separate stage documents or copy transactions into the session.
+Create or update `import-status.yml` under `groups.<group_id>` with `session_id`, `parsed_group`, `current_status` and `sources` keyed by raw path. Keep fingerprints and retry counts under those source entries. Group IDs must be unique in the workspace. Validate matching session/status membership, then open the review panel before dispatch.
 
-Processing and categorization may run in parallel on separate statements. Continue independent safe work while questions are pending; hold affected statements and linked transfers. Human-input loops resolve actual ambiguity, not mandatory approvals at every stage.
+Inspect Git state, fingerprint selected PDF/CSV/XLSX/XLS sources and select matching indexed source hints. For each group that needs processing, spawn a dedicated subagent and instruct it to use `$auto-bean:auto-bean-process` for every assigned source. Supply the group members, session, per-source fingerprints, the shared parsed target, retry state and matching hints with the [shared ownership context](../../references/common.md#ownership). Accept only its documented group status proposals and per-source outcomes. Broker inline input; a saved answer/correction is not approval or a resolved blocker. Never release partial/untrustworthy extraction downstream.
+
+Only Import edits the lifecycle status YAML, following the [status schema](../../references/schemas/status.schema.json). Keep source facts and decisions in parsed JSON, membership/groups/prices in the session, and operational pointers/flags in YAML. Do not introduce separate stage documents or copy transactions into the session.
+
+Spawn separate subagents for processing and categorization, including single-statement groups. Run independent groups in parallel within available capacity; queue remaining groups. Reuse the group's stage subagent for follow-up work where available. Do not run both stages on the same parsed document at once. Continue independent safe work while questions are pending; hold affected statements and linked transfers. Human-input loops resolve actual ambiguity, not mandatory approvals at every stage.
 
 ## Accounts and balances
 
@@ -27,7 +31,7 @@ Propose one document directive per mapped account, dated to statement period end
 
 ## Categorization and shared transactions
 
-Invoke `$auto-bean:auto-bean-categorize` on complete evidence. Resolve inline input and use Query to compare transfers/duplicates with supplied session rows and accepted ledger history. Compare amount/currency, timing, references, fees/FX and ownership. Never silently net, drop or deduplicate uncertain records.
+For each group at `categorize_ready`, or with ready members explicitly released by Import, spawn a dedicated categorization subagent and instruct it to use `$auto-bean:auto-bean-categorize`. Supply the group membership, complete ready evidence, the current group status entry, session, answers and relevant reconciliation rows from other groups. Hold blocked members and resume them with this stage subagent when ready. Require per-source findings and one group status proposal. Import resolves shared decisions across groups. Resolve inline input and use Query to compare transfers/duplicates with supplied session rows and accepted ledger history. Compare amount/currency, timing, references, fees/FX and ownership. Never silently net, drop or deduplicate uncertain records.
 
 Every row needs a disposition. A paired transfer has reciprocal links, one posting owner and one economic ledger transaction retaining both source identities. Hold unresolved dependencies. Only complete reviewed decisions reach `write_ready`.
 
@@ -39,9 +43,9 @@ Run the shared validation command with `--session <id> --stage review` after dec
 
 Invoke `$auto-bean:auto-bean-write` after approval to edit the ledger directly from these parsed decisions. Write checks existing source IDs before appending and returns changed files or concrete blockers. A shared transfer requires all affected statement approvals and is written once.
 
-Use Write's current `written` validation results to mark successfully checked statements `done`. Revalidate when relevant source evidence, decisions or ledger files change. Follow the [per-result validation rules](../../references/common.md#validation) when other session members remain pending. Interrupted writes or affected validation failures remain incomplete; resume from actual provenance.
+Mark a group `done` only when every member has current passed `written` validation and no unresolved group flags. An interrupted or partially written group remains `final_review` or `write_blocked`; preserve completed member evidence and inspect provenance before resuming. Revalidate when relevant source evidence, decisions or ledger files change. Follow the [per-result validation rules](../../references/common.md#validation) when other session members remain pending. Interrupted writes or affected validation failures remain incomplete; resume from actual provenance.
 
-Invoke `$auto-bean:auto-bean-prices` once after the current statement pass, even if other statements remain pending, and resume its follow-ups. New price directives have separate approval and do not reverse completed statements. No required commodity means a structured zero-job `no_op`.
+Invoke `$auto-bean:auto-bean-prices` once after the current statement pass, even if other statements remain pending, and resume its follow-ups. New price directives have separate approval and do not reverse completed groups. No required commodity means a structured zero-job `no_op`.
 
 ## Finish with Memory
 
@@ -60,4 +64,4 @@ End every user-facing import response with this block and no text afterward:
 **Next Step:** <one user action, or "None." when Complete.>
 ```
 
-Use `Needs Your Input` for unresolved choices; `Ready For Review` for pending approval; `Ready To Write` for approved unwritten transactions; `Validation Failed` for required repair; `Complete` only when all in-scope statements are done with no price/follow-up approval pending; or `No Changes Made` when no eligible work or state change occurred.
+Use `Needs Your Input` for unresolved choices; `Ready For Review` for pending approval; `Ready To Write` for approved unwritten transactions; `Validation Failed` for required repair; `Complete` only when all in-scope groups are done with no price/follow-up approval pending; or `No Changes Made` when no eligible work or state change occurred.

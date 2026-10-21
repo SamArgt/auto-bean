@@ -3,6 +3,8 @@
 Test that answers resolve uncertain decisions without authorizing ledger writes.
 Approval must arrive in a separate turn.
 
+Import infers and saves statement groups in the first turn. Each active group/stage uses a separate subagent. A blocked account does not require categorization until its mapping is resolved. Saved groups remain stable across correction and approval.
+
 ```mermaid
 flowchart LR
     A[Extract statements] --> B[Ask for missing input]
@@ -90,7 +92,7 @@ The user now approves the corrected review. The standard
 - Write four new transactions and preserve both transfer references.
 - Validate current ledger balances and source coverage.
 - Record the EUR-only price result and eligible governed memory.
-- Finish both statements as `done` with `Import Status: Complete`.
+- Finish the group as `done` after both source sections pass written validation with `Import Status: Complete`.
 
 Every phase preserves raw evidence, protected files, and Git history.
 No phase may commit or push.

@@ -31,6 +31,7 @@ test("polling pauses while hidden and does not overlap a slow read", async () =>
       workspace: "/ledger",
       session_id: "session",
       etag: "0",
+      groups: [],
       statements: [],
       price_runs: [],
     });

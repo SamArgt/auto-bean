@@ -54,6 +54,17 @@ test("save precedes continuation and failed continuation retries the same saved 
         workspace: "/ledger",
         session_id: "session",
         etag: "0",
+        groups: [
+          {
+            group_id: "a",
+            parsed_group: "statements/parsed/group.json",
+            current_status: "raw_ready",
+            updated_at: null,
+            name: "Checking",
+            origin: "agent",
+            source_files: ["statements/raw/a.csv"],
+          },
+        ],
         statements: [
           {
             source_file: "statements/raw/a.csv",
@@ -130,6 +141,17 @@ const binding = { workspace: "/ledger", session_id: "session" };
 const summary = {
   ...binding,
   etag: "0",
+  groups: [
+    {
+      group_id: "a",
+      parsed_group: "statements/parsed/group.json",
+      current_status: "raw_ready",
+      updated_at: null,
+      name: "Checking",
+      origin: "agent",
+      source_files: ["statements/raw/a.csv"],
+    },
+  ],
   statements: [
     {
       source_file: "statements/raw/a.csv",

@@ -3,6 +3,14 @@
 These four tasks test the installed Auto Bean plugin with synthetic data.
 Each task README explains its setup, fixture, steps, and grader.
 
+The import and stale-review tasks request one explicit multi-statement group.
+The human-input task lets the agent infer groups. Session validation checks
+that groups cover every statement exactly once. Review checkpoints preserve
+group membership across approval. Native trace checks require distinct descendant
+agents for each active group/stage, with a stage-skill read and evidence access
+for its members. Main-agent reads and prose claims do not satisfy delegation.
+These checks show observed delegation and access, not a system-call audit.
+
 | Task | What it tests | Steps | Successful end state |
 | --- | --- | --- | --- |
 | [Initialize a ledger](tasks/init-ledger/README.md) | Create the default EUR workspace | Init | Valid empty ledger; one clean commit |
@@ -146,7 +154,7 @@ are uploaded only for oracle runs. Workspace Python is never imported by the gra
 
 - Agents edit parsed statement decisions and import status directly.
 - Parsed documents contain source facts, inline mappings, and transaction postings.
-- Sessions contain statement membership and price runs.
+- Sessions contain groups with source membership and one parsed path, plus price runs. Each group has one YAML lifecycle entry and one parsed JSON containing its source sections.
 - Canonical financial files must match the initial fixture.
 - Reusable learning waits until approved writes pass validation.
 - The verifier renders reviewed postings in its own temporary ledger.

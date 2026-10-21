@@ -1,9 +1,10 @@
 version: 1
-statements:
-  statements/raw/checking/jan-2026.pdf:
-    workflow_version: 2
-    source_path: statements/raw/checking/jan-2026.pdf
-    source_fingerprint: sha256:e73ed1a37a8e090ebc9f5800846578f5db36ad4435021f3c06295e5bcfa06f9d
+groups:
+  checking-january:
+    session_id: january-2026
     current_status: done
-    parsed_statement: statements/parsed/checking-jan-2026.json
+    parsed_group: statements/parsed/checking-jan-2026.json
     updated_at: '2026-10-21T14:00:00Z'
+    sources:
+      statements/raw/checking/jan-2026.pdf:
+        source_fingerprint: sha256:e73ed1a37a8e090ebc9f5800846578f5db36ad4435021f3c06295e5bcfa06f9d

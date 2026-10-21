@@ -3,6 +3,8 @@
 Test a complete import with a separate review and approval turn.
 Five source rows must produce four new ledger transactions.
 
+The user keeps both statements in one explicit group named January accounts. The session must preserve that group across approval. Review trace evidence must show separate processing and categorization subagents for the group.
+
 ```mermaid
 flowchart LR
     A[CSV and PDF] --> B[Extract and prepare review]
@@ -89,7 +91,7 @@ its source facts and decisions still match that review.
 
 The `approve` grader checks the shared source and decision rules again. It also checks:
 
-- Both statements are `done`.
+- The group is `done` only after both source sections pass written validation.
 - The ledger contains four new transactions, with the transfer posted once.
 - Source provenance, existing entries, and closing balances are correct.
 - Successful `written` validation covers the current decisions and ledger hashes.
@@ -124,7 +126,7 @@ The full reward also requires the [trace grader](../../trace.py) to pass in each
 - Approval also requires the memory schema.
 - Each turn must read the root ledger and import status. Read the workspace
   marker, workspace `MEMORY.md`, and account directives once in the session.
-- Approval must reread `checking.json` and `savings.json` in `statements/parsed/`.
+- Approval must reread the group JSON in `statements/parsed/`, including both source sections.
 - Approval must read account and category memory before learning.
 - Use the plugin launcher or documented `auto_bean` helper for runtime commands.
 - No price-fetch command is required for the EUR-only fixture.

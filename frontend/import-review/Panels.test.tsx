@@ -65,6 +65,7 @@ test("price execution and zero-job results are explicit", () => {
     workspace: "/ledger",
     session_id: "s1",
     etag: "1",
+    groups: [],
     statements: [],
     price_runs: [
       {
@@ -215,4 +216,38 @@ test("review readiness never claims ledger writes or absence of conversational a
     ),
   ).toBeTruthy();
   expect(screen.queryByText("Ledger write validation")).toBeNull();
+});
+
+test("session shows persisted multi-statement groups", () => {
+  render(
+    <SessionPrices
+      overview={{
+        workspace: "/ledger",
+        session_id: "groups",
+        etag: "1",
+        statements: [],
+        price_runs: [],
+        groups: [
+          {
+            group_id: "january",
+            parsed_group: "statements/parsed/group.json",
+            current_status: "raw_ready",
+            updated_at: null,
+            name: "January accounts",
+            origin: "user",
+            source_files: [
+              "statements/raw/checking.csv",
+              "statements/raw/savings.pdf",
+            ],
+          },
+        ],
+      }}
+      disabled={false}
+      onApprove={vi.fn()}
+    />,
+  );
+  expect(screen.getByText("January accounts")).toBeTruthy();
+  expect(screen.getByText("User-defined")).toBeTruthy();
+  expect(screen.getByText("statements/raw/checking.csv")).toBeTruthy();
+  expect(screen.getByText("statements/raw/savings.pdf")).toBeTruthy();
 });

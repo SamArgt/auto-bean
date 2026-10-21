@@ -1,330 +1,336 @@
 {
-  "document_kind": "statement",
-  "extracted_records": [
+  "schema_version": 2,
+  "group_id": "checking-january",
+  "statements": [
     {
-      "account_id": "everyday-checking-7890",
-      "amount": "-4.50",
-      "currency": "EUR",
-      "description": "CARD PAYMENT COFFEE SHOP",
-      "payee": "COFFEE SHOP",
-      "raw_fields": {
-        "Card reference": "ending 7890",
-        "Credit": "",
-        "Debit": "4.50"
-      },
-      "record_id": "page-1-row-1",
-      "review": {
-        "disposition": "post",
-        "postings": [
-          {
-            "account": "Assets:ExampleBank:Checking",
-            "amount": "-4.50",
-            "currency": "EUR"
-          },
-          {
-            "account": "Expenses:Dining",
-            "amount": "4.50",
-            "currency": "EUR"
-          }
-        ],
-        "rationale": "Coffee shop receipt identifies a meal purchase.",
-        "state": "confirmed"
-      },
-      "source_reference": "page:1,row:1",
-      "transaction_date": "2026-01-03"
-    },
-    {
-      "account_id": "everyday-checking-7890",
-      "amount": "-80.00",
-      "currency": "EUR",
-      "description": "MARKET AND HOUSEHOLD SUPPLIES",
-      "record_id": "page-1-row-2",
-      "review": {
-        "disposition": "post",
-        "postings": [
-          {
-            "account": "Assets:ExampleBank:Checking",
-            "amount": "-80.00",
-            "currency": "EUR"
-          },
-          {
-            "account": "Expenses:Groceries",
-            "amount": "60.00",
-            "currency": "EUR"
-          },
-          {
-            "account": "Expenses:Household",
-            "amount": "20.00",
-            "currency": "EUR"
-          }
-        ],
-        "rationale": "Itemized receipt separates food EUR 60.00 and cleaning supplies EUR 20.00.",
-        "state": "confirmed"
-      },
-      "source_reference": "page:1,row:2",
-      "transaction_date": "2026-01-05"
-    },
-    {
-      "account_id": "everyday-checking-7890",
-      "amount": "20.00",
-      "currency": "EUR",
-      "description": "CLOTHING REFUND",
-      "record_id": "page-1-row-3",
-      "review": {
-        "disposition": "post",
-        "postings": [
-          {
-            "account": "Assets:ExampleBank:Checking",
-            "amount": "20.00",
-            "currency": "EUR"
-          },
-          {
-            "account": "Expenses:Clothing",
-            "amount": "-20.00",
-            "currency": "EUR"
-          }
-        ],
-        "rationale": "Refund receipt identifies the original clothing purchase; reverse that expense.",
-        "state": "confirmed"
-      },
-      "source_reference": "page:1,row:3",
-      "transaction_date": "2026-01-08"
-    },
-    {
-      "account_id": "everyday-checking-7890",
-      "amount": "-35.00",
-      "currency": "EUR",
-      "description": "PAYMENT PROCESSOR XYZ",
-      "record_id": "page-1-row-4",
-      "review": {
-        "answer": "This was a software subscription.",
-        "disposition": "post",
-        "postings": [
-          {
-            "account": "Assets:ExampleBank:Checking",
-            "amount": "-35.00",
-            "currency": "EUR"
-          },
-          {
-            "account": "Expenses:Software",
-            "amount": "35.00",
-            "currency": "EUR"
-          }
-        ],
-        "rationale": "User clarified the software subscription; the reviewed postings use Software.",
-        "state": "confirmed",
-        "suggestions": [
-          "Expenses:Software if this was a software subscription",
-          "Expenses:Office if this was office supplies"
-        ]
-      },
-      "source_reference": "page:1,row:4",
-      "transaction_date": "2026-01-12"
-    },
-    {
-      "account_id": "everyday-checking-7890",
-      "amount": "-100.00",
-      "currency": "EUR",
-      "description": "TRANSFER TO RESERVE SAVINGS",
-      "record_id": "page-1-row-5",
-      "review": {
-        "disposition": "paired_transfer",
-        "findings": [
-          "likely_transfer"
-        ],
-        "linked_records": [
-          {
-            "account_id": "savings-4321",
-            "record_id": "page-2-row-1",
-            "source_file": "statements/raw/checking/jan-2026.pdf"
-          }
-        ],
-        "posting_owner": "statements/raw/checking/jan-2026.pdf",
-        "postings": [
-          {
-            "account": "Assets:ExampleBank:Checking",
-            "amount": "-100.00",
-            "currency": "EUR"
-          },
-          {
-            "account": "Assets:ExampleBank:Savings",
-            "amount": "100.00",
-            "currency": "EUR"
-          }
-        ],
-        "rationale": "Reciprocal EUR 100 source rows share one ledger transaction with both source identities. The first record ID owns the posting within this statement.",
-        "state": "confirmed"
-      },
-      "source_reference": "page:1,row:5",
-      "transaction_date": "2026-01-20"
-    },
-    {
-      "account_id": "savings-4321",
-      "amount": "100.00",
-      "currency": "EUR",
-      "description": "TRANSFER FROM EVERYDAY CHECKING",
-      "record_id": "page-2-row-1",
-      "review": {
-        "disposition": "paired_transfer",
-        "findings": [
-          "likely_transfer"
-        ],
-        "linked_records": [
-          {
-            "account_id": "everyday-checking-7890",
-            "record_id": "page-1-row-5",
-            "source_file": "statements/raw/checking/jan-2026.pdf"
-          }
-        ],
-        "posting_owner": "statements/raw/checking/jan-2026.pdf",
-        "postings": [],
-        "rationale": "Reciprocal EUR 100 source rows share one ledger transaction with both source identities. The first record ID owns the posting within this statement.",
-        "state": "confirmed"
-      },
-      "source_reference": "page:2,row:1",
-      "transaction_date": "2026-01-20"
-    }
-  ],
-  "extraction_state": "complete",
-  "parse_run_id": "20260411T090000Z-checking-jan-2026",
-  "parsed_at": "2026-04-11T09:00:00Z",
-  "parser": {
-    "mode": "example",
-    "name": "synthetic-fixture"
-  },
-  "review": {
-    "approval": {
-      "approved_at": "2026-10-21T14:35:21.955133Z",
-      "digest": "77daf0ce4b5faa6f933ef2db7128913956dcc024a3c746d16f5401ec80071c32",
-      "origin": "panel"
-    },
-    "processing": {
-      "attempts": 1,
-      "evidence": [
-        "Constructed synthetic example; six source rows across two accounts. The approval and validation below were generated against an isolated fixture ledger, not a user ledger."
-      ],
-      "outcome": "complete",
-      "warnings": []
-    },
-    "validation": {
-      "balances": [
+      "document_kind": "statement",
+      "extracted_records": [
         {
           "account_id": "everyday-checking-7890",
-          "actual": "1050.75",
+          "amount": "-4.50",
           "currency": "EUR",
-          "date": "2026-01-31",
-          "expected": "1050.75",
-          "state": "matched"
+          "description": "CARD PAYMENT COFFEE SHOP",
+          "payee": "COFFEE SHOP",
+          "raw_fields": {
+            "Card reference": "ending 7890",
+            "Credit": "",
+            "Debit": "4.50"
+          },
+          "record_id": "page-1-row-1",
+          "review": {
+            "disposition": "post",
+            "postings": [
+              {
+                "account": "Assets:ExampleBank:Checking",
+                "amount": "-4.50",
+                "currency": "EUR"
+              },
+              {
+                "account": "Expenses:Dining",
+                "amount": "4.50",
+                "currency": "EUR"
+              }
+            ],
+            "rationale": "Coffee shop receipt identifies a meal purchase.",
+            "state": "confirmed"
+          },
+          "source_reference": "page:1,row:1",
+          "transaction_date": "2026-01-03"
+        },
+        {
+          "account_id": "everyday-checking-7890",
+          "amount": "-80.00",
+          "currency": "EUR",
+          "description": "MARKET AND HOUSEHOLD SUPPLIES",
+          "record_id": "page-1-row-2",
+          "review": {
+            "disposition": "post",
+            "postings": [
+              {
+                "account": "Assets:ExampleBank:Checking",
+                "amount": "-80.00",
+                "currency": "EUR"
+              },
+              {
+                "account": "Expenses:Groceries",
+                "amount": "60.00",
+                "currency": "EUR"
+              },
+              {
+                "account": "Expenses:Household",
+                "amount": "20.00",
+                "currency": "EUR"
+              }
+            ],
+            "rationale": "Itemized receipt separates food EUR 60.00 and cleaning supplies EUR 20.00.",
+            "state": "confirmed"
+          },
+          "source_reference": "page:1,row:2",
+          "transaction_date": "2026-01-05"
+        },
+        {
+          "account_id": "everyday-checking-7890",
+          "amount": "20.00",
+          "currency": "EUR",
+          "description": "CLOTHING REFUND",
+          "record_id": "page-1-row-3",
+          "review": {
+            "disposition": "post",
+            "postings": [
+              {
+                "account": "Assets:ExampleBank:Checking",
+                "amount": "20.00",
+                "currency": "EUR"
+              },
+              {
+                "account": "Expenses:Clothing",
+                "amount": "-20.00",
+                "currency": "EUR"
+              }
+            ],
+            "rationale": "Refund receipt identifies the original clothing purchase; reverse that expense.",
+            "state": "confirmed"
+          },
+          "source_reference": "page:1,row:3",
+          "transaction_date": "2026-01-08"
+        },
+        {
+          "account_id": "everyday-checking-7890",
+          "amount": "-35.00",
+          "currency": "EUR",
+          "description": "PAYMENT PROCESSOR XYZ",
+          "record_id": "page-1-row-4",
+          "review": {
+            "answer": "This was a software subscription.",
+            "disposition": "post",
+            "postings": [
+              {
+                "account": "Assets:ExampleBank:Checking",
+                "amount": "-35.00",
+                "currency": "EUR"
+              },
+              {
+                "account": "Expenses:Software",
+                "amount": "35.00",
+                "currency": "EUR"
+              }
+            ],
+            "rationale": "User clarified the software subscription; the reviewed postings use Software.",
+            "state": "confirmed",
+            "suggestions": [
+              "Expenses:Software if this was a software subscription",
+              "Expenses:Office if this was office supplies"
+            ]
+          },
+          "source_reference": "page:1,row:4",
+          "transaction_date": "2026-01-12"
+        },
+        {
+          "account_id": "everyday-checking-7890",
+          "amount": "-100.00",
+          "currency": "EUR",
+          "description": "TRANSFER TO RESERVE SAVINGS",
+          "record_id": "page-1-row-5",
+          "review": {
+            "disposition": "paired_transfer",
+            "findings": [
+              "likely_transfer"
+            ],
+            "linked_records": [
+              {
+                "account_id": "savings-4321",
+                "record_id": "page-2-row-1",
+                "source_file": "statements/raw/checking/jan-2026.pdf"
+              }
+            ],
+            "posting_owner": "statements/raw/checking/jan-2026.pdf",
+            "postings": [
+              {
+                "account": "Assets:ExampleBank:Checking",
+                "amount": "-100.00",
+                "currency": "EUR"
+              },
+              {
+                "account": "Assets:ExampleBank:Savings",
+                "amount": "100.00",
+                "currency": "EUR"
+              }
+            ],
+            "rationale": "Reciprocal EUR 100 source rows share one ledger transaction with both source identities. The first record ID owns the posting within this statement.",
+            "state": "confirmed"
+          },
+          "source_reference": "page:1,row:5",
+          "transaction_date": "2026-01-20"
         },
         {
           "account_id": "savings-4321",
-          "actual": "600.00",
+          "amount": "100.00",
           "currency": "EUR",
-          "date": "2026-01-31",
-          "expected": "600.00",
-          "state": "matched"
+          "description": "TRANSFER FROM EVERYDAY CHECKING",
+          "record_id": "page-2-row-1",
+          "review": {
+            "disposition": "paired_transfer",
+            "findings": [
+              "likely_transfer"
+            ],
+            "linked_records": [
+              {
+                "account_id": "everyday-checking-7890",
+                "record_id": "page-1-row-5",
+                "source_file": "statements/raw/checking/jan-2026.pdf"
+              }
+            ],
+            "posting_owner": "statements/raw/checking/jan-2026.pdf",
+            "postings": [],
+            "rationale": "Reciprocal EUR 100 source rows share one ledger transaction with both source identities. The first record ID owns the posting within this statement.",
+            "state": "confirmed"
+          },
+          "source_reference": "page:2,row:1",
+          "transaction_date": "2026-01-20"
         }
       ],
-      "checked_at": "2026-10-21T14:35:21.988069Z",
-      "digest": "77daf0ce4b5faa6f933ef2db7128913956dcc024a3c746d16f5401ec80071c32",
-      "errors": [],
-      "ledger_hashes": {
-        "beancount/accounts.beancount": "514ed4997adcb215bf64bc9a117b539538d7ffc3f60a4f90f743b1cd6e95edb7",
-        "beancount/imports.beancount": "80539b8ff48aa5f7d26b50b97d95a0d4a7ab0c95e939a20e9c0a3c7448843c9a",
-        "beancount/opening.beancount": "60c359c51deb4594c113034f7776949161627027e2598869df32bb474392c312",
-        "beancount/prices.beancount": "f2d54fbeb81b75abb4a3b2b510b87ae4042f28f6dee5518558223872f5760490",
-        "ledger.beancount": "1cd3ed3dd316493dcb7563a0ab2af8818bef00bfcd0164a0938836687778cc0f"
+      "extraction_state": "complete",
+      "parse_run_id": "20260411T090000Z-checking-jan-2026",
+      "parsed_at": "2026-04-11T09:00:00Z",
+      "parser": {
+        "mode": "example",
+        "name": "synthetic-fixture"
       },
-      "records_checked": 6,
-      "stage": "written",
-      "state": "passed"
-    }
-  },
-  "schema_version": 2,
-  "source_file": "statements/raw/checking/jan-2026.pdf",
-  "source_fingerprint": "sha256:e73ed1a37a8e090ebc9f5800846578f5db36ad4435021f3c06295e5bcfa06f9d",
-  "source_format": "pdf",
-  "statement_metadata": {
-    "account_owner": "Sam Example",
-    "accounts": [
-      {
-        "account_id": "everyday-checking-7890",
-        "account_name": "Everyday Checking",
-        "account_type": "checking",
-        "closing_balance": {
-          "amount": "1050.75",
-          "currency": "EUR",
-          "date": "2026-01-31",
-          "source_reference": "page:1,section:summary"
+      "review": {
+        "approval": {
+          "approved_at": "2026-10-21T14:35:21.955133Z",
+          "digest": "77daf0ce4b5faa6f933ef2db7128913956dcc024a3c746d16f5401ec80071c32",
+          "origin": "panel"
         },
-        "opening_balance": {
-          "amount": "1250.25",
-          "currency": "EUR",
-          "date": "2026-01-01",
-          "source_reference": "page:1,section:summary"
+        "processing": {
+          "attempts": 1,
+          "evidence": [
+            "Constructed synthetic example; six source rows across two accounts. The approval and validation below were generated against an isolated fixture ledger, not a user ledger."
+          ],
+          "outcome": "complete",
+          "warnings": []
         },
-        "primary_currency": "EUR",
-        "review": {
-          "ledger_account": "Assets:ExampleBank:Checking",
-          "rationale": "Source account suffix 7890 and EUR currency match the existing ledger account.",
-          "reconciliation": [
+        "validation": {
+          "balances": [
             {
+              "account_id": "everyday-checking-7890",
+              "actual": "1050.75",
               "currency": "EUR",
-              "date": "2026-01-01",
-              "difference": "0.00",
-              "ledger_amount": "1250.25",
-              "provenance": "Opening balance queried at the beginning of 2026-01-01 in the canonical ledger.",
+              "date": "2026-01-31",
+              "expected": "1050.75",
+              "state": "matched"
+            },
+            {
+              "account_id": "savings-4321",
+              "actual": "600.00",
+              "currency": "EUR",
+              "date": "2026-01-31",
+              "expected": "600.00",
               "state": "matched"
             }
           ],
-          "state": "confirmed"
+          "checked_at": "2026-10-21T14:35:21.988069Z",
+          "digest": "77daf0ce4b5faa6f933ef2db7128913956dcc024a3c746d16f5401ec80071c32",
+          "errors": [],
+          "ledger_hashes": {
+            "beancount/accounts.beancount": "514ed4997adcb215bf64bc9a117b539538d7ffc3f60a4f90f743b1cd6e95edb7",
+            "beancount/imports.beancount": "80539b8ff48aa5f7d26b50b97d95a0d4a7ab0c95e939a20e9c0a3c7448843c9a",
+            "beancount/opening.beancount": "60c359c51deb4594c113034f7776949161627027e2598869df32bb474392c312",
+            "beancount/prices.beancount": "f2d54fbeb81b75abb4a3b2b510b87ae4042f28f6dee5518558223872f5760490",
+            "ledger.beancount": "1cd3ed3dd316493dcb7563a0ab2af8818bef00bfcd0164a0938836687778cc0f"
+          },
+          "records_checked": 6,
+          "stage": "written",
+          "state": "passed"
         }
       },
-      {
-        "account_id": "savings-4321",
-        "account_name": "Reserve Savings",
-        "account_type": "savings",
-        "closing_balance": {
-          "amount": "600.00",
-          "currency": "EUR",
-          "date": "2026-01-31",
-          "source_reference": "page:2,section:summary"
-        },
-        "opening_balance": {
-          "amount": "500.00",
-          "currency": "EUR",
-          "date": "2026-01-01",
-          "source_reference": "page:2,section:summary"
-        },
-        "primary_currency": "EUR",
-        "review": {
-          "answer": "Reserve Savings is Assets:ExampleBank:Savings.",
-          "ledger_account": "Assets:ExampleBank:Savings",
-          "rationale": "The owner confirmed the source suffix 4321 maps to the existing savings account.",
-          "reconciliation": [
-            {
+      "schema_version": 2,
+      "source_file": "statements/raw/checking/jan-2026.pdf",
+      "source_fingerprint": "sha256:e73ed1a37a8e090ebc9f5800846578f5db36ad4435021f3c06295e5bcfa06f9d",
+      "source_format": "pdf",
+      "statement_metadata": {
+        "account_owner": "Sam Example",
+        "accounts": [
+          {
+            "account_id": "everyday-checking-7890",
+            "account_name": "Everyday Checking",
+            "account_type": "checking",
+            "closing_balance": {
+              "amount": "1050.75",
+              "currency": "EUR",
+              "date": "2026-01-31",
+              "source_reference": "page:1,section:summary"
+            },
+            "opening_balance": {
+              "amount": "1250.25",
               "currency": "EUR",
               "date": "2026-01-01",
-              "difference": "0.00",
-              "ledger_amount": "500.00",
-              "provenance": "Opening inventory in the synthetic canonical ledger.",
-              "state": "matched"
+              "source_reference": "page:1,section:summary"
+            },
+            "primary_currency": "EUR",
+            "review": {
+              "ledger_account": "Assets:ExampleBank:Checking",
+              "rationale": "Source account suffix 7890 and EUR currency match the existing ledger account.",
+              "reconciliation": [
+                {
+                  "currency": "EUR",
+                  "date": "2026-01-01",
+                  "difference": "0.00",
+                  "ledger_amount": "1250.25",
+                  "provenance": "Opening balance queried at the beginning of 2026-01-01 in the canonical ledger.",
+                  "state": "matched"
+                }
+              ],
+              "state": "confirmed"
             }
-          ],
-          "state": "confirmed",
-          "suggestions": [
-            "Assets:ExampleBank:Savings",
-            "Assets:ExampleBank:EmergencyFund"
-          ]
+          },
+          {
+            "account_id": "savings-4321",
+            "account_name": "Reserve Savings",
+            "account_type": "savings",
+            "closing_balance": {
+              "amount": "600.00",
+              "currency": "EUR",
+              "date": "2026-01-31",
+              "source_reference": "page:2,section:summary"
+            },
+            "opening_balance": {
+              "amount": "500.00",
+              "currency": "EUR",
+              "date": "2026-01-01",
+              "source_reference": "page:2,section:summary"
+            },
+            "primary_currency": "EUR",
+            "review": {
+              "answer": "Reserve Savings is Assets:ExampleBank:Savings.",
+              "ledger_account": "Assets:ExampleBank:Savings",
+              "rationale": "The owner confirmed the source suffix 4321 maps to the existing savings account.",
+              "reconciliation": [
+                {
+                  "currency": "EUR",
+                  "date": "2026-01-01",
+                  "difference": "0.00",
+                  "ledger_amount": "500.00",
+                  "provenance": "Opening inventory in the synthetic canonical ledger.",
+                  "state": "matched"
+                }
+              ],
+              "state": "confirmed",
+              "suggestions": [
+                "Assets:ExampleBank:Savings",
+                "Assets:ExampleBank:EmergencyFund"
+              ]
+            }
+          }
+        ],
+        "institution_name": "Example Bank",
+        "issued_date": "2026-02-02",
+        "statement_name": "January 2026 Account Statement",
+        "statement_period": {
+          "end_date": "2026-01-31",
+          "start_date": "2026-01-01"
         }
       }
-    ],
-    "institution_name": "Example Bank",
-    "issued_date": "2026-02-02",
-    "statement_name": "January 2026 Account Statement",
-    "statement_period": {
-      "end_date": "2026-01-31",
-      "start_date": "2026-01-01"
     }
-  }
+  ]
 }

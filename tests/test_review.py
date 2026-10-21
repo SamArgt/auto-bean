@@ -36,6 +36,18 @@ TX = """\n2026-01-02 * "Market"
 def save(store: ReviewFiles, path: str, document: dict[str, Any]) -> None:
     target = store.root / path
     target.parent.mkdir(parents=True, exist_ok=True)
+    if "source_file" in document:
+        group = (
+            json.loads(target.read_text())
+            if target.exists()
+            else {"schema_version": 2, "group_id": "review", "statements": []}
+        )
+        group["statements"] = [
+            d
+            for d in group["statements"]
+            if d["source_file"] != document["source_file"]
+        ] + [document]
+        document = group
     target.write_text(json.dumps(document, indent=2) + "\n")
 
 
@@ -54,12 +66,12 @@ def review_store(current: Path) -> ReviewFiles:
     fingerprint = "sha256:" + digest((current / SOURCE).read_bytes())
     status = {
         "version": 1,
-        "statements": {
-            SOURCE: {
-                "workflow_version": 2,
+        "groups": {
+            "review": {
+                "session_id": "test-session",
                 "current_status": "raw_ready",
-                "source_fingerprint": fingerprint,
-                "parsed_statement": PARSED,
+                "parsed_group": PARSED,
+                "sources": {SOURCE: {"source_fingerprint": fingerprint}},
             }
         },
     }
@@ -72,7 +84,15 @@ def review_store(current: Path) -> ReviewFiles:
             "schema_version": 1,
             "session_id": "test-session",
             "created_at": now(),
-            "statements": [{"source_file": SOURCE, "parsed_statement": PARSED}],
+            "groups": [
+                {
+                    "group_id": "review",
+                    "parsed_group": PARSED,
+                    "name": "Review",
+                    "origin": "agent",
+                    "source_files": [SOURCE],
+                }
+            ],
             "price_runs": [],
         },
     )
@@ -101,7 +121,7 @@ def review_store(current: Path) -> ReviewFiles:
 
 
 def complete(store: ReviewFiles) -> dict[str, Any]:
-    doc = store.read(PARSED)
+    doc = store.statement(SOURCE)
     doc.update(
         extraction_state="complete",
         parse_run_id="parse-1",
@@ -153,7 +173,7 @@ def complete(store: ReviewFiles) -> dict[str, Any]:
 
 
 def approve(store: ReviewFiles) -> dict[str, Any]:
-    doc = store.read(PARSED)
+    doc = store.statement(SOURCE)
     return store.submit(
         SOURCE,
         {
@@ -168,7 +188,7 @@ def approve(store: ReviewFiles) -> dict[str, Any]:
 def ledger_transaction(store: ReviewFiles) -> str:
     return f'''\n2026-01-02 * "Market"
   source: "{SOURCE}"
-  source_fingerprint: "{store.read(PARSED)["source_fingerprint"]}"
+  source_fingerprint: "{store.statement(SOURCE)["source_fingerprint"]}"
   account_id: "checking"
   record_id: "row-1"
   Assets:Checking -25 EUR
@@ -179,7 +199,7 @@ def ledger_transaction(store: ReviewFiles) -> str:
 def set_status(store: ReviewFiles, value: str) -> None:
     path = store.root / "statements/import-status.yml"
     status = yaml.safe_load(path.read_text())
-    status["statements"][SOURCE]["current_status"] = value
+    status["groups"]["review"]["current_status"] = value
     path.write_text(yaml.safe_dump(status))
 
 
@@ -198,11 +218,11 @@ def test_parsed_is_only_transaction_write_input(review_store: ReviewFiles) -> No
         "schema_version",
         "session_id",
         "created_at",
-        "statements",
         "price_runs",
+        "groups",
     }
-    assert set(store.read(PARSED)["review"]) == {"processing", "approval"}
-    assert approved["review_digest"] == material(store.read(PARSED))
+    assert set(store.statement(SOURCE)["review"]) == {"processing", "approval"}
+    assert approved["review_digest"] == material(store.statement(SOURCE))
     assert (store.root / "ledger.beancount").read_bytes() == baseline
     # The Write skill edits the ledger directly; validation never creates postings.
     assert validate(store)["state"] == "failed"
@@ -227,7 +247,7 @@ def test_confirmation_is_current_and_corrections_require_review(
     store = review_store
     complete(store)
     approve(store)
-    doc = store.read(PARSED)
+    doc = store.statement(SOURCE)
     original = material(doc)
     stale = {
         "kind": "approve",
@@ -249,7 +269,7 @@ def test_confirmation_is_current_and_corrections_require_review(
             "value": "Assets:Savings",
         },
     )
-    changed = store.read(PARSED)
+    changed = store.statement(SOURCE)
     assert result["etag"] == etag(changed)
     assert "approval" not in changed["review"]
     assert account_decisions(changed)["checking"]["state"] == "needs_input"
@@ -273,14 +293,14 @@ def test_no_action_log_rejection_and_retry_conflict(review_store: ReviewFiles) -
     store.submit(SOURCE, update)
     with pytest.raises(WorkflowError, match="Review changed"):
         store.submit(SOURCE, update)
-    doc = store.read(PARSED)
+    doc = store.statement(SOURCE)
     assert transaction_decisions(doc)["row-1"]["answer"] == "Meal receipt verified"
     decision = copy.deepcopy(transaction_decisions(doc)["row-1"])
     decision["state"] = "confirmed"
     transaction_decisions(doc)["row-1"].update(decision)
     save(store, PARSED, doc)
     approve(store)
-    doc = store.read(PARSED)
+    doc = store.statement(SOURCE)
     store.submit(
         SOURCE,
         {
@@ -290,7 +310,7 @@ def test_no_action_log_rejection_and_retry_conflict(review_store: ReviewFiles) -
             "review_digest": material(doc),
         },
     )
-    assert "approval" not in store.read(PARSED)["review"]
+    assert "approval" not in store.statement(SOURCE)["review"]
     assert (store.root / "ledger.beancount").read_text() == BASE
 
 
@@ -343,7 +363,7 @@ def test_validation_does_not_trust_fabricated_pass(review_store: ReviewFiles) ->
     assert report["state"] == "passed"
     (store.root / "ledger.beancount").write_text(BASE)
     assert validate(store)["state"] == "failed"
-    doc = store.read(PARSED)
+    doc = store.statement(SOURCE)
     doc["review"]["validation"] = report
     save(store, PARSED, doc)
     assert validate(store)["state"] == "failed"
@@ -356,7 +376,7 @@ def test_closing_balance_at_statement_date(
 ) -> None:
     store = review_store
     complete(store)
-    doc = store.read(PARSED)
+    doc = store.statement(SOURCE)
     doc["statement_metadata"]["accounts"][0]["closing_balance"] = {
         "date": "2026-01-02",
         "amount": expected,
@@ -380,7 +400,7 @@ def test_equal_balance_cannot_hide_offsetting_missing_rows(
 ) -> None:
     store = review_store
     complete(store)
-    doc = store.read(PARSED)
+    doc = store.statement(SOURCE)
     first = doc["extracted_records"][0]
     second = copy.deepcopy(first)
     second.update(record_id="refund", source_reference="row:2", amount="25")
@@ -408,7 +428,7 @@ def test_existing_duplicate_checks_exact_postings_after_append(
         '\n2026-01-02 * "Market"\n  Assets:Checking -25 EUR\n  Expenses:Food 25 EUR\n'
     )
     (store.root / "ledger.beancount").write_text(BASE + existing)
-    doc = store.read(PARSED)
+    doc = store.statement(SOURCE)
     decision = transaction_decisions(doc)["row-1"]
     decision.update(
         disposition="existing_duplicate",
@@ -473,7 +493,7 @@ def test_done_blocks_in_place_corrections(review_store: ReviewFiles) -> None:
     final_review(store)
     assert validate(store)["state"] == "passed"
     set_status(store, "done")
-    doc = store.read(PARSED)
+    doc = store.statement(SOURCE)
     with pytest.raises(WorkflowError, match="Completed"):
         store.submit(
             SOURCE,
@@ -488,7 +508,7 @@ def test_done_blocks_in_place_corrections(review_store: ReviewFiles) -> None:
 
 def test_partial_strict_schema(review_store: ReviewFiles) -> None:
     store = review_store
-    doc = store.read(PARSED)
+    doc = store.statement(SOURCE)
     assert doc["extraction_state"] == "pending"
     for mutate in ("unknown", "date", "decimal", "cross_ref", "revision"):
         changed = copy.deepcopy(complete(store) if mutate != "unknown" else doc)
@@ -530,9 +550,7 @@ def test_status_pointer_changes_block_panel_mutations(
     doc = complete(review_store)
     path = review_store.root / "statements/import-status.yml"
     status = yaml.safe_load(path.read_text())
-    status["statements"][SOURCE]["parsed_statement"] = (
-        "statements/parsed/different.json"
-    )
+    status["groups"]["review"]["parsed_group"] = "statements/parsed/different.json"
     path.write_text(yaml.safe_dump(status))
     with pytest.raises(WorkflowError, match="membership"):
         review_store.submit(
@@ -856,7 +874,7 @@ def test_review_and_written_validation_do_not_require_panel_approval(
     reviewed = validate(store, "review")
     assert reviewed["state"] == "passed"
     assert reviewed["stage"] == "review"
-    assert "approval" not in store.read(PARSED)["review"]
+    assert "approval" not in store.statement(SOURCE)["review"]
     assert (store.root / "ledger.beancount").read_bytes() == before
     assert validate(store)["state"] == "failed"
     (store.root / "ledger.beancount").write_text(BASE + ledger_transaction(store))
@@ -864,7 +882,7 @@ def test_review_and_written_validation_do_not_require_panel_approval(
     assert written["state"] == "passed"
     assert written["stage"] == "written"
     assert written["digest"] == reviewed["digest"]
-    assert "approval" not in store.read(PARSED)["review"]
+    assert "approval" not in store.statement(SOURCE)["review"]
     assert validate(store) == written
 
 
@@ -876,7 +894,7 @@ def test_validation_report_requires_a_declared_stage(
     store = review_store
     complete(store)
     validate(store, "review")
-    doc = store.read(PARSED)
+    doc = store.statement(SOURCE)
     if stage is None:
         del doc["review"]["validation"]["stage"]
     else:
@@ -930,7 +948,7 @@ def test_validation_detects_direct_edits_during_check(
     ) -> dict[str, Any]:
         result = inspect(files, source, stage)
         if target == "parsed":
-            doc = files.read(PARSED)
+            doc = files.statement(SOURCE)
             doc["extracted_records"][0]["description"] = "User correction"
             save(files, PARSED, doc)
         elif target == "source":
@@ -946,7 +964,7 @@ def test_validation_detects_direct_edits_during_check(
     assert any("changed" in error.lower() for error in report["errors"])
     if target == "parsed":
         assert (
-            store.read(PARSED)["extracted_records"][0]["description"]
+            store.statement(SOURCE)["extracted_records"][0]["description"]
             == "User correction"
         )
 
@@ -1009,3 +1027,104 @@ def test_review_rejects_incomplete_or_unbalanced_supporting_transaction(
     )
     assert result["state"] == "failed"
     assert result["errors"]
+
+
+def add_group_member(store: ReviewFiles, *, complete_member: bool = True) -> str:
+    peer_source = "statements/raw/peer.csv"
+    doc = copy.deepcopy(store.statement(SOURCE))
+    (store.root / peer_source).write_text("peer source")
+    doc["source_file"] = peer_source
+    doc["source_fingerprint"] = "sha256:" + digest(
+        (store.root / peer_source).read_bytes()
+    )
+    if not complete_member:
+        doc["extraction_state"] = "pending"
+        doc["statement_metadata"] = {"accounts": []}
+        doc["extracted_records"] = []
+        doc["review"] = {
+            "processing": {
+                "attempts": 0,
+                "outcome": "pending",
+                "warnings": [],
+                "evidence": [],
+            }
+        }
+    session = store.read(store.session_path)
+    session["groups"][0]["source_files"].append(peer_source)
+    save(store, store.session_path, session)
+    status_path = store.root / "statements/import-status.yml"
+    status = yaml.safe_load(status_path.read_text())
+    status["groups"]["review"]["sources"][peer_source] = {
+        "source_fingerprint": doc["source_fingerprint"]
+    }
+    status_path.write_text(yaml.safe_dump(status))
+    save(store, PARSED, doc)
+    return peer_source
+
+
+def test_group_edits_preserve_sibling_source_sections(
+    review_store: ReviewFiles,
+) -> None:
+    store = review_store
+    doc = complete(store)
+    before_paths = set((store.root / "statements/parsed").glob("*.json"))
+    peer = add_group_member(store)
+    sibling = copy.deepcopy(store.statement(peer))
+    store.submit(
+        SOURCE,
+        {
+            "kind": "mapping",
+            "subject_id": "checking",
+            "value": "Assets:Checking",
+            "expected_etag": etag(doc),
+        },
+    )
+    assert store.statement(peer) == sibling
+    assert (
+        account_decisions(store.statement(SOURCE))["checking"]["state"] == "needs_input"
+    )
+    assert set((store.root / "statements/parsed").glob("*.json")) == before_paths
+    assert len(store.read(PARSED)["statements"]) == 2
+
+
+def test_partial_group_cannot_pass_completion(review_store: ReviewFiles) -> None:
+    store = review_store
+    complete(store)
+    peer = add_group_member(store, complete_member=False)
+    (store.root / "ledger.beancount").write_text(BASE + ledger_transaction(store))
+    set_status(store, "final_review")
+    result = reconciliation.validate_import(store.root, store.session_id, "written")
+    assert result["statements"][SOURCE]["state"] == "passed"
+    assert result["statements"][peer]["state"] == "failed"
+    assert result["groups"]["review"]["state"] == "failed"
+    set_status(store, "done")
+    result = reconciliation.validate_import(store.root, store.session_id, "written")
+    assert result["state"] == "failed"
+    assert any(
+        "done requires written validation" in error for error in result["errors"]
+    )
+
+
+@pytest.mark.parametrize(
+    "defect", ["missing_member", "extra_member", "wrong_group", "fingerprint"]
+)
+def test_group_file_must_match_session_and_status(
+    review_store: ReviewFiles, defect: str
+) -> None:
+    store = review_store
+    complete(store)
+    peer = add_group_member(store)
+    group = store.read(PARSED)
+    if defect == "missing_member":
+        group["statements"] = [group["statements"][0]]
+    elif defect == "extra_member":
+        extra = copy.deepcopy(group["statements"][0])
+        extra["source_file"] = "statements/raw/extra.csv"
+        group["statements"].append(extra)
+    elif defect == "wrong_group":
+        group["group_id"] = "other"
+    else:
+        group["statements"][1]["source_fingerprint"] = "sha256:" + "0" * 64
+    save(store, PARSED, group)
+    with pytest.raises(WorkflowError):
+        store.statement(peer)

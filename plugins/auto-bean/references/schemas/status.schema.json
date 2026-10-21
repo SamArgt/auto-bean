@@ -1,24 +1,22 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://auto-bean.local/schemas/v1/status",
   "type": "object",
-  "required": [
-    "version",
-    "statements"
-  ],
   "properties": {
     "version": {
       "const": 1
     },
-    "statements": {
+    "groups": {
       "type": "object",
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+      },
       "additionalProperties": {
         "type": "object",
-        "required": [
-          "current_status",
-          "source_fingerprint"
-        ],
         "properties": {
+          "session_id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+          },
           "current_status": {
             "enum": [
               "raw_ready",
@@ -37,44 +35,12 @@
               "done"
             ]
           },
-          "source_path": {
-            "type": "string",
-            "minLength": 1
-          },
-          "source_fingerprint": {
-            "type": "string",
-            "pattern": "^sha256:[0-9a-f]{64}$"
+          "parsed_group": {
+            "type": "string"
           },
           "updated_at": {
             "type": "string",
             "format": "date-time"
-          },
-          "parsed_statement": {
-            "type": "string",
-            "minLength": 1
-          },
-          "artifacts": {
-            "type": "object",
-            "required": [],
-            "properties": {
-              "process": {
-                "type": "string",
-                "minLength": 1
-              },
-              "categorize": {
-                "type": "string",
-                "minLength": 1
-              },
-              "import": {
-                "type": "string",
-                "minLength": 1
-              }
-            },
-            "additionalProperties": false
-          },
-          "process_attempts": {
-            "type": "integer",
-            "minimum": 0
           },
           "user_input_required": {
             "type": "boolean"
@@ -82,20 +48,49 @@
           "manual_resolution_required": {
             "type": "boolean"
           },
-          "last_process_failure_reason": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "workflow_version": {
-            "enum": [
-              1,
-              2
-            ]
+          "sources": {
+            "type": "object",
+            "minProperties": 1,
+            "additionalProperties": {
+              "type": "object",
+              "properties": {
+                "source_fingerprint": {
+                  "type": "string",
+                  "pattern": "^sha256:[0-9a-f]{64}$"
+                },
+                "process_attempts": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "last_process_failure_reason": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "source_fingerprint"
+              ],
+              "additionalProperties": false
+            }
           }
-        }
+        },
+        "required": [
+          "session_id",
+          "current_status",
+          "parsed_group",
+          "sources"
+        ],
+        "additionalProperties": false
       }
     }
-  }
+  },
+  "required": [
+    "version",
+    "groups"
+  ],
+  "additionalProperties": false,
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://auto-bean.local/schemas/v1/status"
 }
