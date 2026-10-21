@@ -87,6 +87,12 @@
               "string",
               "null"
             ]
+          },
+          "workflow_version": {
+            "enum": [
+              1,
+              2
+            ]
           }
         }
       }

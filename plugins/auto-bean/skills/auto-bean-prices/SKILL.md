@@ -3,68 +3,17 @@ name: auto-bean-prices
 description: Fetch and review Beancount commodity prices. Use for current price updates, explicit historical backfills, or an import price epilogue.
 ---
 
-Read [plugin execution](../../references/plugin-execution.md) before acting. Resolve resource paths relative to the file containing them; resolve financial-data paths against the selected workspace.
+Read [common guidance](../../references/common.md) once for runtime, ownership, advisory memory and validation. This skill owns proposed `price` directives; `$auto-bean:auto-bean-memory` owns durable commodity-source hints.
 
-
-Use this for commodity price updates. It owns drafted `price` directives, while `$auto-bean:auto-bean-memory` owns durable commodity-source memory.
-
-MUST read before acting:
-
-- `.auto-bean/memory/MEMORY.md`
-- `../../references/workflow-rules.md`
-- `../../references/candidate-review.md`
-- `references/price-run-contract.md`
+For an import invocation, read [import data](../../references/import-review.md#state-and-validation) and [ownership](../../references/common.md#ownership). For a direct request, use [direct review](../../references/ledger-reference.md#direct-review).
 
 ## Workflow
 
-1. Restate whether this is a direct price update or an import-invoked epilogue.
-2. Inspect the ledger before fetching prices:
-   - read `ledger.beancount` and relevant included `beancount/**` files
-   - find existing `commodity` directives, `price` directives, commodity metadata, price file placement, and operating currency
-   - use `bean-query` through `$auto-bean:auto-bean-query` or direct `bean-query` only to identify active held commodities when needed
-3. Read [memory rules](../../references/memory-access-rules.md) and `.auto-bean/memory/commodity_price_sources.json` when selecting advisory mappings. Read [source selection](references/price-source-selection.md) only when discovering a source.
-   - If it is missing, malformed, path-unsafe, or schema-incompatible, apply the shared fail-closed memory rules and continue only with explicit ledger metadata or user-approved evidence.
-   - Treat price-source memory as advisory; verify it against current commodity names, quote currency, and ledger conventions.
-4. Read [ledger semantics](../../references/beancount-syntax-and-best-practices.md) only when directive syntax needs checking. Select the narrowest source for each active commodity:
-   - prefer commodity metadata such as `price: "USD:yahoo/AAPL"` when present
-   - otherwise use a matching `commodity_price_source` memory record
-   - otherwise search for a working beanprice source string using the source-selection reference
-   - if beanprice coverage is not available, use web search to find an authoritative current price page and record the proposed source for review
-   - if the source is still ambiguous, record a blocker instead of guessing
-5. Choose and execute one fetch mode using the price-run contract:
-   - for an import epilogue or normal price update, fetch one explicit snapshot with `auto_bean bean-price --date <target-date> ledger.beancount`; do not add `--update`
-   - preflight every fetch, including snapshots and probes, with the same arguments plus `--dry-run`; record the job count before executing live with verbose logging as specified in the price-run contract
-   - use `--update` only for an explicitly requested historical backfill
-   - if the command yields a running session, keep polling that same session until it returns a terminal exit code; an empty or partial output chunk is never completion
-   - reconcile the completed live run against its dry-run job count before drafting directives or claiming success
-   - probe exact source expressions with `auto_bean bean-price -e '<QUOTE>:<SOURCE>/<SYMBOL>'` when metadata or memory provides a candidate source
-   - use web search only to discover or verify source mappings and authoritative price pages when beanprice cannot provide the commodity
-6. Draft price directives in the narrowest existing price target:
-   - prefer the ledger's existing price file
-   - otherwise use `beancount/prices.beancount` when it is included
-   - if no price include exists, propose the minimal include plus `beancount/prices.beancount` before writing prices
-   - retain the provider's actual quote date; do not relabel a stale/weekend quote as the requested date. Disclose and review any date mismatch or stale quote before writing
-   - deduplicate date, commodity, and quote-currency repeats only when values also agree; conflicting values require review; never rewrite unrelated historical prices
-7. Validate after drafting:
-   - use `auto_bean bean-check ledger.beancount`
-   - if validation fails, leave the draft in place, report the failure, and do not claim completion
-8. Present a concise review package:
-   - price artifact path and terminal fetch status
-   - changed files
-   - prices added, skipped commodities, and source confidence
-   - validation result
-   - any `commodity_price_source` memory suggestions for `$auto-bean:auto-bean-memory`
-   - a clear statement that price directives are ledger changes requiring review before final acceptance
+1. Establish whether this is a normal price update, an import epilogue, or an explicitly requested historical backfill. Inspect the root ledger and relevant includes for active commodities, operating currency, commodity metadata, current prices and price-file placement. Use `$auto-bean:auto-bean-query` when held-commodity analysis is needed.
+2. Select sources using explicit ledger metadata, then narrowly matching advisory `commodity_price_sources.json`. Read [source selection](references/price-reference.md#source-selection) when a mapping must be found or verified, and [commodity semantics](../../references/ledger-reference.md#commodities) when directives need checking. Missing coverage or ambiguous identity remains a blocker.
+3. Follow [fetch and completion](references/price-reference.md#fetch-and-completion) for every run or source probe: one dated snapshot by default, matching preflight, bounded execution, terminal outcome and reconciliation of every job. Create the [run record](references/price-reference.md#run-record) before fetching and update it on resume.
+4. Prepare supported directives targeting the existing price file, otherwise the included `beancount/prices.beancount`. If no price include exists, propose its minimal addition. Preserve actual provider quote dates; disclose stale or mismatched dates. Deduplicate only equal date/commodity/quote-currency/value tuples; conflicting values need review. Keep unrelated price history unchanged.
+5. For imports, keep proposed directives in the run jobs, obtain separate approval, then write the approved directives directly to the ledger. For direct requests, follow direct review. Run [shared validation](../../references/common.md#validation), with `--session <id> --stage written` for imports and without a session for direct work; a failed validation remains unresolved and must not be presented as completion. Do not add unrelated declarations, plugin options or include changes.
+6. Present the run record, terminal outcome, changed files, prices, skipped coverage, source confidence, validation and unresolved source identity. Import price directives require explicit approval before writing and a verified ledger result afterward; direct drafts require review before final acceptance under the direct-review procedure. Earlier statement approval never covers later prices. After acceptance, `$auto-bean:auto-bean-memory` can derive a source hint from the run and accepted ledger result (explicit approval of the current directives and successful written validation for imports); no separate suggestion record is needed.
 
-Serialize the mutation with all other ledger writers and bind review to candidate hashes. When invoked by `$auto-bean:auto-bean-import`, return using the shared compact return schema with `blockers`, `pending_questions`, `memory_suggestions`, `mutation.changed_files`, and `validation`.
-
-For direct requests, the session owns final price approval. For import epilogues, import obtains separate explicit approval of the price candidate; earlier statement approval never covers later price edits. Keep pending price approval in the price artifact without reversing completed statement status. After approval, persist any reviewed `$auto-bean:auto-bean-memory` suggestions for commodity sources.
-
-## Guardrails
-
-- Do not store API keys, tokens, account identifiers, or shell snippets in memory or artifacts.
-- Do not guess source mappings for ambiguous tickers, similarly named funds, local listings, or private assets.
-- Do not overwrite or normalize unrelated existing price history.
-- Do not replace an unresolved bulk run with narrower probes while claiming that the bulk operation completed.
-- Do not silently add commodity declarations, plugin options, or include-graph changes beyond the minimal approved price file/include.
-- Do not use web search snippets as authoritative prices without recording the source URL, timestamp, quote currency, and uncertainty.
+Serialize writes with other ledger writers and check that approved run directives still match before writing. Recheck current ledger prices to avoid duplicate appends. Import receives the compact handoff with blockers, pending inputs, changed files and validation. Pending price approval or a failed price stage stays in session state without reversing completed statements. Never describe a still-running or partially accounted fetch as completed.

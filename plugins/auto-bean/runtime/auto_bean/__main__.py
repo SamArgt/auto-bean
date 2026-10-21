@@ -15,6 +15,11 @@ from auto_bean.runtime import TOOLS, ensure_runtime, run_tool
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Internal auto-bean plugin helper")
     commands = parser.add_subparsers(dest="action", required=True)
+    commands.add_parser("serve")
+    validation = commands.add_parser("validate")
+    validation.add_argument("--workspace", type=Path, required=True)
+    validation.add_argument("--session")
+    validation.add_argument("--stage", choices=("review", "written"), default="written")
     init = commands.add_parser("init")
     init.add_argument("--workspace", type=Path, required=True)
     init.add_argument("--currency", default="EUR")
@@ -30,6 +35,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     tool.add_argument("args", nargs=argparse.REMAINDER)
     arguments = parser.parse_args(argv)
     try:
+        if arguments.action == "serve":
+            from auto_bean.runtime import serve
+
+            return serve()
         if arguments.action == "init":
             result = initialize(arguments.workspace, currency=arguments.currency)
         elif arguments.action == "migrate":
@@ -40,6 +49,18 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
         else:
             root = workspace(arguments.workspace)
+            if arguments.action == "validate":
+                args = [
+                    "-m",
+                    "auto_bean.reconciliation",
+                    "--workspace",
+                    str(root),
+                    "--stage",
+                    arguments.stage,
+                ]
+                if arguments.session:
+                    args.extend(["--session", arguments.session])
+                return run_tool(root, "python", args)
             if arguments.action == "run":
                 return run_tool(root, arguments.tool, arguments.args)
             result = {
@@ -54,7 +75,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                     "error_code": getattr(error, "code", "execution_error"),
                     "message": str(error),
                 }
-            )
+            ),
+            file=sys.stderr if arguments.action == "serve" else sys.stdout,
         )
         return 1
     print(json.dumps(result, indent=2))

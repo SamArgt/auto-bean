@@ -1,0 +1,368 @@
+"""Internal panel file access and content-checked submissions; not an agent editing API."""
+
+from __future__ import annotations
+
+import fcntl
+import re
+from collections.abc import Iterator
+from contextlib import contextmanager
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any
+
+from auto_bean.common import (
+    WorkflowError,
+    atomic_write,
+    checked_path,
+    digest,
+    json_bytes,
+    workspace,
+)
+from auto_bean.validation import (
+    bounded_path,
+    invalid,
+    load_state,
+    validate_state,
+)
+
+
+def now() -> str:
+    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def identifier(value: str) -> str:
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}", value):
+        invalid("Invalid stable identifier.")
+    return value
+
+
+@contextmanager
+def writer_lock(root: Path) -> Iterator[None]:
+    path = checked_path(root, ".auto-bean/review.lock")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a") as stream:
+        fcntl.flock(stream, fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(stream, fcntl.LOCK_UN)
+
+
+def account_decisions(data: dict[str, Any]) -> dict[str, Any]:
+    """Index inline account decisions without duplicating persisted evidence."""
+    return {
+        row["account_id"]: row["review"]
+        for row in data["statement_metadata"]["accounts"]
+        if "review" in row
+    }
+
+
+def transaction_decisions(data: dict[str, Any]) -> dict[str, Any]:
+    """Index inline transaction decisions; unreviewed source rows remain absent."""
+    return {
+        row["record_id"]: row["review"]
+        for row in data["extracted_records"]
+        if "review" in row
+    }
+
+
+def material(data: dict[str, Any]) -> str:
+    """Bind review to source facts and inline decisions, excluding progress/results."""
+    result = {k: v for k, v in data.items() if k not in {"review"}}
+    result["review"] = {
+        "processing": {
+            k: v
+            for k, v in data["review"]["processing"].items()
+            if k in {"needs_input", "suggestions", "answer"}
+        }
+    }
+    return digest(json_bytes(result))
+
+
+def price_material(run: dict[str, Any]) -> str:
+    return digest(
+        json_bytes(
+            {k: v for k, v in run.items() if k not in {"approval", "validation"}}
+        )
+    )
+
+
+def require_ready(document: dict[str, Any]) -> None:
+    if document["extraction_state"] != "complete" or document["review"][
+        "processing"
+    ].get("needs_input"):
+        invalid("Complete extraction and resolve processing input before review.")
+    accounts = account_decisions(document)
+    records = transaction_decisions(document)
+    if len(accounts) != len(document["statement_metadata"]["accounts"]) or any(
+        a["state"] == "needs_input" or not a.get("ledger_account")
+        for a in accounts.values()
+    ):
+        invalid("Every extracted account needs a resolved mapping.")
+    if len(records) != len(document["extracted_records"]) or any(
+        r["state"] == "needs_input" or r["disposition"] == "hold"
+        for r in records.values()
+    ):
+        invalid("Every extracted record needs a resolved disposition.")
+    for row in document["extracted_records"]:
+        decision = row["review"]
+        if decision["disposition"] == "post" and not decision["postings"]:
+            invalid("A posted record requires explicit postings.")
+
+
+def etag(data: dict[str, Any]) -> str:
+    """Content token detects direct file edits without agent-managed counters."""
+    return digest(json_bytes(data))
+
+
+class ReviewFiles:
+    def __init__(self, root: Path, session_id: str):
+        self.root = workspace(root)
+        self.session_id = identifier(session_id)
+        self.session_path = f".auto-bean/import-sessions/{session_id}.json"
+
+    def read(self, path: str) -> dict[str, Any]:
+        kind = "session" if path == self.session_path else "parsed"
+        bounded_path(
+            self.root,
+            path,
+            ".auto-bean/import-sessions" if kind == "session" else "statements/parsed",
+        )
+        data = load_state(checked_path(self.root, path))
+        validate_state(kind, self.root, data)
+        if kind == "session" and data["session_id"] != self.session_id:
+            invalid("Session identity disagrees with its filename.")
+        if kind == "parsed" and data.get("schema_version") != 2:
+            invalid("This panel requires the current parsed review schema.")
+        if kind == "parsed":
+            session = self.read(self.session_path)
+            member = next(
+                (
+                    item
+                    for item in session["statements"]
+                    if item["parsed_statement"] == path
+                ),
+                None,
+            )
+            if member is None or member["source_file"] != data["source_file"]:
+                invalid("Parsed source identity is outside this session.")
+            entry = self.status_entry(data["source_file"], path)
+            if entry["source_fingerprint"] != data["source_fingerprint"]:
+                invalid("Parsed source fingerprint disagrees with status.")
+        return data
+
+    def status_entry(self, source: str, path: str) -> dict[str, Any]:
+        status = load_state(checked_path(self.root, "statements/import-status.yml"))
+        validate_state("status", self.root, status)
+        entry: dict[str, Any] = status["statements"].get(source, {})
+        if entry.get("workflow_version") != 2 or entry.get("parsed_statement") != path:
+            invalid("Session membership no longer matches its status entry.")
+        return entry
+
+    def _publish(self, path: str, data: dict[str, Any], expected: str) -> None:
+        """Internal tool publication. Agents edit artifacts using ordinary file tools."""
+        validate_state(
+            "session" if path == self.session_path else "parsed", self.root, data
+        )
+        if etag(self.read(path)) != expected:
+            raise WorkflowError(
+                "edit_conflict",
+                "Artifact changed during this operation; refresh and retry.",
+            )
+        atomic_write(checked_path(self.root, path), json_bytes(data))
+
+    def statement_path(self, source: str) -> str:
+        session = self.read(self.session_path)
+        for item in session["statements"]:
+            if item["source_file"] == source:
+                path: str = item["parsed_statement"]
+                self.status_entry(source, path)
+                return path
+        invalid("Statement is not a member of this session.")
+
+    def approve_prices(
+        self, run_id: str, expected_etag: str, review_digest: str
+    ) -> dict[str, Any]:
+        with writer_lock(self.root):
+            data = self.read(self.session_path)
+            if etag(data) != expected_etag:
+                raise WorkflowError(
+                    "edit_conflict", "Session changed; refresh price results."
+                )
+            run = next((r for r in data["price_runs"] if r["run_id"] == run_id), None)
+            if run is None or price_material(run) != review_digest:
+                raise WorkflowError(
+                    "review_conflict",
+                    "Price results changed; review the current directives.",
+                )
+            if run["state"] not in {"complete", "no_op", "partial"}:
+                invalid("Price results are not ready for review.")
+            run["approval"] = {
+                "digest": review_digest,
+                "approved_at": now(),
+                "origin": "panel",
+            }
+            self._publish(self.session_path, data, expected_etag)
+            return dict(run)
+
+    def check_links(self, sources: list[str] | None = None) -> None:
+        session = self.read(self.session_path)
+        paths = {i["source_file"]: i["parsed_statement"] for i in session["statements"]}
+        selected = sources if sources is not None else list(paths)
+        documents = {
+            source: self.read(self.statement_path(source)) for source in selected
+        }
+
+        def linked(source: str) -> dict[str, Any] | None:
+            if source not in paths:
+                return None
+            if source not in documents:
+                documents[source] = self.read(paths[source])
+            return documents[source]
+
+        for source in selected:
+            doc = documents[source]
+            for record_id, decision in transaction_decisions(doc).items():
+                for link in decision.get("linked_records", []):
+                    other = linked(link["source_file"])
+                    if other is None or not any(
+                        r["record_id"] == link["record_id"]
+                        and r["account_id"] == link["account_id"]
+                        for r in other["extracted_records"]
+                    ):
+                        invalid(
+                            "Cross-statement record is missing or outside this session."
+                        )
+                    if decision["disposition"] == "paired_transfer":
+                        peer = transaction_decisions(other).get(link["record_id"], {})
+                        if (
+                            peer.get("disposition") != "paired_transfer"
+                            or peer.get("posting_owner") != decision["posting_owner"]
+                            or not any(
+                                back["source_file"] == doc["source_file"]
+                                and back["record_id"] == record_id
+                                and back["account_id"]
+                                == next(
+                                    r["account_id"]
+                                    for r in doc["extracted_records"]
+                                    if r["record_id"] == record_id
+                                )
+                                for back in peer.get("linked_records", [])
+                            )
+                            or decision["posting_owner"]
+                            not in {source, link["source_file"]}
+                            or (
+                                source == link["source_file"]
+                                and record_id == link["record_id"]
+                            )
+                        ):
+                            invalid("Transfer cohort has conflicting ownership.")
+
+    def submit(self, source: str, update: dict[str, Any]) -> dict[str, Any]:
+        """Save an explicit user edit or confirmation in place; no action queue."""
+        permitted = {
+            "kind",
+            "subject_id",
+            "subject_kind",
+            "value",
+            "review_digest",
+            "expected_etag",
+        }
+        if update.keys() - permitted:
+            invalid("Update contains undeclared fields.")
+        if not {"kind", "subject_id", "expected_etag"} <= update.keys():
+            invalid("Update kind, subject and expected content token are required.")
+        with writer_lock(self.root):
+            path = self.statement_path(source)
+            data = self.read(path)
+            if update["expected_etag"] != etag(data):
+                raise WorkflowError(
+                    "edit_conflict",
+                    "Review changed; refresh and resubmit your retained edit.",
+                )
+            if self.status_entry(source, path)["current_status"] == "done":
+                invalid(
+                    "Completed statements require explicit rework before correction."
+                )
+            body, kind, subject = data["review"], update["kind"], update["subject_id"]
+            if kind in {"approve", "reject"}:
+                if subject != "statement" or update.get("review_digest") != material(
+                    data
+                ):
+                    raise WorkflowError(
+                        "review_conflict",
+                        "Reviewed transactions changed; review the current data.",
+                    )
+                if kind == "approve":
+                    require_ready(data)
+                    self.check_links([source])
+                    if (
+                        "sha256:" + digest(checked_path(self.root, source).read_bytes())
+                        != data["source_fingerprint"]
+                    ):
+                        invalid("Raw source changed after extraction.")
+                    body["approval"] = {
+                        "digest": material(data),
+                        "approved_at": now(),
+                        "origin": "panel",
+                    }
+                else:
+                    body.pop("approval", None)
+            else:
+                if kind == "answer":
+                    block = (
+                        body["processing"]
+                        if update.get("subject_kind") == "statement"
+                        and subject == "statement"
+                        else account_decisions(data).get(subject)
+                        if update.get("subject_kind") == "account"
+                        else transaction_decisions(data).get(subject)
+                        if update.get("subject_kind") == "transaction"
+                        else None
+                    )
+                    if (
+                        block is None
+                        or not isinstance(update.get("value"), str)
+                        or not update["value"].strip()
+                    ):
+                        invalid("An answer requires a known subject and nonempty text.")
+                    block["answer"] = update["value"]
+                    if block is body["processing"]:
+                        block["needs_input"] = True
+                    else:
+                        block["state"] = "needs_input"
+                elif kind == "mapping":
+                    block = account_decisions(data).get(subject)
+                    if (
+                        block is None
+                        or not isinstance(update.get("value"), str)
+                        or not re.fullmatch(
+                            r"(Assets|Liabilities|Equity|Income|Expenses)(:[A-Z][A-Za-z0-9-]*)+",
+                            update["value"],
+                        )
+                    ):
+                        invalid(
+                            "Mapping requires an existing account and valid ledger account name."
+                        )
+                    block.update(ledger_account=update["value"], state="needs_input")
+                elif kind == "postings":
+                    block = transaction_decisions(data).get(subject)
+                    if (
+                        block is None
+                        or not isinstance(update.get("value"), list)
+                        or not update["value"]
+                    ):
+                        invalid(
+                            "Correction requires a transaction and explicit postings."
+                        )
+                    block.update(postings=update["value"], state="needs_input")
+                else:
+                    invalid("Unsupported review update.")
+                body.pop("approval", None)
+            body.pop("validation", None)
+            self._publish(path, data, update["expected_etag"])
+            return {
+                "source_file": source,
+                "etag": etag(data),
+                "review_digest": material(data),
+            }

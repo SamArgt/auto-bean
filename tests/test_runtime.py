@@ -176,3 +176,37 @@ def test_failed_extraction_preserves_usable_base(
     with pytest.raises(WorkflowError, match="offline"):
         runtime.ensure_runtime(current, plugin=plugin, extraction=True)
     assert runtime.ensure_runtime(current, plugin=plugin) == base
+
+
+@pytest.mark.parametrize("session", [None, "import-session"])
+def test_validation_uses_managed_runtime(
+    current: Path, monkeypatch: pytest.MonkeyPatch, session: str | None
+) -> None:
+    from auto_bean import __main__ as launcher
+
+    calls: list[tuple[Path, str, list[str]]] = []
+
+    def run(root: Path, tool: str, args: list[str]) -> int:
+        calls.append((root, tool, args))
+        return 1
+
+    monkeypatch.setattr(launcher, "run_tool", run)
+    args = ["validate", "--workspace", str(current), "--stage", "review"]
+    if session:
+        args.extend(["--session", session])
+    assert launcher.main(args) == 1  # A failed validation remains a failed command.
+    assert calls == [
+        (
+            current,
+            "python",
+            [
+                "-m",
+                "auto_bean.reconciliation",
+                "--workspace",
+                str(current),
+                "--stage",
+                "review",
+                *(["--session", session] if session else []),
+            ],
+        )
+    ]

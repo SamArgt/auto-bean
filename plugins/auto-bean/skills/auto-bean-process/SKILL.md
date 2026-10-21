@@ -1,38 +1,36 @@
 ---
 name: auto-bean-process
-description: Normalize one raw PDF, CSV, XLSX, or XLS assigned by auto-bean-import. Use only for its raw-to-parsed stage; return evidence, artifacts, blockers, and proposed status.
+description: Normalize one raw PDF, CSV, XLSX, or XLS assigned by auto-bean-import. Use only for its raw-to-parsed stage; return evidence, blockers, and proposed status.
 ---
 
-Read [plugin execution](../../references/plugin-execution.md), [workflow rules](../../references/workflow-rules.md), [state validation](../../references/state-validation.md), and relevant workspace `.auto-bean/memory/MEMORY.md` context. Work only on the assigned source, fingerprint, expected parsed target, shared artifact prefix, existing artifacts/answers, and supplied status snapshot. Do not discover other inputs, invoke categorization, mutate ledger files, or edit shared status.
+Read [common guidance](../../references/common.md) once, then the import contract's [state](../../references/import-review.md#state-and-validation) and [ownership](../../references/common.md#ownership) sections. Work only on the assigned source, fingerprint, parsed target, session and retry context. Do not discover inputs, categorize, mutate ledger files or edit shared status.
 
 ## Preparation and extraction
 
-1. Confirm the safe source is under `statements/raw/`, exists, and is PDF, CSV, XLSX, or XLS. Compute SHA-256 and compare supplied retry state. Read [memory rules](../../references/memory-access-rules.md) only when selecting/reusing source hints; use the import-source index first and narrowly matching source files only. Memory never overrides source evidence.
+1. Confirm the safe source is under `statements/raw/`, exists and is PDF, CSV, XLSX or XLS. Compute SHA-256 against supplied retry state. When source hints are needed, read the import-source index first and only matching indexed files.
 2. Prepare extraction separately from per-document timeouts:
 
    ```sh
    sh "$AUTO_BEAN_PLUGIN/runtime/launch.sh" ensure-runtime --workspace "$AUTO_BEAN_WORKSPACE" --extraction
    ```
 
-   This may install Docling/CPU model dependencies. PDF models can also download on first use; prefetch the required models using the installed Docling version's documented model command before timing extraction, or record a first-use preparation blocker. Model preparation has its own bounded 10-minute budget and is not a statement parse attempt. Check official Docling docs through Context7 when commands or support are unclear.
-3. Run `auto_bean docling <assigned-source> --to json --output <unique-.auto-bean/tmp/directory>`. Time the extraction itself: PDF 120 seconds, CSV/Excel 60 seconds. Poll the same running session until terminal exit. Preparation failure never becomes a parser crash or consumes source retries.
-4. Classify failures before retrying. Timeout/interruption/transient filesystem IO permits one retry with fresh output. Nonzero parser crash, malformed output, missing evidence, encrypted/corrupt/missing source, or unsupported format is not retried unless clearly transient. Scanned/textless PDFs may use supported local OCR; block if trustworthy extraction is unavailable. Never guess.
-5. Persist command, timeout, attempts, terminal result, sanitized failure summary, output pointer, and repair need in `.auto-bean/artifacts/process/<artifact_prefix>--process.md`. Failure codes are `tool_timeout`, `transient_io_failure`, `parser_crash`, `malformed_parser_output`, `unsupported_format`, `encrypted_or_unreadable_source`, `textless_pdf`, `missing_source`, or `tool_unavailable`.
+   Docling/CPU model preparation has a separate 10-minute budget. Prefetch required PDF models with the installed version's documented command before timing extraction, or record a first-use blocker. Check official Docling docs through Context7 when support is unclear. Preparation failures do not consume source attempts.
+3. Initialize the parsed document before starting. Run `auto_bean docling <assigned-source> --to json --output <unique-.auto-bean/tmp/directory>`; allow 120 seconds for PDF or 60 seconds for CSV/Excel. Poll the same session until terminal exit.
+4. Timeout/interruption/transient filesystem IO permits one retry with fresh output. Do not retry crashes, malformed/missing evidence, encrypted/corrupt/missing sources or unsupported formats unless clearly transient. Supported local OCR may handle scanned/textless PDFs; otherwise block rather than guess.
+5. Persist attempts, terminal outcome, extraction evidence, sanitized failure reason, output pointer, warnings and repair need in `review.processing`. Required input uses needs_input, suggestions and failure_reason/evidence there. Use the schema's failure code: `tool_timeout`, `transient_io_failure`, `parser_crash`, `malformed_parser_output`, `unsupported_format`, `encrypted_or_unreadable_source`, `textless_pdf`, `missing_source` or `tool_unavailable`.
 
-## Normalized evidence
+## Normalization and return
 
-Use the [parsed example](../../references/parsed-statement-output.example.json) and validator schema. New JSON includes `schema_version: 1`, `document_kind`, parser/run metadata, source path/fingerprint/format, parsed timestamp, process artifact pointer, statement metadata/accounts, and extracted records. Keep `snake_case` keys and decimal strings.
+Follow the [parsed example](../../references/parsed-statement-output.example.json) and [state contract](../../references/import-review.md#state-and-validation). `statement` supplies a period/balances; `transaction_export` is a transaction list without those facts. Do not manufacture missing periods, balances, ownership or account identity. A multi-account row without a trustworthy account match blocks processing.
 
-`statement` means evidence supplies a statement period/balances; `transaction_export` means a transaction list without those facts. Preserve missing values as absent/null; do not manufacture periods, balances, ownership, or account identity. Every record has a stable source row `record_id`, `source_reference`, account reference, transaction date, description, signed amount, and currency. Accounts have unique stable `account_id` values. A multi-account row without a trustworthy account match blocks processing. Preserve IDs across reparses of the same source; new parse runs get new versioned output paths, not new identities for the same rows.
+Preserve stable account/row IDs and source references across reparses. Edit extracted facts and processing outcomes directly, preserving existing inline decisions and answers. If corrected evidence changes an earlier decision, return affected IDs for the owning stage to recheck. Complete extraction needs parser/run metadata and timestamp. Pending/failed extraction may have empty evidence arrays and never enters accounting stages.
 
-Validate normalized output before handing it downstream. Keep extraction warnings, manual questions/answers, and source-memory attribution in the process artifact, not parsed JSON/status. Delete temporary extraction output only after normalized output is safely persisted and validated, unless debugging needs it. Use [bounded parsed reading](../../references/parsed-statement-jq-reading.md) for existing/large evidence.
+Check the source-to-parsed contract and schema before handing evidence downstream; Import runs shared review validation when decisions are ready. Keep processing input/warnings and relevant source-normalization evidence in review.processing; later memory learning uses those facts directly. Delete temporary output only after safely publishing validated evidence unless debugging requires retention. Use [bounded inspection](../../references/import-review.md#reading-evidence) for large documents.
 
-## Return to import
+Return a concise summary with fingerprint, parsed path/run ID, evidence quality, processing outcome, blockers, safe progress and one status proposal:
 
-Persist safe evidence and stable question IDs; never ask users directly. Return source fingerprint, parsed path/run ID, process artifact, evidence-quality result, blockers/questions, safe progress, memory attribution/suggestions, and one proposed status:
-
-- `process_blocked`: missing/untrustworthy evidence or required manual repair.
+- `process_blocked`: missing/untrustworthy evidence or manual repair.
 - `process_review`: normalized evidence exists but warnings need review.
-- `account_review`: valid evidence without pending process questions.
+- `account_review`: valid evidence with no unresolved processing input.
 
-Import alone applies the proposal to the latest status index. Return retry metadata for the current source fingerprint; after two extraction attempts propose `manual_resolution_required: true`. A changed source starts a new retry count. Preparation failures do not increment extraction attempts. Unresolved blockers never become durable memory.
+Persist extraction input in `review.processing`; Import asks the user and applies status. Return attempts for the current fingerprint; after two extraction attempts propose `manual_resolution_required: true`. A changed source starts a new retry count.

@@ -38,7 +38,7 @@ def healthy(environment: Path, *, extraction: bool = False) -> bool:
         [
             str(environment / "bin/python"),
             "-c",
-            "import beancount, beanquery, fava, beanprice, jsonschema, yaml"
+            "import beancount, beanquery, fava, beanprice, jsonschema, yaml, mcp"
             + (", docling" if extraction else ""),
         ],
         capture_output=True,
@@ -109,8 +109,31 @@ def run_tool(root: Path, tool: str, args: list[str]) -> int:
         raise WorkflowError("unsupported_tool", f"Unsupported runtime tool: {tool}")
     environment = ensure_runtime(root, extraction=tool == "docling")
     env = dict(os.environ, VIRTUAL_ENV=str(environment), PYTHONDONTWRITEBYTECODE="1")
+    env["PYTHONPATH"] = str(PLUGIN / "runtime")
     env["PATH"] = str(environment / "bin") + os.pathsep + env.get("PATH", "")
     # exec retains streaming output, signals, exit status, and background-session behavior.
     os.chdir(root)
     os.execve(environment / "bin" / tool, [tool, *args], env)
     return 1  # pragma: no cover - exec only returns by raising
+
+
+def serve() -> int:
+    """Prepare a plugin-owned cache without requiring a ledger workspace."""
+    cache = (
+        Path(os.environ.get("XDG_CACHE_HOME", str(Path.home() / ".cache")))
+        / "auto-bean-service"
+    )
+    cache.mkdir(parents=True, exist_ok=True)
+    if cache.is_symlink():
+        raise WorkflowError("unsafe_path", "Service cache must not be a symlink.")
+    environment = ensure_runtime(cache)
+    env = dict(
+        os.environ,
+        VIRTUAL_ENV=str(environment),
+        PYTHONPATH=str(PLUGIN / "runtime"),
+        PYTHONDONTWRITEBYTECODE="1",
+    )
+    env["PATH"] = str(environment / "bin") + os.pathsep + env.get("PATH", "")
+    interpreter = environment / "bin/python"
+    os.execve(interpreter, [str(interpreter), "-m", "auto_bean.server"], env)
+    return 1

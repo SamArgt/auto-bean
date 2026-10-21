@@ -3,6 +3,9 @@
 !plugins/
 !plugins/auto-bean/
 !plugins/auto-bean/**
+!frontend/
+!frontend/import-review/
+!frontend/import-review/**
 !evals/
 !evals/harbor/
 !evals/harbor/*.py
@@ -21,3 +24,4 @@
 **/.DS_Store
 **/__pycache__/
 **/*.pyc
+**/node_modules/

@@ -19,6 +19,7 @@ IGNORE_LINES = (
     ".auto-bean/runtime/",
     ".auto-bean/migrations/",
     ".auto-bean/tmp/",
+    ".auto-bean/review.lock",
     ".venv/",
     ".codex/config.toml",
     "__pycache__/",

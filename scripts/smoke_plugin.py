@@ -60,13 +60,7 @@ def main() -> None:
             "-c",
             "import importlib.util; assert importlib.util.find_spec('docling') is None; assert importlib.util.find_spec('torch') is None",
         )
-        run(
-            *command,
-            "python",
-            str(installed / "runtime/validate_state.py"),
-            "memory",
-            ".auto-bean/memory/category_mappings.json",
-        )
+        run("validate", "--workspace", str(root))
         run(
             *command,
             "bean-query",
@@ -93,9 +87,7 @@ def main() -> None:
             ).read_bytes()
         )
         run(*command, "bean-check", boundary.name)
-        patterns = (
-            installed / "skills/auto-bean-query/references/bean-query-patterns.md"
-        ).read_text()
+        patterns = (installed / "references/ledger-reference.md").read_text()
         queries = re.findall(r"```sql\n(.*?)```", patterns, re.DOTALL)
         assert queries
         for query in queries:

@@ -26,7 +26,19 @@ jobs:
         uses: astral-sh/setup-uv@v6
 
       - name: Sync development dependencies
-        run: uv sync --locked --group dev
+        run: uv sync --locked --group dev --group eval
+
+      - name: Set up Node for frontend checks
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Verify bundled review UI
+        run: |
+          npm --prefix frontend/import-review ci
+          npm --prefix frontend/import-review run build
+          npm --prefix frontend/import-review test
+          git diff --exit-code -- plugins/auto-bean/ui
 
       - name: Check runtime lock
         run: uv lock --project plugins/auto-bean/runtime --check
@@ -38,7 +50,7 @@ jobs:
         run: uv run ruff format --check
 
       - name: Pytest
-        run: uv run pytest
+        run: uv run pytest tests evals/harbor/tests
 
       - name: Mypy
         run: uv run mypy

@@ -1,0 +1,41 @@
+schema_version = "1.4"
+multi_step_reward_strategy = "final"
+artifacts = [
+  { source = "/app/ledger", exclude = [".auto-bean/runtime", ".auto-bean/tmp"] },
+  "/logs/agent",
+  "/opt/eval-evidence",
+]
+
+[task]
+name = "auto-bean/human-input-correction"
+version = "2.0.0"
+
+[metadata]
+category = "financial-workflow"
+description = "Resolve inline account and category suggestions before a separate transaction approval."
+
+[agent]
+timeout_sec = 1200
+
+[verifier]
+timeout_sec = 120
+environment_mode = "separate"
+
+[environment]
+cpus = 2
+memory_mb = 8192
+storage_mb = 20480
+build_timeout_sec = 1800
+workdir = "/app/ledger"
+
+
+[[steps]]
+name = "needs-input"
+min_reward = 1.0
+
+[[steps]]
+name = "correct"
+min_reward = 1.0
+
+[[steps]]
+name = "approve"

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -9,14 +10,14 @@ import pytest
 from jsonschema import Draft202012Validator
 
 from auto_bean.common import PLUGIN, WorkflowError
-from auto_bean.validation import load_state, validate_state, validate_transitions
+from auto_bean.validation import load_state, validate_state
 
 
 @pytest.fixture
 def parsed() -> dict[str, Any]:
     return dict(
         json.loads(
-            (PLUGIN / "references/parsed-statement-output.example.json").read_text()
+            (Path(__file__).parent / "fixtures/parsed-statement-v1.json").read_text()
         )
     )
 
@@ -144,53 +145,17 @@ def test_status_dates_and_pointers_are_checked(current: Path) -> None:
         validate_state("status", current, data)
 
 
-def test_status_lifecycle_requires_final_approval_and_preserves_other_statements() -> (
-    None
-):
-    states = [
-        "raw_ready",
-        "account_review",
-        "balance_review",
-        "categorize_ready",
-        "categorize_review",
-        "write_ready",
-        "final_review",
-    ]
-    for old, new in zip(states, states[1:]):
-        validate_transitions(index(old), index(new))
-    with pytest.raises(WorkflowError, match="approval"):
-        validate_transitions(index("final_review"), index("done"))
-    validate_transitions(
-        index("final_review"), index("done"), approved={"statements/raw/checking.csv"}
-    )
-    with pytest.raises(WorkflowError, match="Illegal"):
-        validate_transitions(
-            index("raw_ready"), index("done"), approved={"statements/raw/checking.csv"}
-        )
-    with pytest.raises(WorkflowError, match="removed"):
-        validate_transitions(index("final_review"), {"version": 1, "statements": {}})
-
-
-def test_rejection_and_interrupted_write_do_not_complete_the_statement() -> None:
-    validate_transitions(index("write_ready"), index("write_blocked"))
-    validate_transitions(index("write_blocked"), index("final_review"))
-    validate_transitions(index("final_review"), index("write_blocked"))
-    with pytest.raises(WorkflowError, match="Illegal"):
-        validate_transitions(index("write_blocked"), index("done"))
-
-
-def test_changed_completed_source_needs_explicit_rework() -> None:
-    changed = index("raw_ready", fingerprint="b" * 64)
-    with pytest.raises(WorkflowError, match="rework"):
-        validate_transitions(index("done"), changed)
-    validate_transitions(index("done"), changed, rework={"statements/raw/checking.csv"})
-
-
 def test_legacy_memory_ids_are_readable_but_duplicates_are_rejected(
     current: Path,
 ) -> None:
-    path = PLUGIN / "skills/auto-bean-memory/references/category-mapping.example.md"
-    record = json.loads(path.read_text().split("```json\n")[1].split("```")[0])
+    path = PLUGIN / "skills/auto-bean-memory/references/memory-examples.md"
+    examples = [
+        json.loads(block)
+        for block in re.findall(r"```json\n(.*?)```", path.read_text(), re.DOTALL)
+    ]
+    record = next(
+        example for example in examples if example["memory_type"] == "category_mapping"
+    )
     data: dict[str, Any] = {
         "schema_version": 1,
         "memory_type": "category_mapping",
@@ -241,19 +206,3 @@ def test_raw_source_aliases_are_not_two_statements(current: Path) -> None:
     )
     with pytest.raises(WorkflowError, match="same raw source"):
         validate_state("status", current, data)
-
-
-def test_pending_input_and_implicit_restarts_cannot_cross_gates() -> None:
-    final = index("done")
-    next(iter(final["statements"].values()))["user_input_required"] = True
-    with pytest.raises(WorkflowError, match="Unresolved"):
-        validate_transitions(
-            index("final_review"), final, approved={"statements/raw/checking.csv"}
-        )
-    with pytest.raises(WorkflowError, match="rework"):
-        validate_transitions(index("process_blocked"), index("raw_ready"))
-    validate_transitions(
-        index("process_blocked"),
-        index("raw_ready"),
-        rework={"statements/raw/checking.csv"},
-    )

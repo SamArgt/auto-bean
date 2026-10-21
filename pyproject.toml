@@ -17,6 +17,7 @@ dev = [
     "types-pyyaml>=6,<7",
     "jsonschema>=4,<5",
     "types-jsonschema>=4,<5",
+    "mcp>=1.30,<2",
 ]
 eval = [
     "beancount>=3.2.3",

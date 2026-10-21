@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import argparse
+import copy
 from collections import Counter, defaultdict
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 import json
+import glob
 import re
 import subprocess
 import sys
@@ -14,11 +16,12 @@ from pathlib import Path
 from typing import Any
 
 from beancount import loader
-from beancount.core.data import Open, Transaction
+from beancount.core.data import Open, Price, Transaction
 
 # These imports resolve to the verifier's immutable bundle, never the ledger.
 from auto_bean.validation import load_state, validate_state
 from evals.harbor.fixtures import OPENING, SOURCES, sha256, write_json
+from evals.harbor.capture import write_review_html
 
 EXPECTED_POSTINGS = (
     ("2026-01-05", (("Assets:Checking", "-25", "EUR"), ("Expenses:Food", "25", "EUR"))),
@@ -74,20 +77,43 @@ def git(root: Path, *args: str) -> str:
 
 def load_ledger(root: Path) -> tuple[list[Any], dict[str, Any]]:
     # Beancount plugin directives execute Python. These fixtures need none.
-    for path in root.rglob("*.beancount"):
-        require(not path.is_symlink(), "Ledger contains a symlink")
+    pending = [root / "ledger.beancount", *root.rglob("*.beancount")]
+    checked: set[Path] = set()
+    while pending:
+        path = pending.pop()
+        require(path.resolve().is_relative_to(root.resolve()), "Include escapes ledger")
+        relative = path.absolute().relative_to(root.absolute())
+        require(
+            not any(
+                (root / Path(*relative.parts[:i])).is_symlink()
+                for i in range(1, len(relative.parts) + 1)
+            ),
+            "Ledger contains a symlink",
+        )
+        require(path.is_file(), "Missing ledger input")
+        if path.resolve() in checked:
+            continue
+        checked.add(path.resolve())
         for line in path.read_text().splitlines():
             require(
                 not re.match(r"\s*plugin\s", line),
                 "Unexpected executable ledger plugin",
             )
-            match = re.match(r'\s*include\s+"([^"]+)"', line)
-            if match:
-                target = path.parent / match[1]
+            if re.match(r"\s*include\s", line):
+                match = re.fullmatch(
+                    r'\s*include\s+("(?:[^"\\]|\\.)*")\s*(?:;.*)?', line
+                )
+                require(match is not None, "Unsupported include syntax")
+                assert match is not None
+                target = path.parent / json.loads(match[1])
                 require(
                     target.resolve().is_relative_to(root.resolve()),
                     "Include escapes ledger",
                 )
+                # Follow every actual input, including non-.beancount suffixes.
+                matches = glob.glob(str(target))
+                require(matches, "Missing included ledger input")
+                pending.extend(Path(item) for item in matches)
     entries, errors, options = loader.load_file(str(root / "ledger.beancount"))
     require(not errors, f"Ledger validation returned {len(errors)} errors")
     require(options["operating_currency"] == ["EUR"], "Operating currency must be EUR")
@@ -198,44 +224,189 @@ def source_checks(root: Path, expected: dict[str, Any]) -> dict[str, Any]:
     return status
 
 
-def import_checks(
-    root: Path, plugin: Path, evidence: Path, expected: dict[str, Any], phase: str
+def financial_hashes(root: Path) -> dict[str, str]:
+    return {
+        p.relative_to(root).as_posix(): sha256(p)
+        for p in root.rglob("*.beancount")
+        if ".auto-bean" not in p.relative_to(root).parts
+    }
+
+
+def account_decisions(data: dict[str, Any]) -> dict[str, Any]:
+    """Project inline decisions without executing submitted workspace code."""
+    return {
+        account["account_id"]: account["review"]
+        for account in data["statement_metadata"]["accounts"]
+        if "review" in account
+    }
+
+
+def transaction_decisions(data: dict[str, Any]) -> dict[str, Any]:
+    return {
+        record["record_id"]: record["review"]
+        for record in data["extracted_records"]
+        if "review" in record
+    }
+
+
+def material_hash(data: dict[str, Any]) -> str:
+    from hashlib import sha256 as hash_bytes
+
+    value = {k: v for k, v in data.items() if k != "review"}
+    value["review"] = {
+        "processing": {
+            k: v
+            for k, v in data["review"]["processing"].items()
+            if k in {"needs_input", "suggestions", "answer"}
+        }
+    }
+    return hash_bytes(
+        (json.dumps(value, indent=2, sort_keys=True) + "\n").encode()
+    ).hexdigest()
+
+
+def string_values(value: Any) -> set[str]:
+    """Accept equivalent source/audit layouts without accepting vague prose."""
+    if isinstance(value, str):
+        return {value}
+    if isinstance(value, dict):
+        return set().union(*(string_values(v) for v in value.values()))
+    if isinstance(value, list):
+        return set().union(*(string_values(v) for v in value))
+    return set()
+
+
+def memory_checks(
+    root: Path, session: dict[str, Any], documents: dict[str, Any], *, approved: bool
 ) -> None:
-    del plugin  # The validator imports the immutable verifier bundle.
-    status = source_checks(root, expected)
-    wanted = "final_review" if phase == "review" else "done"
-    require(
-        all(item["current_status"] == wanted for item in status["statements"].values()),
-        f"Both statements must be {wanted}",
+    """Check actual reusable records, never a claimed completion marker."""
+    memory = root / ".auto-bean/memory"
+    files = {
+        p.relative_to(memory).as_posix(): load_state(p) for p in memory.rglob("*.json")
+    }
+    for data in files.values():
+        validate_state("memory", root, data)
+    if not approved:
+        for data in files.values():
+            if data["memory_type"] in {
+                "account_mapping",
+                "category_mapping",
+                "transfer_detection",
+                "deduplication_decision",
+                "commodity_price_source",
+            }:
+                require(
+                    not data["records"], "Unapplied decisions entered governed memory"
+                )
+        return
+
+    expected_records = (
+        ("account_mappings.json", SOURCES[0], "CHECKING-TEST", "Assets:Checking"),
+        ("account_mappings.json", SOURCES[1], "SAVINGS-TEST", "Assets:Savings"),
+        ("category_mappings.json", SOURCES[0], "Example Market", "Expenses:Food"),
     )
+    parsed_paths = {
+        m["source_file"]: m["parsed_statement"] for m in session["statements"]
+    }
+    for filename, source, match, account in expected_records:
+        records = files[filename]["records"]
+        field = (
+            "beancount_account"
+            if filename == "account_mappings.json"
+            else "posting_account"
+        )
+        matching = [r for r in records if match in string_values(r["decision"])]
+        require(
+            len(matching) == 1 and matching[0]["decision"].get(field) == account,
+            f"Missing, conflicting or duplicated eligible memory for {match}",
+        )
+        record = matching[0]
+        require(
+            record.get("record_id")
+            and record.get("review_state") in {"approved", "confirmed"},
+            "Governed memory lacks stable identity or accepted review state",
+        )
+        scope = string_values(record["scope"])
+        external = "CHECKING-TEST" if source == SOURCES[0] else "SAVINGS-TEST"
+        require(
+            {external, "EUR", "Alex Example"} <= scope,
+            "Governed memory scope is broader than the accepted account evidence",
+        )
+        provenance = string_values(record["source"])
+        require(
+            bool({source, parsed_paths[source]} & provenance)
+            and documents[source]["source_fingerprint"] in provenance,
+            "Governed memory lacks exact source provenance",
+        )
+        audit = string_values(record["audit"])
+        doc = documents[source]
+        validation = doc["review"].get("validation", {})
+        require(
+            {
+                session["session_id"],
+                material_hash(doc),
+                validation.get("checked_at", ""),
+            }
+            <= audit
+            and validation.get("state") == "passed"
+            and validation.get("stage") == "written",
+            "Governed memory lacks written ledger validation provenance",
+        )
+        require(
+            datetime.fromisoformat(record["created_at"])
+            >= datetime.fromisoformat(validation["checked_at"])
+            and datetime.fromisoformat(record["updated_at"])
+            >= datetime.fromisoformat(record["created_at"]),
+            "Governed memory was learned before written validation",
+        )
+
+
+def financial_checks(root: Path, documents: dict[str, Any]) -> None:
     entries, _ = load_ledger(root)
-    transactions = [entry for entry in entries if isinstance(entry, Transaction)]
-    opening = [entry for entry in transactions if entry.date == date(2025, 12, 31)]
+    require(
+        {(e.account, tuple(e.currencies or [])) for e in entries if isinstance(e, Open)}
+        == {
+            (name, ("EUR",))
+            for name in (
+                "Assets:Checking",
+                "Assets:Savings",
+                "Expenses:Food",
+                "Expenses:Bank-Fees",
+                "Income:Interest",
+                "Equity:Opening-Balances",
+            )
+        },
+        "Import created or changed account definitions",
+    )
+    require(
+        not any(isinstance(e, Price) for e in entries),
+        "EUR-only import invented price directives",
+    )
+    transactions = [e for e in entries if isinstance(e, Transaction)]
+    opening = [e for e in transactions if e.date == date(2025, 12, 31)]
     require(
         len(opening) == 1
         and (root / "beancount/opening-balances.beancount").read_text() == OPENING,
         "Existing opening transaction was changed",
     )
-    current = [entry for entry in transactions if entry not in opening]
+    current = [e for e in transactions if e not in opening]
     expected_keys = Counter(
-        (
-            day,
-            tuple(
-                (account, Decimal(amount), currency)
-                for account, amount, currency in sorted(postings)
-            ),
-        )
+        (day, tuple((a, Decimal(n), c) for a, n, c in sorted(postings)))
         for day, postings in EXPECTED_POSTINGS
     )
     require(
-        Counter(economic_key(entry) for entry in current) == expected_keys,
+        Counter(economic_key(e) for e in current) == expected_keys,
         "Wrong economic transactions, dates, accounts, amounts, or duplicate transfer",
     )
-    require(all(entry.flag == "*" for entry in current), "Unexpected transaction flags")
+    require(all(e.flag == "*" for e in current), "Unexpected transaction flags")
     balances: dict[str, Decimal] = defaultdict(Decimal)
     for entry in transactions:
         for posting in entry.postings:
             units = posting.units
+            require(
+                units is not None and isinstance(units.number, Decimal),
+                "Unexpected incomplete posting",
+            )
             assert units is not None and isinstance(units.number, Decimal)
             if units.currency == "EUR":
                 balances[posting.account] += units.number
@@ -244,30 +415,90 @@ def import_checks(
         and balances["Assets:Savings"] == Decimal(602),
         "Closing balances do not reconcile",
     )
-    all_artifacts = []
+    for raw, doc in documents.items():
+        for row in doc["extracted_records"]:
+            matches = [
+                e for e in current if e.date.isoformat() == row["transaction_date"]
+            ]
+            require(
+                len(matches) == 1, "Cannot locate source record economic transaction"
+            )
+            identities = {
+                tuple(
+                    meta.get(prefix + key)
+                    for key in (
+                        "source",
+                        "source_fingerprint",
+                        "account_id",
+                        "record_id",
+                    )
+                )
+                for meta in [
+                    matches[0].meta,
+                    *(p.meta or {} for p in matches[0].postings),
+                ]
+                for prefix in ("", "peer_")
+            }
+            require(
+                (raw, doc["source_fingerprint"], row["account_id"], row["record_id"])
+                in identities,
+                "Transaction lacks full source-record provenance",
+            )
+
+
+def import_checks(
+    root: Path, plugin: Path, evidence: Path, expected: dict[str, Any], phase: str
+) -> None:
+    import hashlib
+    import tempfile
+
+    del plugin
+    status = source_checks(root, expected)
+    wanted = "final_review" if phase == "review" else "done"
+    require(
+        all(i["current_status"] == wanted for i in status["statements"].values()),
+        f"Both statements must be {wanted}",
+    )
+    sessions = list((root / ".auto-bean/import-sessions").glob("*.json"))
+    require(len(sessions) == 1, "Exactly one explicit import session is required")
+    session = load_state(sessions[0])
+    validate_state("session", root, session)
+    require(
+        {i["source_file"]: i["parsed_statement"] for i in session["statements"]}
+        == {raw: i["parsed_statement"] for raw, i in status["statements"].items()},
+        "Session mixing or mismatched membership",
+    )
+    documents = {}
     for raw, item in status["statements"].items():
-        fingerprint = "sha256:" + expected["sources"][raw]
         require(
-            item["source_fingerprint"] == fingerprint,
-            "Status fingerprint disagrees with raw evidence",
+            item.get("workflow_version") == 2, "Expected structured workflow status"
         )
         parsed = load_state(inside(root, item["parsed_statement"]))
         validate_state("parsed", root, parsed)
         require(
-            parsed.get("schema_version") == 1
+            parsed.get("schema_version") == 2
+            and parsed["extraction_state"] == "complete"
             and parsed["document_kind"] == "statement",
-            "Expected new normalized statement schema",
+            "Expected complete v2 evidence",
         )
+        fingerprint = "sha256:" + expected["sources"][raw]
         require(
             parsed["source_file"] == raw
-            and parsed["source_fingerprint"] == fingerprint,
+            and parsed["source_fingerprint"]
+            == item["source_fingerprint"]
+            == fingerprint,
             "Parsed source identity mismatch",
         )
         accounts = parsed["statement_metadata"]["accounts"]
         require(len(accounts) == 1, "Each fixture has exactly one account")
-        checking = raw.endswith("checking.csv")
         account = accounts[0]
+        checking = raw.endswith("checking.csv")
+        ledger = "Assets:Checking" if checking else "Assets:Savings"
         require(account["primary_currency"] == "EUR", "Wrong statement currency")
+        require(
+            not account.get("review", {}).get("proposed_directives"),
+            "Fixture needs no new account or balance directives",
+        )
         for key, amount in (
             ("opening_balance", "1000" if checking else "500"),
             ("closing_balance", "870" if checking else "602"),
@@ -288,105 +519,255 @@ def import_checks(
         )
         records = parsed["extracted_records"]
         require(
-            Counter(
-                (row["transaction_date"], Decimal(row["amount"])) for row in records
-            )
+            Counter((r["transaction_date"], Decimal(r["amount"])) for r in records)
             == Counter(expected_rows),
-            "Raw statement rows were lost, invented, or changed",
+            "Raw source rows were lost, invented, or changed",
         )
-        for record in records:
-            candidates = [
-                entry
-                for entry in current
-                if entry.date.isoformat() == record["transaction_date"]
-            ]
-            require(
-                len(candidates) == 1,
-                "Cannot locate source record's economic transaction",
-            )
-            # The write skill permits each bank posting to carry its own
-            # provenance, as well as transaction-level companion metadata.
-            metadata = json.dumps(
-                {
-                    "transaction": candidates[0].meta,
-                    "postings": [posting.meta for posting in candidates[0].postings],
-                },
-                default=str,
-            )
-            require(
-                all(
-                    value in metadata
-                    for value in (
-                        fingerprint,
-                        record["account_id"],
-                        record["record_id"],
-                    )
-                ),
-                "Transaction lacks full source-record provenance (including the shared transfer)",
-            )
-        require(
-            set(item["artifacts"]) == {"process", "categorize", "import"},
-            "Missing stage artifact pointers",
+        descriptions = (
+            {
+                "2026-01-05": "Example Market",
+                "2026-01-10": "Transfer to own SAVINGS-TEST",
+                "2026-01-15": "Monthly bank fee",
+            }
+            if checking
+            else {
+                "2026-01-10": "From own CHECKING-TEST",
+                "2026-01-31": "Savings interest",
+            }
         )
-        for stage, relative in item["artifacts"].items():
-            text = inside(root, relative).read_text()
-            require(text.strip(), f"Empty {stage} artifact")
-            if stage == "process":
-                require(
-                    "docling" in text.lower(), "No real extraction command recorded"
-                )
-                require(
-                    parsed["process_artifact"] == relative,
-                    "Process artifact pointers disagree",
-                )
-            if stage == "import":
-                require(
-                    "Posting Decisions" in text and "Cross-Statement Review" in text,
-                    "Missing import decisions",
-                )
-                if phase == "approve":
-                    clean = re.sub(r"[*`]", "", text)
-                    require(
-                        bool(
-                            re.search(
-                                r"\bI approve\b|\b(?:user|owner)\s+(?:explicitly\s+)?approved\b|\b(?:user|explicit|final) approval\s*[:=-]\s*(?:approved|received|granted|accepted)",
-                                clean,
-                                re.I,
-                            )
-                        ),
-                        "Missing explicit user approval evidence",
-                    )
-                all_artifacts.append(text)
-    artifacts_text = "\n".join(all_artifacts)
-    # Bind the actual changed financial files to the recorded candidate hashes.
-    changed = git(root, "diff", "--name-only").splitlines()
-    changed += git(root, "ls-files", "--others", "--exclude-standard").splitlines()
-    for relative in set(changed):
-        if relative.endswith(".beancount"):
-            require(
-                sha256(inside(root, relative)) in artifacts_text,
-                f"Missing candidate hash: {relative}",
-            )
-    if phase == "approve":
-        price_files = list((root / ".auto-bean/artifacts/prices").glob("*.md"))
         require(
-            any(path.read_text().strip() for path in price_files),
-            "Missing prices stage outcome",
-        )
-        memory_files = list((root / ".auto-bean/artifacts/memory").glob("*.md"))
-        # Memory's normal handoff belongs in import's existing artifact; no
-        # extra product output schema or directory is required.
-        require(
-            any(path.read_text().strip() for path in memory_files)
-            or all(
-                section_content(text, "Memory Attribution")
-                and section_content(text, "Memory Candidates")
-                for text in all_artifacts
+            all(
+                r["description"] == descriptions[r["transaction_date"]]
+                and r["currency"] == "EUR"
+                and r["account_id"] == account["account_id"]
+                for r in records
             ),
-            "Missing memory handoff outcome in the import artifacts",
+            "Extracted source descriptions, currency or account changed",
         )
-    for path in (root / ".auto-bean/memory").rglob("*.json"):
-        validate_state("memory", root, load_state(path))
+        review = parsed["review"]
+        require(
+            review["processing"]["outcome"] == "complete"
+            and any("docling" in e.lower() for e in review["processing"]["evidence"]),
+            "No completed extraction evidence",
+        )
+        require(
+            account.get("review", {}).get("ledger_account") == ledger,
+            "Wrong account mapping",
+        )
+        require(
+            not review["processing"].get("needs_input", False)
+            and all(
+                a["state"] != "needs_input" for a in account_decisions(parsed).values()
+            ),
+            "Unresolved account or statement input",
+        )
+        require(
+            set(transaction_decisions(parsed)) == {r["record_id"] for r in records},
+            "Missing or duplicate transaction decisions",
+        )
+        for row in records:
+            decision = row["review"]
+            require(
+                decision["state"] != "needs_input"
+                and decision["disposition"] in {"post", "paired_transfer"},
+                "Held or omitted source row",
+            )
+            expected_postings = next(
+                postings
+                for day, postings in EXPECTED_POSTINGS
+                if day == row["transaction_date"]
+            )
+            require(
+                (
+                    not decision["postings"]
+                    and decision["disposition"] == "paired_transfer"
+                    and decision.get("posting_owner") != raw
+                )
+                or Counter(
+                    (p["account"], Decimal(p["amount"]), p["currency"])
+                    for p in decision["postings"]
+                )
+                == Counter((a, Decimal(n), c) for a, n, c in expected_postings),
+                "Wrong structured postings",
+            )
+            if row["transaction_date"] == "2026-01-10":
+                require(
+                    decision["disposition"] == "paired_transfer"
+                    and decision.get("posting_owner") == SOURCES[0]
+                    and len(decision.get("linked_records", [])) == 1,
+                    "Transfer lacks single owner or paired source",
+                )
+            else:
+                require(
+                    decision["disposition"] == "post",
+                    "Unexpected non-transfer disposition",
+                )
+        documents[raw] = parsed
+    for raw, doc in documents.items():
+        for decision in transaction_decisions(doc).values():
+            for link in decision.get("linked_records", []):
+                peer = documents.get(link["source_file"], {})
+                require(
+                    any(
+                        r["record_id"] == link["record_id"]
+                        and r["account_id"] == link["account_id"]
+                        for r in peer.get("extracted_records", [])
+                    ),
+                    "Invalid cross-statement record reference",
+                )
+    # A non-owner may delegate its postings to the linked owner. Resolve that
+    # reference independently; never accept an empty proposal without the exact
+    # owner economics and reciprocal evidence.
+    for raw, doc in documents.items():
+        for row in doc["extracted_records"]:
+            decision = row["review"]
+            if decision["disposition"] != "paired_transfer":
+                continue
+            link = decision["linked_records"][0]
+            peer = documents[link["source_file"]]
+            peer_decision = transaction_decisions(peer)[link["record_id"]]
+            require(
+                link["source_file"] != raw
+                and peer_decision["disposition"] == "paired_transfer"
+                and peer_decision.get("posting_owner") == decision["posting_owner"]
+                and peer_decision["linked_records"]
+                == [
+                    {
+                        "source_file": raw,
+                        "account_id": row["account_id"],
+                        "record_id": row["record_id"],
+                    }
+                ],
+                "Transfer owner link is not reciprocal",
+            )
+            if decision["posting_owner"] == raw:
+                continue
+            require(
+                link["source_file"] == decision["posting_owner"]
+                and Counter(
+                    (p["account"], Decimal(p["amount"]), p["currency"])
+                    for p in peer_decision["postings"]
+                )
+                == Counter((a, Decimal(n), c) for a, n, c in EXPECTED_POSTINGS[1][1]),
+                "Transfer owner is missing exact structured postings",
+            )
+    checkpoint = load_state(inside(evidence, "review.json"))
+    require(
+        checkpoint["session_id"] == session["session_id"], "Checkpoint session mismatch"
+    )
+    base = checkpoint["baseline_contents"]
+    require(
+        {k: hashlib.sha256(v.encode()).hexdigest() for k, v in base.items()}
+        == expected["financial_hashes"],
+        "Review baseline differs from independent fixture",
+    )
+    require(
+        checkpoint["financial_hashes"] == expected["financial_hashes"],
+        "Ledger writes occurred before approval",
+    )
+    if phase == "review":
+        require(
+            financial_hashes(root) == expected["financial_hashes"],
+            "Ledger writes occurred before approval",
+        )
+    require(
+        set(checkpoint["documents"]) == set(documents)
+        and checkpoint["session"]["statements"] == session["statements"],
+        "Reviewed statement membership changed",
+    )
+    for raw, doc in documents.items():
+        reviewed = checkpoint["documents"][raw]
+        require(
+            material_hash(doc)
+            == material_hash(reviewed)
+            == checkpoint["review_digests"][raw],
+            "Reviewed transaction evidence changed after review",
+        )
+        approval = doc["review"].get("approval")
+        validation = doc["review"].get("validation")
+        # This headless task authorizes writes through its explicit user turn and
+        # immutable review checkpoint. Agent-authored approval JSON is not proof.
+        require(approval is None, "Fabricated panel approval in chat-only task")
+        if phase == "review":
+            require(
+                validation is None
+                or (
+                    validation["stage"] == "review"
+                    and validation["state"] == "passed"
+                    and validation["digest"] == material_hash(doc)
+                ),
+                "Premature or fabricated write validation",
+            )
+        else:
+            require(
+                validation is not None
+                and validation["stage"] == "written"
+                and validation["state"] == "passed"
+                and validation["digest"] == material_hash(doc)
+                and validation["records_checked"] == len(doc["extracted_records"])
+                and not validation["errors"],
+                "Missing successful written transaction validation",
+            )
+            require(
+                datetime.fromisoformat(checkpoint["captured_at"])
+                <= datetime.fromisoformat(validation["checked_at"]),
+                "Written validation predates review",
+            )
+            require(
+                validation["ledger_hashes"] == financial_hashes(root),
+                "Validation does not describe current canonical ledger",
+            )
+            account = doc["statement_metadata"]["accounts"][0]
+            expected_balance = Decimal(account["closing_balance"]["amount"])
+            balances = validation["balances"]
+            require(
+                any(
+                    b["account_id"] == account["account_id"]
+                    and b["date"] == account["closing_balance"]["date"]
+                    and b["currency"] == "EUR"
+                    and b["state"] == "matched"
+                    and Decimal(b["expected"])
+                    == Decimal(b["actual"])
+                    == expected_balance
+                    for b in balances
+                ),
+                "Missing checked final account balance",
+            )
+    # Independently render reviewed postings in verifier-owned temporary storage.
+    # Submitted workspace Python and claimed validation are never executed/trusted.
+    with tempfile.TemporaryDirectory(prefix="harbor-verifier-") as temporary:
+        proposed = Path(temporary)
+        for relative, content in base.items():
+            target = proposed / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(content)
+        for relative in SOURCES:
+            target = proposed / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(inside(root, relative).read_bytes())
+        output = proposed / "beancount/reviewed.beancount"
+        output.write_text(render_reviewed_transactions(checkpoint["documents"]))
+        with (proposed / "ledger.beancount").open("a") as stream:
+            stream.write('\ninclude "beancount/reviewed.beancount"\n')
+        financial_checks(proposed, documents)
+        if phase == "approve":
+            financial_checks(root, documents)
+    if phase == "approve":
+        require(
+            session["price_runs"]
+            and all(
+                r["state"] == "no_op"
+                and r["preflight"] == "passed"
+                and r["preflight_job_count"] == 0
+                and r["execution"]["state"] == "complete"
+                and r["execution"]["exit_code"] == 0
+                and not r["jobs"]
+                and not r["required_commodities"]
+                for r in session["price_runs"]
+            ),
+            "Missing structured prices stage zero-job outcome",
+        )
+    memory_checks(root, session, documents, approved=phase == "approve")
     response = inside(evidence, "last-response.txt").read_text().strip()
     label = "Ready For Review" if phase == "review" else "Complete"
     require(
@@ -404,31 +785,187 @@ def import_checks(
             all(Path(raw).stem in response.lower() for raw in SOURCES),
             "Review omits one statement",
         )
+    runtime_check(evidence)
+
+
+def correction_checks(root: Path) -> None:
+    """The corrected inline fields are durable; a separate approval is still required."""
+    status = load_state(inside(root, "statements/import-status.yml"))
+    for raw, subject, value in (
+        (SOURCES[0], "C-001", "Expenses:Food"),
+        (SOURCES[1], "savings", "Assets:Savings"),
+    ):
+        doc = load_state(inside(root, status["statements"][raw]["parsed_statement"]))
+        decisions = (
+            transaction_decisions(doc) if raw == SOURCES[0] else account_decisions(doc)
+        )
+        decision = decisions.get(subject, {})
+        require(
+            decision.get("state") == "confirmed", "Missing resolved inline correction"
+        )
+        require("approval" not in doc["review"], "Correction was treated as approval")
+        require(decision.get("answer") == value, "Missing inline human answer")
+        if raw == SOURCES[0]:
+            require(
+                any(p["account"] == value for p in decision["postings"]),
+                "Wrong corrected transaction category",
+            )
+        else:
+            require(decision.get("ledger_account") == value, "Wrong corrected mapping")
+
+
+def scenario_checks(
+    root: Path, evidence: Path, expected: dict[str, Any], phase: str
+) -> None:
+    status = source_checks(root, expected)
+    sessions = list((root / ".auto-bean/import-sessions").glob("*.json"))
+    require(len(sessions) == 1, "Exactly one import session is required")
+    session = load_state(sessions[0])
+    validate_state("session", root, session)
+    require(
+        {s["source_file"] for s in session["statements"]} == set(SOURCES),
+        "Session mixing",
+    )
+    documents = {
+        raw: load_state(inside(root, item["parsed_statement"]))
+        for raw, item in status["statements"].items()
+    }
+    for raw, doc in documents.items():
+        validate_state("parsed", root, doc)
+        require(
+            doc["source_file"] == raw
+            and doc["source_fingerprint"] == "sha256:" + expected["sources"][raw]
+            and doc["extraction_state"] == "complete",
+            "Scenario source identity mismatch",
+        )
+        expected_rows = (
+            [
+                ("2026-01-05", Decimal(-25)),
+                ("2026-01-10", Decimal(-100)),
+                ("2026-01-15", Decimal(-5)),
+            ]
+            if raw == SOURCES[0]
+            else [("2026-01-10", Decimal(100)), ("2026-01-31", Decimal(2))]
+        )
+        require(
+            Counter(
+                (r["transaction_date"], Decimal(r["amount"]))
+                for r in doc["extracted_records"]
+            )
+            == Counter(expected_rows)
+            and all(r["currency"] == "EUR" for r in doc["extracted_records"]),
+            "Scenario source rows changed",
+        )
+        require("approval" not in doc["review"], "Fabricated or stale approval")
+        require("validation" not in doc["review"], "Fabricated write validation")
+    memory_checks(root, session, documents, approved=False)
+    require(
+        financial_hashes(root) == expected["financial_hashes"],
+        "Premature ledger writes",
+    )
+    if phase == "needs-input":
+        mapping = account_decisions(documents[SOURCES[1]]).get("savings", {})
+        category = transaction_decisions(documents[SOURCES[0]]).get("C-001", {})
+        require(
+            mapping.get("state") == "needs_input" and mapping.get("suggestions"),
+            "Missing unresolved account suggestions",
+        )
+        require(
+            category.get("state") == "needs_input"
+            and category.get("disposition") == "hold"
+            and category.get("suggestions"),
+            "Missing unresolved category suggestions",
+        )
+        label = "Needs Your Input"
     else:
-        checkpoint = json.loads(inside(evidence, "review.json").read_text())
-        previous = __import__("yaml").safe_load(checkpoint["status"])
+        checkpoint = load_state(inside(evidence, "review.json"))
+        require(
+            checkpoint["financial_hashes"] == expected["financial_hashes"],
+            "Missing original review baseline",
+        )
+        expected_doc = copy.deepcopy(checkpoint["documents"][SOURCES[0]])
+        transaction_decisions(expected_doc)["C-001"]["rationale"] = STALE_RATIONALE
+        require(
+            material_hash(documents[SOURCES[0]]) == material_hash(expected_doc)
+            and material_hash(documents[SOURCES[0]])
+            != checkpoint["review_digests"][SOURCES[0]],
+            "Changed reviewed decision was lost or altered",
+        )
+        require(
+            material_hash(documents[SOURCES[1]])
+            == checkpoint["review_digests"][SOURCES[1]],
+            "Unrelated reviewed statement changed",
+        )
         require(
             all(
                 item["current_status"] == "final_review"
-                for item in previous["statements"].values()
+                for item in status["statements"].values()
             ),
-            "Approval lacks a preceding review checkpoint",
+            "Stale review needs renewed approval",
         )
-        current_hashes = {
-            path.relative_to(root).as_posix(): sha256(path)
-            for path in root.rglob("*.beancount")
-            if ".auto-bean" not in path.relative_to(root).parts
-        }
-        require(
-            current_hashes == checkpoint["financial_hashes"],
-            "Approval changed the reviewed financial candidate",
-        )
+        label = "Ready For Review"
+    response = inside(evidence, "last-response.txt").read_text()
+    require(
+        f"## Import Status: {label}" in response and "**Next Step:**" in response,
+        "Missing conversational scenario status",
+    )
     runtime_check(evidence)
+
+
+STALE_RATIONALE = "Updated merchant interpretation requires renewed review."
+
+
+def render_reviewed_transactions(documents: dict[str, Any]) -> str:
+    """Trusted fixture renderer, independent of agent and product write code."""
+    blocks = []
+    for raw, doc in sorted(documents.items()):
+        for row in doc["extracted_records"]:
+            decision = row["review"]
+            if (
+                decision["disposition"] == "paired_transfer"
+                and decision["posting_owner"] != raw
+            ):
+                continue
+            require(
+                decision["disposition"] in {"post", "paired_transfer"},
+                "Unwritable reviewed row",
+            )
+            metadata = {
+                "source": raw,
+                "source_fingerprint": doc["source_fingerprint"],
+                "account_id": row["account_id"],
+                "record_id": row["record_id"],
+            }
+            for link in decision.get("linked_records", []):
+                peer = documents[link["source_file"]]
+                metadata.update(
+                    peer_source=link["source_file"],
+                    peer_source_fingerprint=peer["source_fingerprint"],
+                    peer_account_id=link["account_id"],
+                    peer_record_id=link["record_id"],
+                )
+            lines = [f"{row['transaction_date']} * {json.dumps(row['description'])}"]
+            lines.extend(
+                f"  {key}: {json.dumps(value)}" for key, value in metadata.items()
+            )
+            for posting in decision["postings"]:
+                require(
+                    not posting.get("cost") and not posting.get("price"),
+                    "Fixture has no cost or price annotations",
+                )
+                lines.append(
+                    f"  {posting['account']} {posting['amount']} {posting['currency']}"
+                )
+            blocks.append("\n".join(lines))
+    return "\n\n".join(blocks) + "\n"
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("phase", choices=("init", "review", "approve"))
+    parser.add_argument(
+        "phase",
+        choices=("init", "review", "correct", "approve", "needs-input", "stale"),
+    )
     parser.add_argument("--ledger", type=Path, required=True)
     parser.add_argument("--plugin", type=Path, required=True)
     parser.add_argument("--expected", type=Path)
@@ -436,18 +973,30 @@ def main() -> int:
     parser.add_argument("--logs", type=Path, default=Path("/logs/verifier"))
     args = parser.parse_args()
     report: dict[str, Any] = {"phase": args.phase, "passed": False}
+    if args.phase != "init":
+        write_review_html(args.ledger, args.logs / "review.html")
     try:
         if args.phase == "init":
             init_checks(args.ledger, args.plugin, args.evidence)
         else:
             require(args.expected is not None, "Expected baseline is required")
-            import_checks(
-                args.ledger,
-                args.plugin,
-                args.evidence,
-                json.loads(args.expected.read_text()),
-                args.phase,
-            )
+            if args.phase in {"needs-input", "stale"}:
+                scenario_checks(
+                    args.ledger,
+                    args.evidence,
+                    json.loads(args.expected.read_text()),
+                    args.phase,
+                )
+            else:
+                import_checks(
+                    args.ledger,
+                    args.plugin,
+                    args.evidence,
+                    json.loads(args.expected.read_text()),
+                    "review" if args.phase == "correct" else args.phase,
+                )
+                if args.phase == "correct":
+                    correction_checks(args.ledger)
         report["passed"] = True
     except Exception as exc:
         report["failure"] = str(exc)

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import argparse
 import json
 import re
 from datetime import datetime
@@ -12,24 +11,7 @@ from typing import Any, NoReturn
 import yaml
 from jsonschema import Draft202012Validator, FormatChecker
 
-from auto_bean.common import PLUGIN, WorkflowError, checked_path, workspace
-
-TRANSITIONS: dict[str, set[str]] = {
-    "raw_ready": {"process_blocked", "process_review", "account_review"},
-    "process_blocked": {"raw_ready", "process_review", "account_review"},
-    "process_review": {"process_blocked", "account_review"},
-    "account_review": {"account_blocked", "balance_review"},
-    "account_blocked": {"balance_review"},
-    "balance_review": {"balance_blocked", "categorize_ready"},
-    "balance_blocked": {"categorize_ready"},
-    "categorize_ready": {"categorize_blocked", "categorize_review"},
-    "categorize_blocked": {"categorize_review"},
-    "categorize_review": {"categorize_blocked", "write_ready"},
-    "write_ready": {"write_blocked", "final_review"},
-    "write_blocked": {"final_review", "categorize_blocked"},
-    "final_review": {"done", "write_blocked", "categorize_blocked"},
-    "done": set(),
-}
+from auto_bean.common import PLUGIN, WorkflowError, checked_path
 
 
 def invalid(message: str) -> NoReturn:
@@ -119,7 +101,8 @@ def unique_ids(records: list[dict[str, Any]], field: str) -> None:
 
 def validate_parsed(root: Path, data: dict[str, Any]) -> None:
     bounded_path(root, data["source_file"], "statements/raw")
-    bounded_path(root, data["process_artifact"], ".auto-bean/artifacts/process")
+    if data.get("schema_version", 1) == 1:
+        bounded_path(root, data["process_artifact"], ".auto-bean/artifacts/process")
     metadata = data["statement_metadata"]
     accounts = metadata["accounts"]
     records = data["extracted_records"]
@@ -131,6 +114,99 @@ def validate_parsed(root: Path, data: dict[str, Any]) -> None:
     period = metadata.get("statement_period")
     if period and period["start_date"] > period["end_date"]:
         invalid("Statement period ends before it starts.")
+    if data.get("schema_version") == 2:
+        validate_review(root, data, ids, {r["record_id"] for r in records})
+
+
+def validate_review(
+    root: Path, data: dict[str, Any], accounts: set[str], records: set[str]
+) -> None:
+    from auto_bean.review import account_decisions, transaction_decisions
+
+    review = data["review"]
+    for block in [
+        review["processing"],
+        *account_decisions(data).values(),
+        *transaction_decisions(data).values(),
+    ]:
+        if "answer" in block and not block["answer"].strip():
+            invalid("Answers require nonempty text.")
+    for decision in transaction_decisions(data).values():
+        if decision["disposition"] == "existing_duplicate":
+            reference = decision.get("existing_transaction")
+            if reference is None:
+                invalid(
+                    "Existing duplicates require a canonical transaction reference."
+                )
+            path = checked_path(root, reference["path"])
+            if reference["path"] != "ledger.beancount" and (
+                not path.is_relative_to(root / "beancount")
+                or path.suffix != ".beancount"
+            ):
+                invalid(
+                    "Existing transaction references must use canonical ledger paths."
+                )
+        if decision["disposition"] == "paired_transfer" and (
+            not decision.get("posting_owner") or not decision.get("linked_records")
+        ):
+            invalid("Paired transfer requires links and a single posting owner.")
+        for link in decision.get("linked_records", []):
+            bounded_path(root, link["source_file"], "statements/raw")
+            if link["source_file"] == data["source_file"] and not any(
+                row["account_id"] == link["account_id"]
+                and row["record_id"] == link["record_id"]
+                for row in data["extracted_records"]
+            ):
+                invalid("Linked record does not exist.")
+
+
+def validate_session(root: Path, data: dict[str, Any]) -> None:
+    unique_ids(data["statements"], "source_file")
+    unique_ids(data["statements"], "parsed_statement")
+    unique_ids(data["price_runs"], "run_id")
+    for statement in data["statements"]:
+        bounded_path(root, statement["source_file"], "statements/raw")
+        bounded_path(root, statement["parsed_statement"], "statements/parsed")
+    for run in data["price_runs"]:
+        if run["state"] in {"complete", "no_op", "failed", "partial"} and run[
+            "execution"
+        ]["state"] not in {"complete", "timed_out"}:
+            invalid("A terminal price outcome cannot refer to a running execution.")
+        if (
+            run["state"] in {"complete", "no_op", "failed", "partial"}
+            and run["preflight"] == "passed"
+            and run["preflight_job_count"] != len(run["jobs"])
+        ):
+            invalid(
+                "Terminal price outcomes must account for every preflight job, including unaccounted jobs."
+            )
+        if any(
+            job["outcome"] in {"emitted", "redundant"} and not job.get("quote_date")
+            for job in run["jobs"]
+        ):
+            invalid("Emitted or redundant price jobs require the actual quote date.")
+        if run["state"] == "no_op" and (run["jobs"] or run["required_commodities"]):
+            invalid("Zero-job price result has required work.")
+        if run["state"] in {"complete", "no_op"} and (
+            run["execution"]["state"] != "complete"
+            or run["execution"]["exit_code"] != 0
+            or run["preflight"] != "passed"
+            or run["preflight_job_count"] != len(run["jobs"])
+        ):
+            invalid(
+                "Price completion lacks a successful terminal run or reconciled job count."
+            )
+        if run["state"] == "complete" and any(
+            j["outcome"] in {"failed", "unaccounted"} for j in run["jobs"]
+        ):
+            invalid("Price completion has unresolved jobs.")
+        if run["state"] == "complete" and (
+            run["preflight"] != "passed"
+            or set(run["required_commodities"]) - set(run["coverage"])
+            or set(run["required_commodities"])
+            - {job["commodity"] for job in run["jobs"]}
+        ):
+            invalid("Price completion lacks preflight or required commodity coverage.")
 
 
 def validate_status(root: Path, data: dict[str, Any]) -> None:
@@ -182,93 +258,21 @@ def validate_memory(root: Path, data: dict[str, Any]) -> None:
         invalid("Memory record type disagrees with its containing file.")
 
 
-def validate_transitions(
-    previous: dict[str, Any],
-    current: dict[str, Any],
-    *,
-    approved: set[str] | None = None,
-    rework: set[str] | None = None,
-) -> None:
-    approved, rework = approved or set(), rework or set()
-    before = previous["statements"]
-    after = current["statements"]
-    if before.keys() - after.keys():
-        invalid("Status update removed existing statement entries.")
-    for raw, entry in after.items():
-        new = entry["current_status"]
-        if raw not in before:
-            if new != "raw_ready":
-                invalid("New statements must start at raw_ready.")
-            continue
-        old = before[raw]["current_status"]
-        changed_source = (
-            entry["source_fingerprint"] != before[raw]["source_fingerprint"]
-        )
-        if raw in rework and new == "raw_ready":
-            continue
-        if changed_source:
-            if old == "done" or new != "raw_ready":
-                invalid(
-                    "Changed sources must restart; completed sources need explicit rework."
-                )
-            continue
-        if old == "done" and entry != before[raw]:
-            invalid(
-                "Completed statement state requires explicit rework before changes."
-            )
-        if new == "raw_ready" and old != "raw_ready":
-            invalid("Restarting extraction requires explicit rework.")
-        if new != old and new not in TRANSITIONS[old]:
-            invalid(f"Illegal status transition: {old} -> {new}.")
-        if new == "done" and old != "done" and raw not in approved:
-            invalid("Final review requires explicit approval before done.")
-        if new == "done" and (
-            entry.get("user_input_required") or entry.get("manual_resolution_required")
-        ):
-            invalid("Unresolved input or manual repair prevents completion.")
-        if entry.get("process_attempts", 0) < before[raw].get("process_attempts", 0):
-            invalid(
-                "Retry count decreased without a changed source or explicit rework."
-            )
-
-
 def validate_state(kind: str, root: Path, data: dict[str, Any]) -> None:
-    schema = json.loads((PLUGIN / f"references/schemas/{kind}.schema.json").read_text())
+    schema_kind = (
+        "parsed-v2" if kind == "parsed" and data.get("schema_version") == 2 else kind
+    )
+    schema = json.loads(
+        (PLUGIN / f"references/schemas/{schema_kind}.schema.json").read_text()
+    )
     validator = Draft202012Validator(schema, format_checker=FORMATS)
     error = next(validator.iter_errors(data), None)
     if error is not None:
         location = ".".join(str(part) for part in error.absolute_path) or "root"
         invalid(f"Schema violation at {location} ({error.validator}).")
-    {"parsed": validate_parsed, "status": validate_status, "memory": validate_memory}[
-        kind
-    ](root, data)
-
-
-def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("kind", choices=("parsed", "status", "memory"))
-    parser.add_argument("path")
-    parser.add_argument("--previous")
-    parser.add_argument("--approved", action="append", default=[])
-    parser.add_argument("--rework", action="append", default=[])
-    args = parser.parse_args()
-    try:
-        root = workspace(Path.cwd())
-        path = checked_path(root, args.path)
-        data = load_state(path)
-        validate_state(args.kind, root, data)
-        if args.previous:
-            if args.kind != "status":
-                invalid("Previous snapshots are supported only for status updates.")
-            previous = load_state(checked_path(root, args.previous))
-            validate_state("status", root, previous)
-            validate_transitions(
-                previous, data, approved=set(args.approved), rework=set(args.rework)
-            )
-        elif args.approved or args.rework:
-            invalid("Approval/rework checks require a previous status snapshot.")
-    except (WorkflowError, OSError) as error:
-        print(json.dumps({"status": "failed", "message": str(error)}))
-        return 1
-    print(json.dumps({"status": "ok", "kind": args.kind, "path": args.path}))
-    return 0
+    {
+        "parsed": validate_parsed,
+        "status": validate_status,
+        "memory": validate_memory,
+        "session": validate_session,
+    }[kind](root, data)

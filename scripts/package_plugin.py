@@ -7,6 +7,7 @@ import json
 import re
 import tomllib
 import zipfile
+from hashlib import sha256
 from pathlib import Path
 
 import yaml
@@ -60,6 +61,40 @@ def validate_plugin(plugin: Path = PLUGIN) -> str:
     )
     if package["version"] != version:
         raise ValueError("Runtime lockfile version is stale")
+    mcp = json.loads((plugin / "mcp.json").read_text())
+    service = mcp["mcpServers"]["import-review"]
+    if service.get("type") != "stdio" or service.get("args") != [
+        "${PLUGIN_ROOT}/runtime/launch.sh",
+        "serve",
+    ]:
+        raise ValueError("Review service must use the bundled stdio launcher")
+    build = json.loads((plugin / "ui/build.json").read_text())
+    if (
+        sha256((plugin / "ui/bundle.html").read_bytes()).hexdigest()
+        != build["bundle_sha256"]
+    ):
+        raise ValueError("Review UI bundle does not match its build evidence")
+    source = ROOT / "frontend/import-review"
+    if plugin.resolve() == PLUGIN.resolve():
+        expected_inputs = {
+            "package.json",
+            "package-lock.json",
+            "tsconfig.json",
+            "build.mjs",
+            *(
+                path.relative_to(source).as_posix()
+                for path in (source / "src").rglob("*")
+                if path.is_file()
+            ),
+        }
+        if set(build["inputs"]) != expected_inputs:
+            raise ValueError("Review UI source inventory changed; rebuild the frontend")
+        for relative, expected in build["inputs"].items():
+            path = source / relative
+            if not path.is_file() or sha256(path.read_bytes()).hexdigest() != expected:
+                raise ValueError(
+                    f"Review UI bundle is stale: {relative}; rebuild the frontend"
+                )
     onboarding = manifest["extensions"]["com.openai"]["onboardingSkill"]
     if not (plugin / onboarding).is_file():
         raise ValueError("Onboarding skill is missing")

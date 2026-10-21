@@ -1,14 +1,14 @@
 # Auto Bean Memory
 
-This file is always-loaded durable context for the user workspace. Read it when a new Codex session starts and include it in the context given to every auto-bean sub-agent.
+Durable context for this ledger workspace. Auto Bean skills explicitly read this file when relevant; automatic host loading is not assumed.
 
-Keep this file concise and reviewable. Store only reusable, non-secret context that should guide future work across workflows.
+The main conversation thread maintains these sections. Workers return an exact section/bullet patch with evidence instead of editing this file. Replace a relevant placeholder or matching bullet, preserve unrelated context, and follow the auto-bean-memory skill for corrections or forgetting.
+
+Keep reusable profile facts, preferences and cross-workflow corrections here. Account/category/source matching rules belong in the corresponding governed JSON memory, without a duplicate rule here. Do not store transactions, balances, import progress, temporary blockers, secrets or full account identifiers.
 
 ## User Profile
 
-- Main accounts: not yet recorded.
-- Important account relationships: not yet recorded.
-- Regular institutions or statement sources: not yet recorded.
+- No durable profile context recorded yet.
 
 ## User Preferences
 

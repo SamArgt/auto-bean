@@ -121,6 +121,10 @@ def import_ledger(root: Path, plugin: Path, raw: Path) -> dict[str, object]:
         git(root, *args)
     return {
         "head": git(root, "rev-parse", "HEAD"),
+        "financial_hashes": {
+            path.relative_to(root).as_posix(): sha256(path)
+            for path in root.rglob("*.beancount")
+        },
         "sources": {path: sha256(root / path) for path in SOURCES},
         "preserved": {
             path: sha256(root / path)
@@ -129,6 +133,7 @@ def import_ledger(root: Path, plugin: Path, raw: Path) -> dict[str, object]:
                 "beancount/opening-balances.beancount",
                 "beancount/accounts.beancount",
                 "beancount/prices.beancount",
+                ".auto-bean/memory/MEMORY.md",
             )
         },
     }

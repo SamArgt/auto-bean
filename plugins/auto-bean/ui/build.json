@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "inputs": {
+    "package.json": "370e0ec8dee2f82123415a0acb3361b598233a8972feac7e650c6ace26661d6a",
+    "package-lock.json": "f69d594df6f74e8a2c3febfc88bd42a86a5afe122b4844bc9099bfb5b10b32a9",
+    "tsconfig.json": "6f5cb188b6d2beec794f97b645c8f0daa7c0584b744aaf5a0c397318ee4162e1",
+    "build.mjs": "d10c115daf0452651e1d746f24f89c5c6ec856240c89013163033a5bf176c3e1",
+    "src/Review.tsx": "e0e41187ceb8408e5efb97ba7031898c140482c2293707ff980a718fff93d1d9",
+    "src/ReviewExport.tsx": "ecf2cc360c8c4095e2e6816edd0b9873ef7c628e279a385d3a426087a610e358",
+    "src/ReviewForms.tsx": "d6b538507c56d92eb34fa867a58b5cc44b002f6b6f917c5b26b19a689f225d55",
+    "src/ReviewPanels.tsx": "2d36b23ebfcd8a777435a8800a1ee1eb0cbab9d9c508d16f0fcb2ca138b80676",
+    "src/assets.d.ts": "35d26ea66c86da9701e4f4b467913481ffeae910761cea34c775c5dacb7f8eaa",
+    "src/bridge.ts": "e2b6c3d8226a63def8f00ad827c5e699b0aee8fd7f8605c8562d6034f8e306c0",
+    "src/main.tsx": "bc0c9da447bbe742b313ca20c9c3096054dee630ea2a12bc7f1408f667e06583",
+    "src/style.css": "ac1a03970a674787cf62c1ab206acfd9c66d0be5fbff5b113f972988f60e3e51",
+    "src/types.ts": "92657123baa01c09e3df206692e3697c8dfea4b455b29790ae4e46dfecbcaf43"
+  },
+  "bundle_sha256": "0fd35ac0dcd0e25eb6f105a6867bf0e976caf6a63b2045f2097786b6ca1ad081"
+}

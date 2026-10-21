@@ -1,3 +1,12 @@
+FROM node:22-bookworm-slim@sha256:3ed98443660ff48413b5af19ecefce3b9d50845a901a43420d47cc63a9fddbe9 AS frontend
+WORKDIR /build/frontend/import-review
+COPY frontend/import-review/package.json frontend/import-review/package-lock.json ./
+RUN npm ci --ignore-scripts
+COPY frontend/import-review/ ./
+COPY plugins/auto-bean/ui/ /build/plugins/auto-bean/ui/
+# Rebuild the current checkout, and reject a missing or stale distributed bundle.
+RUN cp /build/plugins/auto-bean/ui/bundle.html /tmp/expected-bundle.html && cp /build/plugins/auto-bean/ui/build.json /tmp/expected-build.json && npm run build && cmp /tmp/expected-bundle.html /build/plugins/auto-bean/ui/bundle.html && cmp /tmp/expected-build.json /build/plugins/auto-bean/ui/build.json
+
 FROM node:22-bookworm-slim@sha256:3ed98443660ff48413b5af19ecefce3b9d50845a901a43420d47cc63a9fddbe9 AS base
 COPY --from=ghcr.io/astral-sh/uv:0.11.3@sha256:90bbb3c16635e9627f49eec6539f956d70746c409209041800a0280b93152823 /uv /uvx /usr/local/bin/
 RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates curl ripgrep libglib2.0-0 libgl1 libgomp1 poppler-utils && rm -rf /var/lib/apt/lists/*
@@ -12,8 +21,9 @@ COPY evals/harbor/environment/prefetch.py /tmp/prefetch.py
 RUN uv python install 3.13.12
 RUN uv run --no-project --python 3.13 --with reportlab==5.0.1 python -c "from pathlib import Path; from evals.harbor.fixtures import raw_inputs; raw_inputs(Path('/opt/raw-fixtures'))"
 # Warm dependency downloads without preinitializing the init task's destination.
-RUN sh /opt/auto-bean-marketplace/plugins/auto-bean/runtime/launch.sh init --workspace /opt/warm-ledger && sh /opt/auto-bean-marketplace/plugins/auto-bean/runtime/launch.sh ensure-runtime --workspace /opt/warm-ledger --extraction && uv run --no-project --python 3.13 /tmp/prefetch.py
+RUN --mount=type=cache,target=/opt/uv-cache sh /opt/auto-bean-marketplace/plugins/auto-bean/runtime/launch.sh init --workspace /opt/warm-ledger && sh /opt/auto-bean-marketplace/plugins/auto-bean/runtime/launch.sh ensure-runtime --workspace /opt/warm-ledger --extraction && uv run --no-project --python 3.13 /tmp/prefetch.py
 COPY plugins/auto-bean /opt/auto-bean-marketplace/plugins/auto-bean
+COPY --from=frontend /build/plugins/auto-bean/ui/ /opt/auto-bean-marketplace/plugins/auto-bean/ui/
 COPY .agents/plugins/marketplace.json /opt/auto-bean-marketplace/.agents/plugins/marketplace.json
 COPY evals/harbor/probe_plugin.py evals/harbor/capture.py /opt/evals/harbor/
 COPY evals/harbor/environment/setup_import.py /opt/evals/harbor/setup_import.py
