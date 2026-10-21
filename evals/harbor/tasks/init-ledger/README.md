@@ -62,3 +62,20 @@ the init grader checks workspace and runtime evidence.
 - [Agent environment](environment/docker-compose.yaml)
 - [Verifier environment](tests/docker-compose.yaml)
 - [Oracle solution](solution/solve.sh) — used only for explicit control runs
+
+## Agent trace checks
+
+The full reward also requires the [trace grader](../../trace.py) to pass.
+
+- Read the installed `auto-bean-init/SKILL.md` and `references/common.md`.
+- Read the resulting `ledger.beancount` and `.auto-bean/workspace.json`.
+- Run the plugin launcher `init --workspace /app/ledger` successfully.
+- Run `git status` in the ledger workspace.
+
+The launcher performs validation and the initial commit. No separate `git commit`
+command is required. Skill mentions in the final answer do not count as use.
+
+The verifier writes `trace-report.json` with matching event locations and missing
+requirements. See [trace rules and supported command forms](../../README.md#agent-trace-checks).
+Full reward requires both state and trace checks. Explicit oracle controls use
+the separate state-only policy.

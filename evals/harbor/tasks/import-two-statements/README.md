@@ -110,3 +110,29 @@ an agent-authored panel approval field is rejected.
 - See [shared result paths and limits](../../README.md#inspect-results).
 - [Task configuration](task.toml) defines step order, reward gates, and artifacts.
 - [Oracle solution](solution/solve.sh) provides the explicit control-run reference.
+
+## Agent trace checks
+
+The full reward also requires the [trace grader](../../trace.py) to pass in each step.
+
+| Step | Skills that must have been read | Commands required in this turn |
+| --- | --- | --- |
+| Review | Import, Process, Query, Categorize | `ensure-runtime --extraction`; Docling for both raw files; `bean-query`; `validate --session <id> --stage review`; `git status` |
+| Approve | Import, Write, Query, Prices, Memory | `validate --session <id> --stage written`; `git status` |
+
+- Read common guidance, the import contract, and parsed, session, and status schemas.
+- Approval also requires the memory schema.
+- Each turn must read the root ledger and import status. Read the workspace
+  marker, workspace `MEMORY.md`, and account directives once in the session.
+- Approval must reread `checking.json` and `savings.json` in `statements/parsed/`.
+- Approval must read account and category memory before learning.
+- Use the plugin launcher or documented `auto_bean` helper for runtime commands.
+- No price-fetch command is required for the EUR-only fixture.
+
+Skill and reference reads can carry over from review. File reads and commands
+required in the approval turn cannot be replaced by earlier trace events.
+The saved state still has to pass every financial and approval check.
+
+See [trace rules and supported command forms](../../README.md#agent-trace-checks).
+Each step writes `trace-report.json` with evidence locations and missing checks.
+Explicit oracle controls test state only; they do not establish plugin use.

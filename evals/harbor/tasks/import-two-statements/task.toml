@@ -8,7 +8,7 @@ artifacts = [
 
 [task]
 name = "auto-bean/import-two-statements"
-version = "1.0.0"
+version = "2.0.0"
 
 [metadata]
 category = "financial-workflow"

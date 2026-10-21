@@ -102,3 +102,30 @@ No phase may commit or push.
 - See [shared result paths and limits](../../README.md#inspect-results).
 - [Oracle solution](solution/solve.sh) and [reference helper](solution/correction_reference.py)
   cover the same three phases for explicit control runs.
+
+## Agent trace checks
+
+The full reward also requires the [trace grader](../../trace.py) to pass in each step.
+
+| Step | Skills that must have been read | Commands required in this turn |
+| --- | --- | --- |
+| Needs input | Import, Process, Query, Categorize | Extraction preparation; Docling for both sources; `bean-query`; `git status` |
+| Correct | Import, Query, Categorize | `bean-query`; `validate --session <id> --stage review`; `git status` |
+| Approve | Import, Write, Query, Prices, Memory | `validate --session <id> --stage written`; `git status` |
+
+- Read common guidance, the import contract, and parsed, session, and status schemas.
+- Approval also requires the memory schema.
+- Each turn must read the root ledger and import status. Read the workspace
+  marker, workspace `MEMORY.md`, and account directives once in the session.
+- Correct and approve must reread both parsed statement files.
+- Approve must read account and category memory before learning.
+- Unresolved input does not require successful review validation.
+- Correct does not require re-extraction. Approval does not require a price fetch.
+
+Skill and reference reads can carry over within the same session. Required
+current-turn reads and commands cannot. Use the plugin launcher or documented
+`auto_bean` helper for runtime commands.
+
+See [trace rules and supported command forms](../../README.md#agent-trace-checks).
+Each step writes `trace-report.json` with evidence locations and missing checks.
+Full reward requires both state and trace checks. Oracle controls test state only.

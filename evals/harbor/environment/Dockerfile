@@ -44,5 +44,6 @@ RUN sh /opt/auto-bean-marketplace/plugins/auto-bean/runtime/launch.sh init --wor
 ARG HARBOR_TEST_SCRIPT
 COPY ${HARBOR_TEST_SCRIPT} /tests/test.sh
 COPY evals/harbor/verify.py /opt/evals/harbor/verify.py
+COPY evals/harbor/trace.py /opt/evals/harbor/trace.py
 RUN uv run --no-project --python 3.13 --with reportlab==5.0.1 /opt/evals/harbor/setup_import.py --workspace /opt/expected-ledger --expected /opt/expected.json && rm -rf /opt/expected-ledger
 ENV PYTHONPATH=/opt/auto-bean-marketplace/plugins/auto-bean/runtime:/opt

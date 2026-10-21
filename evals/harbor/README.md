@@ -77,14 +77,19 @@ Use `--model gpt-6-astra` if needed. There is no automatic fallback model.
 These commands test the harness without model calls. They still build and run Docker images.
 
 ```sh
-uv run --group eval harbor run -p evals/harbor/tasks -a oracle -n 1 --jobs-dir "$PWD/.cache/harbor/jobs"
-uv run --group eval harbor run -p evals/harbor/tasks -a nop -n 1 --jobs-dir "$PWD/.cache/harbor/jobs"
+uv run --group eval harbor run -p evals/harbor/tasks -a oracle -n 1 --verifier-env AUTO_BEAN_TRACE_POLICY=state-only --jobs-dir "$PWD/.cache/harbor/jobs"
+uv run --group eval harbor run -p evals/harbor/tasks -a nop -n 1 --verifier-env AUTO_BEAN_TRACE_POLICY=state-only --jobs-dir "$PWD/.cache/harbor/jobs"
 ```
 
 - Every oracle task should earn `1`.
 - Every no-op task should earn `0`.
 - A failed intermediate step blocks later steps through its reward gate.
 - Check rewards and nested step errors. A zero command exit alone does not prove a pass.
+
+These are **state-only controls**. The scripted oracle has no Codex trace.
+The explicit verifier environment setting keeps its state checks runnable.
+It does not award a plugin-use pass. Normal runs require both state and trace
+checks. Missing traces fail normal runs; there is no automatic oracle exemption.
 
 ## Shared setup
 
@@ -177,16 +182,87 @@ passes only when the changed decision is preserved and financial writes are bloc
 
 ## Inspect results
 
+### Agent trace checks
+
+Every phase also runs [trace.py](trace.py). Full reward requires both the
+existing state checks and these trace checks to pass.
+This changes the scoring contract. Init and import are now task version `2.0.0`;
+correction and stale review are `3.0.0`. Earlier rewards do not establish a pass
+under these versions.
+
+```mermaid
+flowchart LR
+    A[Native Codex session logs] --> B[Completed command events]
+    B --> C[Skill and reference reads]
+    B --> D[Current-turn reads and commands]
+    C --> E[Trace result]
+    D --> E
+    E --> F{Trace and state pass?}
+    F -->|Yes| G[Reward 1]
+    F -->|No| H[Reward 0]
+```
+
+| Phase | Required skill reads | Required workflow commands in this turn |
+| --- | --- | --- |
+| Init | Init | Plugin launcher `init`; `git status` |
+| Review | Import, Process, Query, Categorize | Extraction preparation; Docling on each source; ledger query; review validation; `git status` |
+| Needs input | Import, Process, Query, Categorize | Extraction preparation; Docling on each source; ledger query; `git status` |
+| Correct | Import, Query, Categorize | Ledger query; review validation; `git status` |
+| Approve | Import, Write, Query, Prices, Memory | Written validation with a session; `git status` |
+| Stale | Import | `git status`; current review file reads |
+
+- A skill counts when a successful content-read command opens its installed
+  `SKILL.md`. A skill name in a prompt or final answer does not count.
+- Common guidance must be read. Import phases also require the import contract
+  and parsed, session, and status schemas. Approval adds the memory schema.
+- Skill and reference reads can come from earlier turns in the same session.
+  Linked descendant workers can supply evidence. Unrelated sessions cannot.
+- Each turn must read `ledger.beancount`. Import turns must also read status YAML.
+- Read the workspace marker and, for imports, workspace `MEMORY.md` and account
+  directives. These context reads can carry over within the session.
+- Correct, approve, and stale turns must reread both parsed statement files.
+- Approval must read account and category memory before learning.
+- Workflow commands must occur after the latest native `task_started` boundary.
+  Previous review commands cannot satisfy approval checks.
+- Runtime operations must use the plugin launcher or the documented `auto_bean`
+  helper. Extraction must target each original source. Validation must name the
+  workspace, session, and required stage.
+- The EUR-only price stage needs no fetch command. State checks validate its
+  zero-job result and the saved memory. Stale approval needs no write command.
+
+The reader uses native `CommandExecution` completion events from the pinned
+Codex CLI. It accepts only terminal exit code `0`. Native completion events also
+cover commands that finish after polling. Tool-return text, narration, comments,
+file listings, and command text inside a here-document do not count.
+
+Use visible content reads such as `cat`, `sed`, or `jq` and direct launcher
+commands for auditable evidence. The reader supports literal paths, brace and
+file globs, documented launcher variables, and simple `&&` chains. Only the
+final command list in a semicolon sequence or multiline shell call is credited;
+later success can hide earlier failures. Pipelines, conditional shell blocks,
+and Python or JavaScript program bodies are not interpreted. A required action
+hidden in unsupported code is reported as missing, even if the final ledger is valid.
+
+These checks show observed tool use. They do not prove that the model understood
+a skill or provide a tamper-proof system-call audit. Session files are transferred
+agent artifacts. Independent state checks remain mandatory.
+
 Each verifier writes:
 
 | Artifact | Purpose |
 | --- | --- |
 | `reward.txt` | Binary result: `1` for pass, `0` for fail |
 | `report.json` | Phase, pass state, and the first reported failure |
+| `trace-report.json` | Each trace requirement, pass state, and matching session file, line, and event ID |
 | `review.html` | Read-only import review; unavailable report for invalid or no-op states |
 
 Harbor saves trajectories, timing, token usage, configuration, rewards, and
 transferred ledger artifacts under `.cache/harbor/jobs/<job>/`.
+
+`report.json` separates `state_passed`, `trace_passed`, and `trace_policy`.
+Only the explicit verifier-side `state-only` control policy can score state
+without trace evidence. It still records trace failures. Never compare that
+control reward with a full plugin evaluation score.
 
 - Check nested step errors in `result.json` before interpreting a missing reward.
 - Use final Codex session counters. Counters accumulate across resumed steps;
@@ -254,6 +330,7 @@ run separately; do not start one automatically.
 | [probe_plugin.py](probe_plugin.py) | Check plugin discovery and MCP integration |
 | [capture.py](capture.py) | Capture runtime, build, review, and response evidence |
 | [verify.py](verify.py) | Grade task phases independently |
+| [trace.py](trace.py) | Check native command traces against each phase's plugin-use requirements |
 | [tests/test_harbor.py](tests/test_harbor.py) | Test harness and grader behavior locally |
 
 Harbor references: [task format](https://docs.harborframework.com/tasks/overview),

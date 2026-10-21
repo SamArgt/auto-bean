@@ -8,6 +8,7 @@ from collections import Counter, defaultdict
 from datetime import date, datetime
 from decimal import Decimal
 import json
+import os
 import glob
 import re
 import subprocess
@@ -22,6 +23,7 @@ from beancount.core.data import Open, Price, Transaction
 from auto_bean.validation import load_state, validate_state
 from evals.harbor.fixtures import OPENING, SOURCES, sha256, write_json
 from evals.harbor.capture import write_review_html
+from evals.harbor.trace import grade_trace
 
 EXPECTED_POSTINGS = (
     ("2026-01-05", (("Assets:Checking", "-25", "EUR"), ("Expenses:Food", "25", "EUR"))),
@@ -971,7 +973,16 @@ def main() -> int:
     parser.add_argument("--expected", type=Path)
     parser.add_argument("--evidence", type=Path, default=Path("/opt/eval-evidence"))
     parser.add_argument("--logs", type=Path, default=Path("/logs/verifier"))
+    parser.add_argument("--agent-logs", type=Path, default=Path("/logs/agent"))
+    parser.add_argument(
+        "--trace-policy",
+        choices=("required", "state-only"),
+        default=os.environ.get("AUTO_BEAN_TRACE_POLICY", "required"),
+        help="state-only is an explicit verifier-side oracle/no-op control override",
+    )
     args = parser.parse_args()
+    if args.trace_policy not in {"required", "state-only"}:
+        parser.error("Invalid AUTO_BEAN_TRACE_POLICY")
     report: dict[str, Any] = {"phase": args.phase, "passed": False}
     if args.phase != "init":
         write_review_html(args.ledger, args.logs / "review.html")
@@ -1000,7 +1011,19 @@ def main() -> int:
         report["passed"] = True
     except Exception as exc:
         report["failure"] = str(exc)
+    report["state_passed"] = report["passed"]
+    trace = grade_trace(args.agent_logs, args.phase)
+    report["trace_passed"] = trace["passed"]
+    report["trace_policy"] = args.trace_policy
+    report["passed"] = report["state_passed"] and (
+        report["trace_passed"] or args.trace_policy == "state-only"
+    )
+    if not trace["passed"] and args.trace_policy == "required":
+        report.setdefault(
+            "failure", "Plugin trace checks failed; see trace-report.json"
+        )
     args.logs.mkdir(parents=True, exist_ok=True)
+    write_json(args.logs / "trace-report.json", trace)
     write_json(args.logs / "report.json", report)
     (args.logs / "reward.txt").write_text("1\n" if report["passed"] else "0\n")
     print(json.dumps(report))

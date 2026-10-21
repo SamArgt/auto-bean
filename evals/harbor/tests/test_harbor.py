@@ -1009,3 +1009,58 @@ def test_revision_bookkeeping_is_not_part_of_agent_artifacts(
     write_json(path, doc)
     with pytest.raises(WorkflowError):
         import_checks(root, PLUGIN, evidence, expected, "review")
+
+
+@pytest.mark.parametrize(
+    "policy,has_trace,wanted",
+    [
+        ("required", True, 0),
+        ("required", False, 1),
+        ("state-only", False, 0),
+    ],
+)
+def test_trace_and_state_joint_reward(
+    reviewed: tuple[Path, Path, dict[str, Any]],
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    policy: str,
+    has_trace: bool,
+    wanted: int,
+) -> None:
+    from evals.harbor.verify import main
+    from evals.harbor.tests.test_trace import passing_events, save
+
+    root, evidence, expected = reviewed
+    logs, agent_logs = tmp_path / "verifier", tmp_path / "agent"
+    baseline = tmp_path / "expected.json"
+    write_json(baseline, expected)
+    if has_trace:
+        save(agent_logs, passing_events("review"))
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "verify.py",
+            "review",
+            "--ledger",
+            str(root),
+            "--plugin",
+            str(PLUGIN),
+            "--expected",
+            str(baseline),
+            "--evidence",
+            str(evidence),
+            "--logs",
+            str(logs),
+            "--agent-logs",
+            str(agent_logs),
+            "--trace-policy",
+            policy,
+        ],
+    )
+    assert main() == wanted
+    report = json.loads((logs / "report.json").read_text())
+    assert report["state_passed"]
+    assert report["trace_passed"] == has_trace
+    assert report["trace_policy"] == policy
+    assert (logs / "reward.txt").read_text().strip() == str(1 - wanted)
+    assert (logs / "trace-report.json").is_file()

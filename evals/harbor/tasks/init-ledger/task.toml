@@ -1,12 +1,13 @@
 schema_version = "1.4"
 artifacts = [
   { source = "/app/ledger", exclude = [".auto-bean/runtime", ".auto-bean/tmp"] },
+  "/logs/agent",
   "/opt/eval-evidence",
 ]
 
 [task]
 name = "auto-bean/init-ledger"
-version = "1.0.0"
+version = "2.0.0"
 
 [metadata]
 category = "financial-workflow"

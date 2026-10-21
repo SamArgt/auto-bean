@@ -88,3 +88,28 @@ No phase may commit or push.
 - See [shared result paths and limits](../../README.md#inspect-results).
 - [Oracle solution](solution/solve.sh) and [reference helper](solution/stale_reference.py)
   cover the same stale-decision case for explicit control runs.
+
+## Agent trace checks
+
+The full reward also requires the [trace grader](../../trace.py) to pass in both steps.
+
+| Step | Skills that must have been read | Commands required in this turn |
+| --- | --- | --- |
+| Review | Import, Process, Query, Categorize | Extraction preparation; Docling for both sources; `bean-query`; review validation; `git status` |
+| Stale | Import | `git status` and current content reads |
+
+- Read common guidance, the import contract, and parsed, session, and status schemas.
+- Each turn must read the root ledger and import status. Read the workspace
+  marker, workspace `MEMORY.md`, and account directives once in the session.
+- The stale turn must reread both parsed statements after the harness change.
+- Earlier reads cannot satisfy this reread requirement.
+- The stale turn does not require Write, re-extraction, price fetching, or written validation.
+- State checks still prove that the changed rationale is preserved and financial
+  files are unchanged.
+
+Skill and reference reads can carry over from the review turn. Runtime commands
+must use the plugin launcher or documented `auto_bean` helper.
+
+See [trace rules and supported command forms](../../README.md#agent-trace-checks).
+Each step writes `trace-report.json` with evidence locations and missing checks.
+Explicit oracle controls test state only; they do not establish plugin use.
