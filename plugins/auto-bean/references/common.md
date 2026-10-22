@@ -23,7 +23,7 @@ auto_bean() {
 }
 ```
 
-Use this helper for `validate`, `bean-query`, `docling`, `bean-price`, Python and Fava. The launcher prepares locked dependencies on demand using uv on macOS/Linux. Only Docling or `ensure-runtime --extraction` prepares extraction dependencies. Preparation caches are disposable; financial and governed files are not. Poll running commands to terminal exit. Missing resources or failed preparation block dependent work.
+Use this helper for `validate`, `bean-query`, `docling`, `docling-tools`, `bean-price`, Python and Fava. The launcher prepares locked dependencies on demand using uv on macOS/Linux. Only `docling`, `docling-tools` or `ensure-runtime --extraction` prepares extraction dependencies. Preparation caches are disposable; financial and governed files are not. Poll running commands to terminal exit. Missing resources or failed preparation block dependent work.
 
 Run required reads and workflow checks as separate shell calls or join them with `&&`. A later successful command in a `;` or newline sequence can hide an earlier failure. Keep launcher-variable assignments and the helper definition in the same call as the commands that use them.
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import shutil
+import os
 import platform
 from collections.abc import Callable
 from pathlib import Path
@@ -210,3 +211,33 @@ def test_validation_uses_managed_runtime(
             ],
         )
     ]
+
+
+@pytest.mark.parametrize("tool", ["docling", "docling-tools", "python", "bean-query"])
+def test_runtime_routes_model_preparation_and_extraction_to_same_environment(
+    current: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, tool: str
+) -> None:
+    from typing import NoReturn
+
+    environment = tmp_path / "managed/.venv"
+    selected: list[bool] = []
+
+    def ensure(root: Path, *, extraction: bool = False) -> Path:
+        assert root == current
+        selected.append(extraction)
+        return environment
+
+    def execute(path: Path, args: list[str], env: dict[str, str]) -> NoReturn:
+        assert path == environment / "bin" / tool
+        assert args == [tool, "--help"]
+        assert env["VIRTUAL_ENV"] == str(environment)
+        assert env["PATH"].split(":")[0] == str(environment / "bin")
+        raise SystemExit(0)
+
+    monkeypatch.setattr(runtime, "ensure_runtime", ensure)
+    monkeypatch.setattr(os, "chdir", lambda root: None)
+    monkeypatch.setattr(os, "execve", execute)
+    with pytest.raises(SystemExit) as result:
+        runtime.run_tool(current, tool, ["--help"])
+    assert result.value.code == 0
+    assert selected == [tool in {"docling", "docling-tools"}]

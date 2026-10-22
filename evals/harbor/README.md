@@ -245,25 +245,40 @@ flowchart LR
 - The EUR-only price stage needs no fetch command. State checks validate its
   zero-job result and the saved memory. Stale approval needs no write command.
 
-The reader uses native `CommandExecution` completion events from the pinned
-Codex CLI. It accepts only terminal exit code `0`. Native completion events also
-cover commands that finish after polling. Tool-return text, narration, comments,
-file listings, and command text inside a here-document do not count.
-Both `subagent.thread_spawn` (CLI 0.163.0) and the older `subagent.spawn`
-parent metadata are recognized. Unrelated sessions cannot supply evidence.
+The reader uses native `CommandExecution` terminal events from the pinned
+Codex CLI, including commands that finish after polling. Successful workflow
+operations require exit code `0`. It never executes submitted shell code.
+Tool-return text, narration, listings, and command text inside a here-document
+cannot supply execution evidence.
 
-Use visible content reads such as `cat`, `sed`, or `jq` and direct launcher
-commands for auditable evidence. The reader supports literal paths, brace and
-file globs, documented launcher variables, and simple `&&` chains. Plain
-`timeout <positive-duration>` wrappers preserve successful child-operation
-evidence. The exact documented `auto_bean()` function can be defined inline or
-across lines and invoked in the same shell call; arbitrary function bodies do
-not count. Unconditional launcher assignments survive semicolons, but earlier
-commands do not receive credit. Only the
-final command list in a semicolon sequence or multiline shell call is credited;
-later success can hide earlier failures. Pipelines, conditional shell blocks,
-and Python or JavaScript program bodies are not interpreted. A required action
-hidden in unsupported code is reported as missing, even if the final ledger is valid.
+Both `subagent.thread_spawn` (CLI 0.163.0) and the older `subagent.spawn`
+parent metadata are recognized. The trace report lists descendant identities
+separately from their stage/group activity. Unrelated sessions cannot supply
+evidence. Missing activity leaves worker distinctness undetermined; it does
+not establish that delegation was absent.
+
+The reader supports literal paths, brace and file globs, launcher variables,
+simple `&&` chains, and positive-duration `timeout` wrappers. It recognizes the
+documented `auto_bean()` helper and equivalent run-only helpers, with or without
+an internal timeout. A helper must be invoked and resolve to the trusted launcher.
+Definitions alone and arbitrary function bodies do not count.
+
+For general shell calls, later success cannot prove earlier success across
+semicolons or newlines. Two bounded evidence paths recover content reads:
+
+- A sequence containing only plain literal `cat` calls uses complete native
+  output and per-operand diagnostics. Failed operands and short-circuited reads
+  do not count. Redirects, substitutions, unknown diagnostics, and truncated
+  output are excluded.
+- A read-only `&&` chain of plain `cat`, `git status`, and an optional final
+  `rg -n` may prove reads through exact full file contents in native output.
+  The verifier maps paths to its plugin bundle and ledger snapshot. This can
+  recover successful reads before a search returns no matches. Changed or
+  absent content does not supply this evidence.
+
+Pipelines, conditional blocks, and Python or JavaScript bodies remain opaque.
+Reports identify evidence methods and describe unmatched requirements as
+insufficient recognized evidence, rather than claiming the action never ran.
 
 Needs-input checks allow a current failed `review` report for unresolved
 decisions. Such a report must contain errors and must not claim checked writes.

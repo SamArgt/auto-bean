@@ -33,7 +33,7 @@ from auto_bean.validation import (
 )
 from evals.harbor.fixtures import OPENING, SOURCES, sha256, write_json
 from evals.harbor.capture import write_review_html
-from evals.harbor.trace import grade_trace
+from evals.harbor.trace import grade_trace, snapshot_reader
 
 EXPECTED_POSTINGS = (
     ("2026-01-05", (("Assets:Checking", "-25", "EUR"), ("Expenses:Food", "25", "EUR"))),
@@ -116,6 +116,7 @@ def finish_report(
             "status": "passed" if check["passed"] else "failed",
             "requirement": check["requirement"],
             "evidence": check.get("evidence", []),
+            "detail": check.get("detail", ""),
         }
         for check in trace.get("checks", [])
     )
@@ -1427,7 +1428,13 @@ def main() -> int:
                     stage_groups[stage].append(
                         {"group_id": group["group_id"], "paths": paths}
                     )
-    trace = grade_trace(args.agent_logs, args.phase, stage_groups, parsed_paths)
+    trace = grade_trace(
+        args.agent_logs,
+        args.phase,
+        stage_groups,
+        parsed_paths,
+        contents=snapshot_reader(args.ledger, args.plugin),
+    )
     if not report["state_passed"] and args.phase != "init":
         state_checks.append(
             {

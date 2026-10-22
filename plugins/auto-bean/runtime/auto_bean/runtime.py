@@ -16,8 +16,9 @@ from auto_bean.common import (
     run_checked,
 )
 
-TOOLS = ("bean-check", "bean-query", "fava", "docling", "bean-price", "python")
-BASE_TOOLS = tuple(tool for tool in TOOLS if tool != "docling")
+EXTRACTION_TOOLS = ("docling", "docling-tools")
+TOOLS = ("bean-check", "bean-query", "fava", *EXTRACTION_TOOLS, "bean-price", "python")
+BASE_TOOLS = tuple(tool for tool in TOOLS if tool not in EXTRACTION_TOOLS)
 
 
 def fingerprint(plugin: Path = PLUGIN, *, extraction: bool = False) -> str:
@@ -107,7 +108,7 @@ def validate(root: Path, environment: Path) -> None:
 def run_tool(root: Path, tool: str, args: list[str]) -> int:
     if tool not in TOOLS:
         raise WorkflowError("unsupported_tool", f"Unsupported runtime tool: {tool}")
-    environment = ensure_runtime(root, extraction=tool == "docling")
+    environment = ensure_runtime(root, extraction=tool in EXTRACTION_TOOLS)
     env = dict(os.environ, VIRTUAL_ENV=str(environment), PYTHONDONTWRITEBYTECODE="1")
     env["PYTHONPATH"] = str(PLUGIN / "runtime")
     env["PATH"] = str(environment / "bin") + os.pathsep + env.get("PATH", "")

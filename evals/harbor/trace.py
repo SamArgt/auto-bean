@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
-from typing import Any
+from typing import Any, Callable
 import fnmatch
 import json
 import re
@@ -23,6 +23,7 @@ class Command:
     argv: tuple[str, ...]
     cwd: str
     agent_id: str | None = None
+    evidence_kind: str = "exit_status"
 
 
 SKILLS = {
@@ -46,6 +47,192 @@ LAUNCHER_FUNCTION = re.compile(
     r'else\s+sh\s+"\$AUTO_BEAN_PLUGIN/runtime/launch.sh"\s+run\s+--workspace\s+'
     r'"\$AUTO_BEAN_WORKSPACE"\s+"\$@"\s*;?\s*fi\s*;?\s*\}'
 )
+
+
+# Equivalent run-only wrappers observed in native harness sessions. A definition
+# alone is never execution evidence. Keep the grammar narrow and non-executable.
+RUN_FUNCTION = re.compile(
+    r"auto_bean\(\)\s*\{\s*(?:timeout\s+(?P<timeout>[1-9]\d*(?:\.\d+)?[smhd]?)\s+)?"
+    r'sh\s+"\$AUTO_BEAN_PLUGIN/runtime/launch.sh"\s+run\s+--workspace\s+'
+    r'"\$AUTO_BEAN_WORKSPACE"\s+"\$@"\s*;?\s*\}'
+)
+
+
+def literal_cat_sequence(
+    script: str, cwd: str, output: str, exit_code: int
+) -> list[tuple[tuple[str, ...], str]]:
+    """Inspect complete output from a shell sequence containing only plain cats.
+
+    POSIX cat reports failed operands on stderr. With no redirects, wrappers,
+    substitutions or other programs, native combined output preserves those
+    diagnostics. This handles mutable files without comparing their later state.
+    A failed member of an && chain stops that chain; semicolons start a new one.
+    """
+    if not output or re.search(
+        r"(?:tokens?|characters?|lines?) truncated|output truncated", output, re.I
+    ):
+        return []
+    lexer = shlex.shlex(script, posix=False, punctuation_chars=";&|<>()\n")
+    lexer.whitespace = " \t\r"
+    lexer.whitespace_split = True
+    try:
+        tokens = list(lexer)
+    except ValueError:
+        return []
+    groups: list[tuple[list[str], str]] = []
+    group: list[str] = []
+    separator = ";"
+    for token in tokens:
+        if token in {";", "&&", "\n"}:
+            if group:
+                groups.append((group, separator))
+            group, separator = [], token
+        else:
+            group.append(token)
+    if group:
+        groups.append((group, separator))
+    commands = []
+    for group, separator in groups:
+        try:
+            argv = shlex.split(" ".join(group))
+        except ValueError:
+            return []
+        if not argv or argv[0] != "cat" or len(argv) < 2:
+            return []
+        if any(
+            not re.fullmatch(r"[A-Za-z0-9_./-]+", arg) or arg.startswith("-")
+            for arg in argv[1:]
+        ):
+            return []
+        commands.append((argv, separator))
+    diagnostics = [line for line in output.splitlines() if line.startswith("cat:")]
+    # An unknown/localized diagnostic or write failure cannot identify successful operands.
+    failed = set()
+    for line in diagnostics:
+        matches = [
+            arg
+            for argv, _ in commands
+            for arg in argv[1:]
+            if line.startswith(f"cat: {arg}: ")
+        ]
+        if not matches:
+            return []
+        failed.update(matches)
+    result: list[tuple[tuple[str, ...], str]] = []
+    previous_ok = True
+    for argv, separator in commands:
+        if separator == "&&" and not previous_ok:
+            continue
+        previous_ok = not any(arg in failed for arg in argv[1:])
+        for arg in argv[1:]:
+            if arg not in failed:
+                result.append((("cat", absolute(arg, cwd)), cwd))
+    return result if previous_ok == (exit_code == 0) else []
+
+
+def snapshot_reader(ledger: Path, plugin: Path) -> Callable[[str], str | None]:
+    """Map container paths to verifier-owned plugin files and saved ledger data.
+
+    Only text is read; no workspace code is imported or executed. A changed
+    snapshot cannot prove an earlier read and therefore remains uncredited.
+    """
+
+    def read(path: str) -> str | None:
+        parts = PurePosixPath(path)
+        root, relative = (
+            ledger,
+            parts.relative_to("/app/ledger")
+            if parts.is_relative_to("/app/ledger")
+            else None,
+        )
+        if relative is None:
+            for marker in ("/skills/", "/references/"):
+                if marker in path:
+                    prefix, suffix = path.split(marker, 1)
+                    if any(path_matches(prefix, allowed) for allowed in PLUGIN_ROOTS):
+                        root, relative = (
+                            plugin,
+                            PurePosixPath(marker.strip("/"), suffix),
+                        )
+                        break
+        if relative is None:
+            return None
+        candidate = root / str(relative)
+        try:
+            if not candidate.resolve().is_relative_to(root.resolve()):
+                return None
+            return candidate.read_text()
+        except (OSError, UnicodeError):
+            return None
+
+    return read
+
+
+def observed_cat_reads(
+    script: str, cwd: str, output: str, contents: Callable[[str], str | None]
+) -> list[tuple[tuple[str, ...], str]]:
+    """Recover literal reads by matching full file contents in native output.
+
+    This supplements exit-status evidence for read-only compound calls. Never
+    search arbitrary program output for commands. Only plain cat operands are
+    credited; snapshots that changed, empty files, or truncated content cannot
+    establish a read. Other supported commands only explain surrounding output.
+    """
+    lexer = shlex.shlex(script, posix=False, punctuation_chars=";&|<>()\n")
+    lexer.whitespace = " \t\r"
+    lexer.whitespace_split = True
+    try:
+        tokens = list(lexer)
+    except ValueError:
+        return []
+    groups: list[list[str]] = [[]]
+    for token in tokens:
+        if token == "&&":
+            groups.append([])
+        elif token in {";", "\n", "|", "||", "&", "(", ")", ">", ">>", "<", "<<"}:
+            return []
+        else:
+            groups[-1].append(token)
+    commands = []
+    for group in groups:
+        if not group:
+            continue
+        try:
+            argv = shlex.split(" ".join(group))
+        except ValueError:
+            return []
+        if any("$" in arg or "`" in arg for arg in argv):
+            return []
+        if argv[0] == "cat":
+            if len(argv) < 2 or any(arg.startswith("-") for arg in argv[1:]):
+                return []
+        elif argv[:2] == ["git", "status"]:
+            if any(arg not in {"--short", "--porcelain"} for arg in argv[2:]):
+                return []
+        elif argv[:2] == ["rg", "-n"]:
+            # Exclude pre-processors, config injection and other execution options.
+            if len(argv) < 4 or any(arg.startswith("-") for arg in argv[2:]):
+                return []
+        else:
+            return []
+        commands.append(argv)
+    if any(argv[0] == "rg" for argv in commands[:-1]):
+        return []
+    result: list[tuple[tuple[str, ...], str]] = []
+    offset = 0
+    for argv in commands:
+        if argv[0] != "cat":
+            continue
+        for operand in argv[1:]:
+            path = absolute(operand, cwd)
+            content = contents(path)
+            if not content or not content.strip():
+                continue
+            index = output.find(content, offset)
+            if index >= 0:
+                result.append((("cat", path), cwd))
+                offset = index + len(content)
+    return result
 
 
 def expand_braces(value: str) -> list[str]:
@@ -72,6 +259,8 @@ def shell_commands(script: str, cwd: str) -> list[tuple[tuple[str, ...], str]]:
     heredoc: str | None = None
     function_lines = ""
     helper: bool | None = None
+    run_only = False
+    helper_timeout: str | None = None
 
     def substitute(match: re.Match[str]) -> str:
         return variables.get(match[1] or match[2], match[0])
@@ -93,6 +282,10 @@ def shell_commands(script: str, cwd: str) -> list[tuple[tuple[str, ...], str]]:
             if function_lines.count("{") > function_lines.count("}"):
                 continue
             match = LAUNCHER_FUNCTION.search(function_lines)
+            run_only = match is None
+            if match is None:
+                match = RUN_FUNCTION.search(function_lines)
+            helper_timeout = match.group("timeout") if match and run_only else None
             prefix = function_lines[: match.start()] if match else ""
             # A definition must be a top-level command, not quoted data or a
             # conditional branch. Only literal assignments may precede it.
@@ -196,11 +389,11 @@ def shell_commands(script: str, cwd: str) -> list[tuple[tuple[str, ...], str]]:
             # Redirected data is not a read. Avoid crediting hidden output too.
             if any(t in {">", ">>", "<", "<<"} for t in expanded):
                 continue
-            if expanded[0] == "auto_bean" and helper is not None:
+            if expanded[0] == "auto_bean":
                 if prefixed or not helper or not variables.get("AUTO_BEAN_PLUGIN"):
                     continue
                 launcher = variables["AUTO_BEAN_PLUGIN"] + "/runtime/launch.sh"
-                if expanded[1:2] == ["validate"]:
+                if not run_only and expanded[1:2] == ["validate"]:
                     expanded = ["sh", launcher, *expanded[1:]]
                 else:
                     expanded = [
@@ -211,6 +404,8 @@ def shell_commands(script: str, cwd: str) -> list[tuple[tuple[str, ...], str]]:
                         variables.get("AUTO_BEAN_WORKSPACE", ""),
                         *expanded[1:],
                     ]
+                if helper_timeout:
+                    expanded = ["timeout", helper_timeout, *expanded]
             line_result.append((tuple(expanded), cwd))
         if line_result:
             # Newlines also mask earlier exit statuses. Assignments above still
@@ -304,9 +499,7 @@ def operation(command: Command, name: str, *args: str) -> bool:
         if len(argv) < 3 or not re.fullmatch(r"[1-9]\d*(?:\.\d+)?[smhd]?", argv[1]):
             return False
         argv = argv[2:]
-    if argv[0] == "auto_bean":
-        tail = argv[1:]
-    elif argv[0] in {"sh", "bash"} and len(argv) > 2:
+    if argv[0] in {"sh", "bash"} and len(argv) > 2:
         launcher = argv[1]
         if not launcher.endswith("/runtime/launch.sh") or not any(
             path_matches(launcher.removesuffix("/runtime/launch.sh"), root)
@@ -355,7 +548,12 @@ def operation(command: Command, name: str, *args: str) -> bool:
     return True
 
 
-def load_commands(logs: Path) -> list[Command]:
+def load_commands(
+    logs: Path,
+    *,
+    contents: Callable[[str], str | None] | None = None,
+    workers: list[dict[str, Any]] | None = None,
+) -> list[Command]:
     files = sorted((logs / "sessions").rglob("*.jsonl"))
     if not files:
         raise ValueError("Missing native Codex session trace")
@@ -389,6 +587,17 @@ def load_commands(logs: Path) -> list[Command]:
                 parent = spawn.get("parent_thread_id")
                 if parent in allowed:
                     allowed.add(meta.get("id", meta.get("session_id")))
+    if workers is not None:
+        for path, _, meta in sessions:
+            identity = meta.get("id", meta.get("session_id"))
+            if identity in allowed and identity != root_id:
+                workers.append(
+                    {
+                        "id": identity,
+                        "evidence": f"{path.relative_to(logs)}:1",
+                        "source": meta["source"],
+                    }
+                )
     result = []
     for path, events, meta in sessions:
         if meta.get("id", meta.get("session_id")) not in allowed:
@@ -403,8 +612,8 @@ def load_commands(logs: Path) -> list[Command]:
             item = payload.get("item", {})
             if (
                 item.get("type") != "CommandExecution"
-                or item.get("status") != "completed"
-                or item.get("exit_code") != 0
+                or item.get("status") not in {"completed", "failed"}
+                or not isinstance(item.get("exit_code"), int)
             ):
                 continue
             argv = item.get("command", [])
@@ -415,7 +624,28 @@ def load_commands(logs: Path) -> list[Command]:
             ):
                 continue
             cwd = item.get("cwd", "/app/ledger").removeprefix("file://")
-            for command, directory in shell_commands(argv[2], cwd):
+            observed = (
+                [
+                    (command, directory, "exit_status")
+                    for command, directory in shell_commands(argv[2], cwd)
+                ]
+                if item["exit_code"] == 0
+                else []
+            )
+            observed.extend(
+                (command, directory, "native_cat_diagnostics")
+                for command, directory in literal_cat_sequence(
+                    argv[2], cwd, item.get("aggregated_output", ""), item["exit_code"]
+                )
+            )
+            if contents:
+                observed.extend(
+                    (command, directory, "native_output_content")
+                    for command, directory in observed_cat_reads(
+                        argv[2], cwd, item.get("aggregated_output", ""), contents
+                    )
+                )
+            for command, directory, evidence_kind in observed:
                 result.append(
                     Command(
                         f"{path.relative_to(logs)}:{line_number}:{item.get('id', '')}",
@@ -425,6 +655,7 @@ def load_commands(logs: Path) -> list[Command]:
                         str(meta.get("id", meta.get("session_id")))
                         if meta.get("id", meta.get("session_id")) != root_id
                         else None,
+                        evidence_kind,
                     )
                 )
     return result
@@ -435,10 +666,17 @@ def grade_trace(
     phase: str,
     stage_groups: dict[str, list[dict[str, Any]]] | None = None,
     parsed_paths: list[str] | None = None,
+    *,
+    contents: Callable[[str], str | None] | None = None,
 ) -> dict[str, Any]:
-    report: dict[str, Any] = {"phase": phase, "passed": False, "checks": []}
+    report: dict[str, Any] = {
+        "phase": phase,
+        "passed": False,
+        "checks": [],
+        "workers": [],
+    }
     try:
-        commands = load_commands(logs)
+        commands = load_commands(logs, contents=contents, workers=report["workers"])
     except (
         ValueError,
         KeyError,
@@ -456,6 +694,9 @@ def grade_trace(
                 "requirement": label,
                 "passed": bool(matches),
                 "evidence": list(dict.fromkeys(c.reference for c in matches)),
+                "detail": ", ".join(sorted({c.evidence_kind for c in matches}))
+                if matches
+                else "Insufficient recognized execution evidence; this does not prove the action was absent.",
             }
         )
 
@@ -496,12 +737,21 @@ def grade_trace(
             distinct_workers(pending[1:], used | {agent}) for agent in pending[0] - used
         )
 
-    if assignments:
+    if assignments and all(assignments):
         check(
             "subagents:separate-group-stage-workers",
             [c for c in current if c.agent_id]
             if distinct_workers(sorted(assignments, key=len), set())
             else [],
+        )
+    elif assignments:
+        report["checks"].append(
+            {
+                "requirement": "subagents:separate-group-stage-workers",
+                "passed": False,
+                "evidence": [],
+                "detail": "Worker identity is recorded in descendant session metadata, but stage/group activity is not fully established. Distinctness is undetermined, not disproven.",
+            }
         )
     for skill in SKILLS[phase]:
         check(

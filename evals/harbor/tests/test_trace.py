@@ -512,3 +512,178 @@ def test_command_prefix_environment_does_not_leak_to_later_commands() -> None:
         "/app/ledger",
     )
     assert commands[0][0][1].startswith("$AUTO_BEAN_PLUGIN")
+
+
+@pytest.mark.parametrize("timeout", ["", "timeout 60 ", "timeout 120 "])
+@pytest.mark.parametrize(
+    "defect", [None, "definition_only", "failed", "masked", "different_body"]
+)
+def test_native_run_wrapper_variants(
+    tmp_path: Path, timeout: str, defect: str | None
+) -> None:
+    events = passing_events("review")
+    for row in events:
+        item = row["payload"]["item"]
+        script = item["command"][2]
+        if " docling " not in script:
+            continue
+        helper = f'auto_bean() {{ {timeout}sh "$AUTO_BEAN_PLUGIN/runtime/launch.sh" run --workspace "$AUTO_BEAN_WORKSPACE" "$@"; }}'
+        invocation = "auto_bean " + script.split("/app/ledger ", 1)[1]
+        if defect == "different_body":
+            helper = helper.replace('"$@"', '"$@"; true')
+        if defect == "definition_only":
+            invocation = ""
+        if defect == "masked":
+            invocation += "; true"
+        item["command"][2] = (
+            f"AUTO_BEAN_PLUGIN={PLUGIN}; AUTO_BEAN_WORKSPACE=/app/ledger; {helper}; {invocation}"
+        )
+        if defect == "failed":
+            item["exit_code"] = 124
+            item["status"] = "failed"
+    save(tmp_path, events)
+    assert grade_trace(tmp_path, "review")["passed"] is (defect is None)
+
+
+@pytest.mark.parametrize("separator", ["; ", "\n", " && "])
+def test_native_cat_sequence_retains_earlier_reads(
+    tmp_path: Path, separator: str
+) -> None:
+    events = passing_events("init")
+    events[0] = event(
+        separator.join(
+            [
+                f"cat {PLUGIN}/skills/auto-bean-init/SKILL.md",
+                f"cat {PLUGIN}/references/common.md",
+            ]
+        )
+    )
+    save(tmp_path, events)
+    assert grade_trace(tmp_path, "init")["passed"]
+
+
+@pytest.mark.parametrize(
+    "defect",
+    ["missing", "short_circuit", "redirect", "opaque", "truncated", "unfinished"],
+)
+def test_cat_recovery_does_not_credit_missing_or_hidden_reads(
+    tmp_path: Path, defect: str
+) -> None:
+    target = f"{PLUGIN}/skills/auto-bean-init/SKILL.md"
+    script = f"cat {target}; cat ledger.beancount"
+    output = "ledger contents\n"
+    code = 0
+    if defect == "missing":
+        output = f"cat: {target}: No such file or directory\n" + output
+    elif defect == "short_circuit":
+        script = f"cat missing && cat {target}; cat ledger.beancount"
+        output = "cat: missing: No such file or directory\n" + output
+    elif defect == "redirect":
+        script = f"cat {target} >/dev/null; cat ledger.beancount"
+    elif defect == "opaque":
+        script = f"false && cat {target}; printf 'fake skill content'"
+    elif defect == "truncated":
+        output = "100 tokens truncated\n" + output
+    events = passing_events("init")
+    events[0] = event(script, code=code)
+    events[0]["payload"]["item"]["aggregated_output"] = output
+    if defect == "unfinished":
+        events[0]["payload"]["item"]["status"] = "in_progress"
+        events[0]["payload"]["item"]["exit_code"] = None
+    save(tmp_path, events)
+    assert not grade_trace(tmp_path, "init")["passed"]
+
+
+def test_failed_search_retains_content_proven_prefix_reads(tmp_path: Path) -> None:
+    target = f"{PLUGIN}/skills/auto-bean-init/SKILL.md"
+    events = passing_events("init")
+    events[0] = event(
+        f"cat {target} && git status --short && rg -n absent other.txt", code=1
+    )
+    item = events[0]["payload"]["item"]
+    item["status"] = "failed"
+    item["aggregated_output"] = "full skill instructions\n"
+    save(tmp_path, events)
+    contents = {target: "full skill instructions\n"}
+    assert grade_trace(tmp_path, "init", contents=contents.get)["passed"]
+    assert not grade_trace(tmp_path, "init")["passed"]
+    contents[target] = "changed instructions\n"
+    assert not grade_trace(tmp_path, "init", contents=contents.get)["passed"]
+    item["command"][2] = f"false && cat {target}; echo 'full skill instructions'"
+    save(tmp_path, events)
+    contents[target] = "full skill instructions\n"
+    assert not grade_trace(tmp_path, "init", contents=contents.get)["passed"]
+
+
+def test_failed_cat_operand_does_not_discard_other_semicolon_reads(
+    tmp_path: Path,
+) -> None:
+    events = passing_events("init")
+    events[0] = event(
+        f"cat missing; cat {PLUGIN}/skills/auto-bean-init/SKILL.md; cat ledger.beancount"
+    )
+    events[0]["payload"]["item"]["aggregated_output"] = (
+        "cat: missing: No such file or directory\nskill\nledger\n"
+    )
+    save(tmp_path, events)
+    assert grade_trace(tmp_path, "init")["passed"]
+
+
+def test_snapshot_paths_cannot_escape_roots(tmp_path: Path) -> None:
+    from evals.harbor.trace import snapshot_reader
+
+    ledger = tmp_path / "ledger"
+    plugin = tmp_path / "plugin"
+    ledger.mkdir()
+    plugin.mkdir()
+    secret = tmp_path / "secret"
+    secret.write_text("outside")
+    (ledger / "link").symlink_to(secret)
+    read = snapshot_reader(ledger, plugin)
+    assert read("/app/ledger/link") is None
+    assert read("/app/ledger/../secret") is None
+    assert read("/etc/passwd") is None
+    assert read(PLUGIN + "/references/../../secret") is None
+
+
+def test_worker_identity_survives_missing_activity_evidence(tmp_path: Path) -> None:
+    save(tmp_path, passing_events("review"))
+    child = save(tmp_path, [event("echo worker started")], child=True)
+    groups = {
+        "process": [{"group_id": "january", "paths": ["statements/raw/checking.csv"]}]
+    }
+    report = grade_trace(tmp_path, "review", groups)
+    assert not report["passed"]
+    assert [worker["id"] for worker in report["workers"]] == ["child"]
+    check = next(
+        c
+        for c in report["checks"]
+        if c["requirement"] == "subagents:separate-group-stage-workers"
+    )
+    assert "undetermined" in check["detail"]
+    child.write_text(
+        child.read_text().replace(
+            '"parent_thread_id": "root"', '"parent_thread_id": "unrelated"'
+        )
+    )
+    assert grade_trace(tmp_path, "review", groups)["workers"] == []
+
+
+def test_import_entrypoint_fits_observed_pinned_cli_injection_budget() -> None:
+    # CLI 0.163.0 injected only 8,000 characters in the saved 2026-10-21 run.
+    # Keep the complete orchestration entrypoint available without truncation.
+    skill = (
+        Path(__file__).resolve().parents[3]
+        / "plugins/auto-bean/skills/auto-bean-import/SKILL.md"
+    )
+    assert len(skill.read_text()) <= 8000
+
+
+@pytest.mark.parametrize("prefix", ["", "timeout 60 "])
+def test_unresolved_helper_is_not_a_trusted_launcher(
+    tmp_path: Path, prefix: str
+) -> None:
+    events = passing_events("init")
+    events[-1] = event(prefix + "auto_bean init --workspace /app/ledger")
+    save(tmp_path, events)
+    assert not grade_trace(tmp_path, "init")["passed"]
