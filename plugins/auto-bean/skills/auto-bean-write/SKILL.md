@@ -15,9 +15,9 @@ Read [common guidance](../../references/common.md) once. Imports use the [import
 
 ## Import writing and validation
 
-For imports, reread the current ledger and parsed decisions, confirm explicit approval of that content in conversation or the panel, then edit the narrowest included ledger files directly. Follow common ownership and serialization rules. The parsed postings are the sole input; do not create a second transaction file, approval record or execution journal. If the approved content has changed materially, return for renewed review.
+For imports, reread the ledger and parsed decisions and confirm current explicit approval. Write to the narrowest included files under common ownership rules. Parsed postings are the sole input; create no second transaction file, approval record or execution journal. Material changes require renewed review.
 
-After the assigned statement or linked group has been written, run [shared validation](../../references/common.md#validation) with `--session <id> --stage written`. Return its group and per-source reports and any session-wide error to Import. Only a group whose every source passes written validation can become `done`. The check covers actual rows, postings, provenance, supporting directives and available balances. Never hand-author its result. Affected failures block dependent writes until repaired. Interrupted work resumes from actual provenance and current file contents, never a whole-file rollback.
+After writing the assigned statement or linked group, coordinate a stable session with Import and run [shared validation](../../references/common.md#validation) with `--session <id> --stage written`. Return group/source reports and session-wide errors. Every member must pass before `done`; affected failures block dependent writes. Resume interruptions from actual provenance and current contents, never a whole-file rollback. The validator owns generated evidence.
 
 Return changed paths, validation results, any required repair and eligible learning evidence under the [ownership rules](../../references/common.md#ownership). Import alone advances status to `done` and coordinates import-memory updates. For standalone writes, route eligible learning to `$auto-bean:auto-bean-memory`; only the main thread edits workspace `MEMORY.md`.
 

@@ -1,6 +1,6 @@
 # Governed memory examples
 
-These synthetic examples illustrate the fixed memory categories. Example hashes are placeholders: real records cite the explicit approval instruction or panel confirmation, generated validation digest and timestamp. Read the relevant section only. Destinations are relative to `.auto-bean/memory/`. Record eligibility, ID retention and update rules live in [the memory skill](../SKILL.md); these examples are not permission to save a rule.
+These synthetic examples illustrate the fixed memory categories. Example hashes are placeholders. Real financial records cite generated validation evidence and approval when required by [the memory skill](../SKILL.md), which owns eligibility and update rules. Read only the relevant section. Destinations are relative to `.auto-bean/memory/`; examples do not grant permission to save a rule.
 
 The first five sections show one record inside the file’s `records` array. The source section shows the complete index and source document; the final section shows a workspace Markdown correction.
 
@@ -186,6 +186,8 @@ Destination: `deduplication_decisions.json`. A reusable duplicate or non-duplica
 ## Commodity price source
 
 Destination: `commodity_price_sources.json`. Use `method_type: beanprice` when reliable, or `web_search` for a narrow authoritative source. Do not store credentials, account numbers or shell snippets.
+
+The example below involves new price writes. For an entirely redundant run, cite the exact accepted ledger prices, successful written validation and verified source identity instead of inventing a new approval instruction. Zero-job no-ops provide no new source evidence.
 
 
 ```json

@@ -38,13 +38,15 @@ Open the ledger directory in Codex with Auto Bean enabled:
 | Update commodity prices | `$auto-bean:auto-bean-prices` |
 | Persist eligible reusable decisions | `$auto-bean:auto-bean-memory` |
 
-The process and categorize skills support import stages. Workers return proposed status updates; import alone writes the status index. Parsing and categorization can run in parallel, while all ledger writes are serialized. Imports review the mappings and postings in parsed JSON, obtain approval, write those transactions directly, and validate every source row plus available closing balances. Import owns final approval and statement completion. Direct transaction requests keep their conversation review behavior. Nothing is pushed automatically.
+The process and categorize skills support import stages, through workers or serial execution. Import alone writes the status index. Independent groups can progress in parallel; ledger writes are serialized. Session validation requires a stable editing window across the session. Imports review mappings and parsed postings, obtain approval, write directly, and validate source rows and available closing balances. Import owns approval and completion. Direct transactions retain conversation review. Nothing is pushed automatically.
+
+Every import pass discovers new sources and resumes unfinished groups or price follow-ups. Reviewing new work rechecks completed groups at the written stage, preserving their completion evidence when unchanged.
 
 Ask Codex to validate the ledger or open Fava through the plugin launcher. All runtime tools use the selected ledger as their working directory. The plugin location is discovered from its installed skills and is never saved in ledger files.
 
 ## Import review panel
 
-New import sessions use a local MCP side panel. Open the session from the import conversation to inspect YAML-derived group status, extracted accounts/balances, mappings, transaction postings, inline suggestions and price results. Corrections are saved only if the underlying content still matches, so an intervening agent or user edit produces a conflict instead of being overwritten. Approval confirms the current reviewed data. Corrections update existing inline fields and resume the same conversation; if continuation fails, retry sending it without resaving the correction.
+Import sessions use a local MCP side panel when available; conversation review remains available if the panel cannot open. Open the session from the import conversation to inspect YAML-derived group status, extracted accounts/balances, mappings, transaction postings, inline suggestions and price results. Corrections are saved only if the underlying content still matches, so an intervening agent or user edit produces a conflict instead of being overwritten. Approval confirms the current reviewed data. Corrections update existing inline fields and resume the same conversation; if continuation fails, retry sending it without resaving the correction.
 
 Use **Export HTML** to save a self-contained, read-only review under the selected ledger's `.auto-bean/exports/` directory. It includes every saved transaction, balances, suggestions/answers, price results, current approval and ledger validation for that session, with a capture timestamp. Open or copy the saved file to keep the review offline. Unsaved edits and raw statement attachments are excluded. Harbor import evaluations retain an HTML review for each executed step, including a clearly labelled unavailable page when no valid review exists.
 

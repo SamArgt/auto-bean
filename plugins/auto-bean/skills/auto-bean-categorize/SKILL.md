@@ -3,11 +3,11 @@ name: auto-bean-categorize
 description: Categorize parsed statements in a group assigned by auto-bean-import. Suggest categories and explicit postings from evidence, advisory memory and merchant research; return per-statement reconciliation findings and required input for import review.
 ---
 
-Read [common guidance](../../references/common.md) once and the import contract's [state](../../references/import-review.md#state-and-validation) and [ownership](../../references/common.md#ownership) sections. Use [bounded inspection](../../references/import-review.md#reading-evidence) for large documents and the [parsed example](../../references/parsed-statement-output.example.json) when fields are unclear.
+Read [common guidance](../../references/common.md) and the import contract's [state](../../references/import-review.md#state-and-validation). Use [bounded inspection](../../references/import-review.md#reading-evidence) for large documents and the [parsed example](../../references/parsed-statement-output.example.json) when fields are unclear.
 
 ## Scope and proposals
 
-Work as the categorization subagent for the assigned group. Read the assigned group JSON and handle only its complete source sections, current group status entry, session and supplied reconciliation context/answers. Apply the steps below per statement and compare supplied evidence across the group. Start at `categorize_ready`, or resume when directed by Import. Continue independent ready members while holding blocked members and linked transfers. Return findings per source and one group status proposal; any unresolved member keeps the group blocked. Do not discover statements, edit shared status or memory, mutate the ledger, ask users directly, or request final approval/commit/push.
+Work on the group assigned by Import, as a worker or serial stage. Read its JSON, status, session and supplied reconciliation context/answers. Handle only complete source sections released by Import, starting at `categorize_ready` or resuming as directed. Continue ready members while holding blocked members and linked transfers. Return per-source findings and one group status proposal; any unresolved member keeps the group blocked. Do not discover statements, edit shared status or memory, mutate the ledger, or request approval/commit/push. Return questions to the Import stage, which owns user interaction.
 
 Use `$auto-bean:auto-bean-query` for ledger accounts, constraints, registers, balances and transaction/duplicate checks. Source account names/owner evidence do not establish ledger mapping without a current check or approved mapping.
 
@@ -15,7 +15,7 @@ Within the relevant `statements[]` source section, edit each `extracted_records[
 
 ## Categorization
 
-- Compare current facts with relevant workspace context and `.auto-bean/memory/category_mappings.json`. Explain the matched hint and current evidence in the affected decision when relevant. Without a reliable match, give evidence-backed alternatives and explain uncertainty.
+- Compare current facts with workspace context and `.auto-bean/memory/category_mappings.json`. Without a reliable match, give evidence-backed alternatives and explain uncertainty.
 - Research unknown merchants or processor labels when public evidence can establish business type. Search cleaned payee text plus likely location from same-statement transactions, currencies, addresses, station/airport codes, language or owner context. Start local, then broaden without exposing private financial context or browsing account portals.
 - Prefer official sites, directories/maps, regulators, charity/school/healthcare sources, app stores or reputable local sources. Distinguish merchants from processors, marketplaces, platforms and parent companies. Web evidence alone cannot establish transfer intent, duplicates, ownership or ledger account existence.
 - Mark required input when a posting choice remains materially ambiguous or research is weak, conflicting, stale, generic or location-mismatched. Continue independent safe work without guessing.

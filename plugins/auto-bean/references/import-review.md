@@ -4,9 +4,9 @@ Use this reference for field meanings and edge cases. The Import, Process, Categ
 
 ## Process flow
 
-This is the canonical process diagram for [Import](../skills/auto-bean-import/SKILL.md). Each session has user-defined or agent-inferred statement groups, usually one statement per group. Import spawns a separate subagent for each group's processing and categorization stages when needed. **∥** marks work that can run in parallel across independent groups. **◆** marks coordination owned by the main import agent, not a measured runtime delay. Orange nodes show human input; dotted links are conditional clarification loops.
+This is the process diagram for [Import](../skills/auto-bean-import/SKILL.md). Sessions contain user-defined or agent-inferred groups, usually one statement each. Processing and categorization may use separate workers or run serially under Import. **∥** marks optional parallel work across groups. **◆** marks main-agent coordination. Orange nodes show human input; dotted links are conditional clarification loops.
 
-Each group resumes from its saved status and source sections; the diagram shows the full path for a new import. Independent safe work continues while questions are pending. Unresolved transfers or duplicates hold the affected group of rows. Edits to the same parsed document and all ledger writes are serialized under the [ownership rules](common.md#ownership).
+Each group resumes from saved state; the diagram shows a new import. Every pass also discovers new sources and checks session price follow-ups, even when groups are done. New counterpart sources join the relevant active session without resetting existing groups. Independent work continues around blocked rows, except during the stable session-wide window required for [validation](common.md#validation).
 
 ```mermaid
 flowchart TD
@@ -16,11 +16,11 @@ flowchart TD
     E -- Yes --> R{"Explicit rework requested?"}
     R -- No --> SK([Skip statement])
     R -- Yes --> P
-    E -- No --> P["∥ Spawn processing subagent per group<br/>Extract and validate each source"]
+    E -- No --> P["∥ Process assigned groups<br/>Extract and validate each source"]
 
     P --> A["◆ Inspect accounts<br/>Plan openings and document references"]
     A --> B["Check opening balances<br/>Resolve account and balance decisions"]
-    B --> C["∥ Spawn categorization subagent per group<br/>Categorize ready statements"]
+    B --> C["∥ Categorize assigned groups<br/>Use complete ready evidence"]
     C --> X["◆ Review batch transfers and duplicates<br/>Assign dispositions and one posting owner"]
     X --> F["◆ Validate and prepare final review<br/>Mappings, parsed postings and supporting directives"]
 
@@ -74,7 +74,7 @@ Account names and reported balances are source facts; `statement_metadata.accoun
 
 IDs identify stable source rows/accounts, not parser runs. Preserve `source_reference` and IDs during reparse. Put arbitrary source-column values only in `raw_fields`. Use `state: needs_input`, rationale and optional suggestions beside the affected decision; extraction input uses `review.processing.needs_input`. An `answer` preserves the user's response until the owning stage checks and resolves it.
 
-`review.validation` and each price run's `validation` are generated. Their `stage` distinguishes review readiness from written-ledger checks; a passed review-stage report is insufficient for `done`. Their timestamps, digests and ledger hashes identify what was checked. Direct file edits can make a saved result stale; rerun validation. Agents leave these generated fields alone.
+`review.validation` and price-run `validation` are generated. Their stage, timestamp, digest and ledger hashes identify what was checked; only written-stage reports support completion. A review request rechecks done groups and unchanged previously passed written evidence at the written stage. Changed decisions in reopened groups receive review checks. Follow the [validation coordination rules](common.md#validation), rerun stale checks and leave generated fields to the validator.
 
 Optional `approval` fields belong to panel bookkeeping. Chat approval needs no JSON counterpart: retain the explicit instruction in the conversation. A stored panel confirmation only applies to the data the user saw. Neither an approval-shaped object nor a validation report establishes permission by itself.
 

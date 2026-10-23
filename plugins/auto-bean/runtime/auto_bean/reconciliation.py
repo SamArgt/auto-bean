@@ -517,6 +517,7 @@ def _validate_statement(
     with writer_lock(store.root):
         doc = store.statement(source)
         token = etag(doc)
+        stage = validation_stage(stage, doc["review"].get("validation"), material(doc))
         result = _inspect_statement(store, source, stage)
         result = stable_report(doc["review"].get("validation"), result)
         if etag(store.statement(source)) != token:
@@ -535,6 +536,21 @@ def _validate_statement(
         return result
 
 
+def validation_stage(
+    requested: str, previous: dict[str, Any] | None, evidence_digest: str
+) -> str:
+    """Recheck completed evidence instead of downgrading it to proposal checks."""
+    if (
+        requested == "review"
+        and previous
+        and previous.get("stage") == "written"
+        and previous.get("state") == "passed"
+        and previous.get("digest") == evidence_digest
+    ):
+        return "written"
+    return requested
+
+
 def _validate_prices(
     store: ReviewFiles, run_id: str, stage: str = "written"
 ) -> dict[str, Any]:
@@ -547,6 +563,7 @@ def _validate_prices(
         run = next((r for r in session["price_runs"] if r["run_id"] == run_id), None)
         if run is None:
             invalid("Unknown price run.")
+        stage = validation_stage(stage, run.get("validation"), price_material(run))
         result: dict[str, Any] = {
             "state": "failed",
             "stage": stage,
@@ -766,7 +783,13 @@ def validate_import(
             for item in session_members(session):
                 source = item["source_file"]
                 try:
-                    report = _validate_statement(files, source, stage)
+                    source_stage = (
+                        "written"
+                        if status["groups"][item["group_id"]]["current_status"]
+                        == "done"
+                        else stage
+                    )
+                    report = _validate_statement(files, source, source_stage)
                     result["statements"][source] = report
                     result["errors"].extend(
                         f"{source}: {error}" for error in report["errors"]
@@ -782,11 +805,15 @@ def validate_import(
                 )
                 result["groups"][group["group_id"]] = {
                     "state": "passed" if passed else "failed",
-                    "stage": stage,
+                    "stage": "written"
+                    if all(
+                        report and report["stage"] == "written" for report in reports
+                    )
+                    else stage,
                     "source_files": group["source_files"],
                 }
                 if status["groups"][group["group_id"]]["current_status"] == "done" and (
-                    stage == "written" and not passed
+                    not passed
                 ):
                     result["errors"].append(
                         f"{group['group_id']}: done requires written validation for every member."

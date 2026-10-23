@@ -32,7 +32,7 @@ auto_bean bean-price --dry-run --date <target-date> -e '<QUOTE>:<SOURCE>/<SYMBOL
 auto_bean bean-price -v --date <target-date> -e '<QUOTE>:<SOURCE>/<SYMBOL>'
 ```
 
-Use `historical_backfill` only when the user explicitly requests historical coverage. Dry-run the exact `--update` command first, recording its target range and job count. Every live fetch requires a successful preflight; stop when it fails. Count listed jobs, not stderr lines. Use Beanprice's default workers unless the user explicitly requests a concurrency change.
+Use `historical_backfill` only when the user explicitly requests historical coverage. Dry-run the exact `--update` command first, recording its target range and job count. Every live fetch requires a successful preflight; stop when it fails. Count listed jobs, not stderr lines. Prefer default workers; adjust concurrency for provider or resource limits without changing the approved scope or starting competing runs.
 
 Allow 180 seconds per fetch, excluding runtime preparation. On timeout, terminate that same process/session and collect its terminal result; do not start competing retries. Retry a clearly transient failure at most once, after the original terminates. Poll a running session until its terminal exit code arrives: an empty chunk or partial stdout is not completion. Verbose logs must account for redundant directives and provider failures. Do not substitute narrower probes or fallback directives while the original run is unresolved.
 

@@ -3,7 +3,7 @@ name: auto-bean-process
 description: Normalize raw PDF, CSV, XLSX, or XLS sources in a statement group assigned by auto-bean-import. Use only for its raw-to-parsed stage; return per-source evidence, blockers, and one proposed group status.
 ---
 
-Read [common guidance](../../references/common.md) once, then the import contract's [state](../../references/import-review.md#state-and-validation) and [ownership](../../references/common.md#ownership) sections. Work as the processing subagent for the assigned group. Apply the steps below separately to each assigned source, fingerprint and retry context in the supplied session. Use the single assigned group parsed target. Keep attempts and evidence in each source section; return one group status proposal. Continue independent members when one is blocked. Do not discover inputs, categorize, mutate ledger files or edit shared status.
+Read [common guidance](../../references/common.md) and the import contract's [state](../../references/import-review.md#state-and-validation). Work on the group assigned by Import, as a worker or serial stage. Use its session, parsed target, per-source fingerprints and retry context. Keep attempts and evidence in each source section; return one group status proposal. Continue independent members when one is blocked. Do not discover inputs, categorize, mutate ledger files or edit shared status.
 
 ## Preparation and extraction
 
@@ -33,4 +33,4 @@ Return per-source fingerprints, run IDs, outcomes, blockers and safe progress, t
 - `process_review`: normalized evidence exists but warnings need review.
 - `account_review`: valid evidence with no unresolved processing input.
 
-Persist extraction input in each source section's `review.processing`; Import asks the user and applies status. Return attempts for the current fingerprint; after two extraction attempts propose `manual_resolution_required: true`. A changed source starts a new retry count.
+Import asks the user and applies status. Return attempts for the current fingerprint. Propose `manual_resolution_required: true` after two failed attempts, or sooner when a non-retryable failure needs source/environment repair. A successful retry clears that source's processing input/repair need and obsolete failure reason. Import recomputes group flags from all members, preserving unrelated blockers. A changed source starts a new retry count.

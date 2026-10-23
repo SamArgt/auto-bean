@@ -886,6 +886,139 @@ def test_review_and_written_validation_do_not_require_panel_approval(
     assert validate(store) == written
 
 
+@pytest.mark.parametrize("completed_status", ["final_review", "done"])
+@pytest.mark.parametrize("remove_transaction", [False, True])
+def test_review_of_new_group_rechecks_completed_evidence(
+    review_store: ReviewFiles, completed_status: str, remove_transaction: bool
+) -> None:
+    store = review_store
+    complete(store)
+    approve(store)
+    ledger = store.root / "ledger.beancount"
+    ledger.write_text(BASE + ledger_transaction(store))
+    written = validate(store)
+    assert written["state"] == "passed"
+    set_status(store, completed_status)
+    completed_bytes = (store.root / PARSED).read_bytes()
+    approval = store.statement(SOURCE)["review"]["approval"]
+
+    # A new statement joins this session after the first one was written.
+    source = "statements/raw/new.csv"
+    parsed = "statements/parsed/new.json"
+    (store.root / source).write_text("new statement")
+    doc = copy.deepcopy(store.statement(SOURCE))
+    doc["source_file"] = source
+    doc["source_fingerprint"] = "sha256:" + digest((store.root / source).read_bytes())
+    doc["review"].pop("validation")
+    doc["review"].pop("approval")
+    session = store.read(store.session_path)
+    session["groups"].append(
+        {
+            "group_id": "new",
+            "name": "New statement",
+            "origin": "agent",
+            "source_files": [source],
+            "parsed_group": parsed,
+        }
+    )
+    save(store, store.session_path, session)
+    status_path = store.root / "statements/import-status.yml"
+    status = yaml.safe_load(status_path.read_text())
+    status["groups"]["new"] = {
+        "session_id": store.session_id,
+        "current_status": "final_review",
+        "parsed_group": parsed,
+        "sources": {source: {"source_fingerprint": doc["source_fingerprint"]}},
+    }
+    status_path.write_text(yaml.safe_dump(status))
+    save(store, parsed, {"schema_version": 2, "group_id": "new", "statements": [doc]})
+    if remove_transaction:
+        ledger.write_text(BASE)
+    ledger_before = ledger.read_bytes()
+    result = reconciliation.validate_import(store.root, store.session_id, "review")
+    assert result["statements"][source]["stage"] == "review"
+    assert result["statements"][source]["state"] == "passed"
+    assert result["groups"]["new"]["stage"] == "review"
+    assert result["statements"][SOURCE]["stage"] == "written"
+    assert result["groups"]["review"]["stage"] == "written"
+    assert result["state"] == ("failed" if remove_transaction else "passed")
+    assert store.statement(SOURCE)["review"]["approval"] == approval
+    assert ledger.read_bytes() == ledger_before
+    if not remove_transaction:
+        assert (store.root / PARSED).read_bytes() == completed_bytes
+
+
+def test_reopened_changed_decisions_can_receive_review_checks(
+    review_store: ReviewFiles,
+) -> None:
+    store = review_store
+    complete(store)
+    (store.root / "ledger.beancount").write_text(BASE + ledger_transaction(store))
+    assert validate(store)["state"] == "passed"
+    doc = store.statement(SOURCE)
+    doc["extracted_records"][0]["description"] = "Corrected source description"
+    save(store, PARSED, doc)
+    set_status(store, "done")
+    assert validate(store, "review")["state"] == "failed"
+    set_status(store, "final_review")  # Explicitly reopened for review.
+    report = validate(store, "review")
+    assert report["stage"] == "review"
+    assert report["state"] == "passed"
+    assert validate(store, "written")["state"] == "failed"
+
+
+@pytest.mark.parametrize("remove_price", [False, True])
+def test_statement_review_rechecks_written_redundant_prices(
+    review_store: ReviewFiles, remove_price: bool
+) -> None:
+    store = review_store
+    complete(store)
+    directive = "2026-01-30 price STOCK 20 EUR"
+    ledger = store.root / "ledger.beancount"
+    ledger.write_text(BASE + "\n" + directive + "\n")
+    session = store.read(store.session_path)
+    session["price_runs"] = [
+        {
+            "run_id": "redundant",
+            "detail": "Provider confirmed the existing quote",
+            "requested_date": "2026-01-31",
+            "state": "complete",
+            "required_commodities": ["STOCK"],
+            "coverage": ["STOCK"],
+            "preflight": "passed",
+            "preflight_job_count": 1,
+            "jobs": [
+                {
+                    "commodity": "STOCK",
+                    "source": "fixture",
+                    "requested_date": "2026-01-31",
+                    "quote_date": "2026-01-30",
+                    "outcome": "redundant",
+                    "directive": directive,
+                }
+            ],
+            "execution": {
+                "state": "complete",
+                "exit_code": 0,
+                "duration_seconds": 0.1,
+                "stderr_summary": "",
+            },
+        }
+    ]
+    save(store, store.session_path, session)
+    result = reconciliation.validate_import(store.root, store.session_id, "written")
+    assert result["prices"].get("redundant", {}).get("state") == "passed", result
+    before = (store.root / store.session_path).read_bytes()
+    if remove_price:
+        ledger.write_text(BASE)
+    result = reconciliation.validate_import(store.root, store.session_id, "review")
+    price = result["prices"]["redundant"]
+    assert price["stage"] == "written"
+    assert price["state"] == ("failed" if remove_price else "passed")
+    if not remove_price:
+        assert (store.root / store.session_path).read_bytes() == before
+
+
 @pytest.mark.parametrize("stage", [None, "approved", "complete"])
 def test_validation_report_requires_a_declared_stage(
     review_store: ReviewFiles,
