@@ -1115,6 +1115,35 @@ def test_no_session_validation_leaves_historical_artifacts_alone(
     )
 
 
+def test_validation_cli_reports_changed_artifacts_and_noop_recheck(
+    review_store: ReviewFiles,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    store = review_store
+    complete(store)
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "validate",
+            "--workspace",
+            str(store.root),
+            "--session",
+            store.session_id,
+            "--stage",
+            "review",
+        ],
+    )
+    assert reconciliation.main() == 0
+    result = json.loads(capsys.readouterr().out)
+    assert PARSED in result["changed_files"]
+    assert result["changed_files"] == sorted(result["file_sha256"])
+    for path in result["changed_files"]:
+        assert result["file_sha256"][path] == digest((store.root / path).read_bytes())
+    assert reconciliation.main() == 0
+    assert json.loads(capsys.readouterr().out)["changed_files"] == []
+
+
 def test_invalid_validation_stage_does_not_edit_artifacts(
     review_store: ReviewFiles,
 ) -> None:

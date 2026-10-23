@@ -6,7 +6,9 @@ import platform
 import shutil
 import subprocess
 import tempfile
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
+from contextlib import contextmanager
+from contextvars import ContextVar
 from hashlib import sha256
 from pathlib import Path
 from typing import Any
@@ -26,6 +28,31 @@ IGNORE_LINES = (
     "*.pyc",
     ".DS_Store",
 )
+_CHANGES: ContextVar[dict[Path, tuple[str | None, str]] | None] = ContextVar(
+    "auto_bean_changes", default=None
+)
+
+
+@contextmanager
+def record_changes() -> Iterator[dict[Path, tuple[str | None, str]]]:
+    """Collect governed atomic writes in this operation, including on failure."""
+    changes: dict[Path, tuple[str | None, str]] = {}
+    token = _CHANGES.set(changes)
+    try:
+        yield changes
+    finally:
+        _CHANGES.reset(token)
+
+
+def change_report(
+    root: Path, changes: dict[Path, tuple[str | None, str]]
+) -> dict[str, Any]:
+    hashes = {
+        path.relative_to(root.resolve()).as_posix(): after
+        for path, (before, after) in sorted(changes.items())
+        if path.is_relative_to(root.resolve()) and before != after
+    }
+    return {"changed_files": list(hashes), "file_sha256": hashes}
 
 
 class WorkflowError(Exception):
@@ -46,6 +73,11 @@ def read_json(path: Path) -> dict[str, Any]:
 
 
 def atomic_write(path: Path, data: bytes) -> None:
+    changes = _CHANGES.get()
+    tracked_path = path.resolve()
+    before = (
+        digest(path.read_bytes()) if changes is not None and path.exists() else None
+    )
     path.parent.mkdir(parents=True, exist_ok=True)
     descriptor, temporary = tempfile.mkstemp(prefix=f".{path.name}-", dir=path.parent)
     try:
@@ -54,6 +86,9 @@ def atomic_write(path: Path, data: bytes) -> None:
             stream.flush()
             os.fsync(stream.fileno())
         os.replace(temporary, path)
+        if changes is not None:
+            original = changes.get(tracked_path, (before, ""))[0]
+            changes[tracked_path] = (original, digest(data))
     finally:
         Path(temporary).unlink(missing_ok=True)
 

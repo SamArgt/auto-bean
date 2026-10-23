@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 printf "stale\n" > /opt/eval-evidence/step-name
-python - <<'PY'
+sh /opt/auto-bean-marketplace/plugins/auto-bean/runtime/launch.sh run --workspace /app/ledger python - <<'PY'
 import json
 from pathlib import Path
 root = Path('/app/ledger')

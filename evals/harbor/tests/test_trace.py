@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import json
+import hashlib
 from pathlib import Path
 from typing import Any
 
 import pytest
 
-from evals.harbor.trace import grade_trace, load_commands, shell_commands
+from evals.harbor.trace import grade_trace, load_commands, patch_content, shell_commands
+from evals.harbor.trace import snapshot_reader
 
 PLUGIN = "/tmp/codex-home/plugins/cache/auto-bean/auto-bean/0.2.0"
 START = "2026-10-21T10:00:00Z"
@@ -160,7 +162,7 @@ def test_approval_accepts_literal_python_parsed_read(
     parsed = next(
         c
         for c in report["checks"]
-        if c["requirement"] == "read:statements/parsed/january.json"
+        if c["requirement"] == "fresh:statements/parsed/january.json"
     )
     assert "native_python_read" in parsed["detail"]
 
@@ -355,7 +357,7 @@ def test_shell_star_cannot_claim_reads_in_subdirectories(tmp_path: Path) -> None
     assert not next(
         c
         for c in report["checks"]
-        if c["requirement"] == "read:.auto-bean/workspace.json"
+        if c["requirement"] == "fresh:.auto-bean/workspace.json"
     )["passed"]
 
 
@@ -394,18 +396,241 @@ def test_command_help_is_not_workflow_execution(tmp_path: Path) -> None:
     assert not grade_trace(tmp_path, "init")["passed"]
 
 
-def test_session_context_can_be_reused_but_ledger_must_be_reread(
+def test_prior_reads_need_snapshot_evidence_for_reuse(
     tmp_path: Path,
 ) -> None:
     events = passing_events("approve")
     context = events[2]
     context["timestamp"] = "2026-10-21T09:01:00Z"
-    events.append(event("cat ledger.beancount statements/import-status.yml"))
+    events.append(
+        event(
+            "cat ledger.beancount statements/import-status.yml .auto-bean/workspace.json beancount/accounts.beancount .auto-bean/memory/MEMORY.md"
+        )
+    )
     save(tmp_path, events)
     assert grade_trace(tmp_path, "approve")["passed"]
     events.pop()
     save(tmp_path, events)
     assert not grade_trace(tmp_path, "approve")["passed"]
+
+
+@pytest.mark.parametrize("phase", ["correct", "approve", "stale"])
+@pytest.mark.parametrize("changed", [False, True])
+def test_boundary_reuses_unchanged_content_but_refreshes_external_changes(
+    tmp_path: Path, phase: str, changed: bool
+) -> None:
+    events = passing_events(phase)
+    # A review input was inspected in an earlier turn. A new user message alone
+    # does not require another read; an external edit does.
+    events[3] = event("cat statements/parsed/january.json", timestamp=START)
+    events[3]["timestamp"] = "2026-10-21T09:00:00Z"
+    events[3]["payload"]["item"]["aggregated_output"] = '{"review":"original"}\n'
+    events.append(
+        event(
+            "cat .auto-bean/memory/account_mappings.json .auto-bean/memory/category_mappings.json"
+        )
+    )
+    save(tmp_path, events)
+    snapshot = '{"review":"changed"}\n' if changed else '{"review":"original"}\n'
+    report = grade_trace(
+        tmp_path,
+        phase,
+        contents=lambda path: (
+            snapshot if path == "/app/ledger/statements/parsed/january.json" else None
+        ),
+    )
+    assert report["passed"] is not changed, report
+    if changed:
+        events.append(event("cat statements/parsed/january.json"))
+        save(tmp_path, events)
+        assert grade_trace(tmp_path, phase, contents=lambda _: snapshot)["passed"]
+
+
+def native_change(*, tool: bool = False, timestamp: str = NOW) -> dict[str, Any]:
+    item: dict[str, Any] = {
+        "id": "change-test",
+        "status": "completed",
+        "type": "FileChange",
+        "changes": [
+            {
+                "path": "/app/ledger/statements/parsed/january.json",
+                "diff": "-old\n+new\n",
+            }
+        ],
+    }
+    if tool:
+        item = {
+            "id": "tool-test",
+            "status": "completed",
+            "type": "McpToolCall",
+            "server": "import_review",
+            "tool": "update_import_review",
+            "result": {
+                "isError": False,
+                "structuredContent": {
+                    "status": "ok",
+                    "changed_files": ["statements/parsed/january.json"],
+                    "file_sha256": {
+                        "statements/parsed/january.json": hashlib.sha256(
+                            b"new\n"
+                        ).hexdigest()
+                    },
+                },
+            },
+        }
+    return {
+        "timestamp": timestamp,
+        "type": "event_msg",
+        "payload": {"type": "item_completed", "item": item},
+    }
+
+
+@pytest.mark.parametrize("tool", [False, True])
+@pytest.mark.parametrize(
+    "defect", [None, "failed", "narration", "unrelated", "outside"]
+)
+def test_agent_knows_its_edits_and_reported_tool_changes(
+    tmp_path: Path, tool: bool, defect: str | None
+) -> None:
+    events = passing_events("stale")
+    events.pop(3)
+    change = native_change(tool=tool)
+    if defect == "failed":
+        change["payload"]["item"]["status"] = "failed"
+    elif defect == "narration":
+        change["type"] = "response_item"
+    elif defect == "outside":
+        if tool:
+            change["payload"]["item"]["result"]["structuredContent"][
+                "changed_files"
+            ] = ["../ledger/statements/parsed/january.json"]
+        else:
+            change["payload"]["item"]["changes"][0]["path"] = (
+                "../ledger/statements/parsed/january.json"
+            )
+    if defect == "unrelated":
+        path = save(tmp_path, [change], child=True)
+        path.write_text(
+            path.read_text().replace(
+                '"parent_thread_id": "root"', '"parent_thread_id": "stranger"'
+            )
+        )
+    else:
+        events.append(change)
+    save(tmp_path, events)
+    report = grade_trace(tmp_path, "stale")
+    assert report["passed"] is (defect is None), report
+
+
+@pytest.mark.parametrize("snapshot", ["new\n", "external\n", None])
+def test_reported_change_carries_forward_only_while_digest_matches(
+    tmp_path: Path, snapshot: str | None
+) -> None:
+    events = passing_events("approve")
+    events[3] = event(
+        "cat .auto-bean/memory/account_mappings.json .auto-bean/memory/category_mappings.json"
+    )
+    events.append(native_change(tool=True, timestamp="2026-10-21T09:00:00Z"))
+    save(tmp_path, events)
+    report = grade_trace(tmp_path, "approve", contents=lambda _: snapshot)
+    assert report["passed"] is (snapshot == "new\n"), report
+
+
+def test_tool_receipt_compares_exact_bytes_including_line_endings(
+    tmp_path: Path,
+) -> None:
+    ledger = tmp_path / "ledger"
+    parsed = ledger / "statements/parsed/january.json"
+    parsed.parent.mkdir(parents=True)
+    parsed.write_bytes(b"new\r\n")
+    events = passing_events("stale")
+    events.pop(3)
+    change = native_change(tool=True, timestamp="2026-10-21T09:00:00Z")
+    manifest = change["payload"]["item"]["result"]["structuredContent"]
+    manifest["file_sha256"]["statements/parsed/january.json"] = hashlib.sha256(
+        b"new\r\n"
+    ).hexdigest()
+    events.append(change)
+    save(tmp_path, events)
+    assert grade_trace(
+        tmp_path, "stale", contents=snapshot_reader(ledger, tmp_path / "plugin")
+    )["passed"]
+
+
+def test_hash_or_narrated_change_alone_does_not_establish_inspection(
+    tmp_path: Path,
+) -> None:
+    events = passing_events("stale")
+    events[3] = event("sha256sum statements/parsed/january.json")
+    events[3]["payload"]["item"]["aggregated_output"] = json.dumps(
+        {"changed_files": ["statements/parsed/january.json"]}
+    )
+    save(tmp_path, events)
+    assert not grade_trace(tmp_path, "stale")["passed"]
+
+
+@pytest.mark.parametrize("snapshot", ["new\n", "external\n"])
+def test_prior_agent_edit_preserves_knowledge_across_boundary(
+    tmp_path: Path, snapshot: str
+) -> None:
+    events = passing_events("approve")
+    events[3] = event(
+        "cat .auto-bean/memory/account_mappings.json .auto-bean/memory/category_mappings.json"
+    )
+    read = event("cat statements/parsed/january.json", timestamp="2026-10-21T09:00:00Z")
+    read["payload"]["item"]["aggregated_output"] = "old\n"
+    edit = native_change(timestamp="2026-10-21T09:01:00Z")
+    edit["payload"]["item"]["changes"][0]["diff"] = "@@ -1 +1 @@\n-old\n+new\n"
+    events.extend([read, edit])
+    save(tmp_path, events)
+    report = grade_trace(tmp_path, "approve", contents=lambda _: snapshot)
+    assert report["passed"] is (snapshot == "new\n"), report
+
+
+@pytest.mark.parametrize(
+    "diff",
+    [
+        "-old\n+new\n",
+        "@@ -1,2 +1 @@\n-old\n+new\n",
+        "@@ -1 +1 @@\n-other\n+new\n",
+        "@@ -8 +8 @@\n-old\n+new\n",
+    ],
+)
+def test_incomplete_or_conflicting_patch_cannot_prove_freshness(diff: str) -> None:
+    assert patch_content("old\n", diff) is None
+
+
+@pytest.mark.parametrize(
+    ("original", "diff", "expected"),
+    [
+        ("", "@@ -0,0 +1 @@\n+new\n", "new\n"),
+        ("a\nc\n", "@@ -1,0 +2 @@\n+b\n", "a\nb\nc\n"),
+        ("a\nb\nc\n", "@@ -2 +1,0 @@\n-b\n", "a\nc\n"),
+        ("a\nb\nc\n", "@@ -1 +1 @@\n-a\n+A\n@@ -3 +3 @@\n-c\n+C\n", "A\nb\nC\n"),
+    ],
+)
+def test_unified_patch_reconstruction(original: str, diff: str, expected: str) -> None:
+    assert patch_content(original, diff) == expected
+
+
+@pytest.mark.parametrize("spoof", [False, True])
+def test_validator_change_manifest_is_observed_without_reread(
+    tmp_path: Path, spoof: bool
+) -> None:
+    events = passing_events("approve")
+    events[3] = event(
+        "cat .auto-bean/memory/account_mappings.json .auto-bean/memory/category_mappings.json"
+    )
+    result = {"state": "passed", "changed_files": ["statements/parsed/january.json"]}
+    change = event(
+        "echo ignored"
+        if spoof
+        else f"sh {PLUGIN}/runtime/launch.sh validate --workspace /app/ledger --session january --stage written"
+    )
+    change["payload"]["item"]["aggregated_output"] = json.dumps(result)
+    events.append(change)
+    save(tmp_path, events)
+    assert grade_trace(tmp_path, "approve")["passed"] is not spoof
 
 
 @pytest.mark.parametrize(
@@ -602,6 +827,80 @@ def test_documented_helper_requires_real_invocation(
     assert grade_trace(tmp_path, "review")["passed"] is (defect is None)
 
 
+@pytest.mark.parametrize("defect", [None, "body_only", "failed", "wrong_helper"])
+def test_helper_survives_python_heredoc_before_validation(
+    tmp_path: Path, defect: str | None
+) -> None:
+    events = passing_events("review")
+    prefix = f"AUTO_BEAN_PLUGIN={PLUGIN} AUTO_BEAN_WORKSPACE=/app/ledger; "
+    helper = (
+        'auto_bean() { if [ "$1" = validate ]; then shift; '
+        'sh "$AUTO_BEAN_PLUGIN/runtime/launch.sh" validate "$@"; else '
+        'sh "$AUTO_BEAN_PLUGIN/runtime/launch.sh" run --workspace "$AUTO_BEAN_WORKSPACE" "$@"; fi; }'
+    )
+    body = "print('prepared proposals')"
+    if defect == "body_only":
+        body += "\nprint('auto_bean validate --workspace /app/ledger --session january --stage review')"
+        suffix = ""
+    else:
+        suffix = "\n auto_bean validate --workspace /app/ledger --session january --stage review"
+    if defect == "wrong_helper":
+        helper = helper.replace('sh "$AUTO_BEAN_PLUGIN/runtime/launch.sh"', "echo")
+    events[-1] = event(
+        prefix + helper + "; auto_bean python - <<'PY'\n" + body + "\nPY" + suffix,
+        code=1 if defect == "failed" else 0,
+    )
+    save(tmp_path, events)
+    assert grade_trace(tmp_path, "review")["passed"] is (defect is None)
+
+
+@pytest.mark.parametrize(
+    "defect", [None, "redirect", "missing", "changed", "body_mention"]
+)
+def test_literal_cat_prefix_before_launcher_query(
+    tmp_path: Path, defect: str | None
+) -> None:
+    events = passing_events("review")
+    events[2] = event(
+        "cat ledger.beancount .auto-bean/workspace.json statements/import-status.yml .auto-bean/memory/MEMORY.md"
+    )
+    script = (
+        "cat beancount/accounts.beancount && cat beancount/opening-balances.beancount && "
+        f"AUTO_BEAN_PLUGIN={PLUGIN}; "
+        'sh "$AUTO_BEAN_PLUGIN/runtime/launch.sh" run --workspace /app/ledger '
+        'bean-query ledger.beancount "SELECT account, sum(position) GROUP BY account"'
+    )
+    accounts, opening = (
+        "1970-01-01 open Assets:Checking EUR\n",
+        "Opening balance evidence\n",
+    )
+    output = accounts + opening + "Query output\n"
+    if defect == "redirect":
+        script = script.replace(
+            "cat beancount/accounts.beancount",
+            "cat beancount/accounts.beancount >/dev/null",
+        )
+    elif defect == "missing":
+        output = (
+            "cat: beancount/accounts.beancount: No such file or directory\n" + output
+        )
+    elif defect == "body_mention":
+        script = "python - <<'PY'\nprint('cat beancount/accounts.beancount')\nPY"
+    row = event(script)
+    row["payload"]["item"]["aggregated_output"] = output
+    events.append(row)
+    save(tmp_path, events)
+    contents = {
+        "/app/ledger/beancount/accounts.beancount": accounts
+        if defect != "changed"
+        else "Changed accounts\n",
+        "/app/ledger/beancount/opening-balances.beancount": opening,
+    }
+    assert grade_trace(tmp_path, "review", contents=contents.get)["passed"] is (
+        defect is None
+    )
+
+
 def test_assignments_survive_semicolons_but_prior_commands_do_not() -> None:
     script = f'AUTO_BEAN_PLUGIN={PLUGIN}; cat ignored; sh "$AUTO_BEAN_PLUGIN/runtime/launch.sh" ensure-runtime --workspace /app/ledger --extraction'
     commands = shell_commands(script, "/app/ledger")
@@ -776,7 +1075,7 @@ def test_snapshot_proves_reads_in_mixed_native_sequences(
     check = next(
         c
         for c in report["checks"]
-        if c["requirement"] == "read:.auto-bean/workspace.json"
+        if c["requirement"] == "fresh:.auto-bean/workspace.json"
     )
     assert "native_output_content" in check["detail"]
     assert not grade_trace(tmp_path, "init")["passed"]

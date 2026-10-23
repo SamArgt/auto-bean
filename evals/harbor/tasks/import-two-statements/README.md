@@ -55,8 +55,9 @@ existing accounts, opening balances, and an unrelated `personal-notes.txt` file.
 ## Steps and grader
 
 Each step calls the [shared grader](../../verify.py) in a separate container.
-The review step must earn `1` before Harbor supplies the approval turn.
-The task uses the final step's reward.
+The review step must pass every state check before Harbor supplies the approval
+turn. Trace failures do not block progression. The task averages its step rewards;
+each full step reward still requires state and trace checks to pass.
 
 ### 1. Review
 
@@ -107,7 +108,7 @@ an agent-authored panel approval field is rejected.
 
 ## Results and source map
 
-- Each step writes binary `reward.txt` and diagnostic `report.json`.
+- Each step writes binary `reward.txt`, separate scores in `reward.json`, and diagnostic `report.json`.
 - Import phases export read-only `review.html` for inspection.
 - See [shared result paths and limits](../../README.md#inspect-results).
 - [Task configuration](task.toml) defines step order, reward gates, and artifacts.
@@ -124,15 +125,18 @@ The full reward also requires the [trace grader](../../trace.py) to pass in each
 
 - Read common guidance, the import contract, and parsed, session, and status schemas.
 - Approval also requires the memory schema.
-- Each turn must read the root ledger and import status. Read the workspace
-  marker, workspace `MEMORY.md`, and account directives once in the session.
-- Approval must reread the group JSON in `statements/parsed/`, including both source sections.
-- Approval must read account and category memory before learning.
+- Check freshness at initial inspection, resumed review, and before writing or
+  learning. Include the root ledger, import status, workspace marker, workspace
+  `MEMORY.md`, and account directives. Approval also needs both parsed source
+  sections and account and category memory.
+- Reuse unchanged inspected content and known agent edits. Auto Bean change
+  receipts identify tool changes. Refresh external or unreported changes.
+  A new conversation turn alone does not require another read.
 - Use the plugin launcher or documented `auto_bean` helper for runtime commands.
 - No price-fetch command is required for the EUR-only fixture.
 
-Skill and reference reads can carry over from review. File reads and commands
-required in the approval turn cannot be replaced by earlier trace events.
+Skill and reference reads can carry over from review. Unchanged file evidence
+can also carry over. Required approval commands must run in the approval phase.
 The saved state still has to pass every financial and approval check.
 
 See [trace rules and supported command forms](../../README.md#agent-trace-checks).

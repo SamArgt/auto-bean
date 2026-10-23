@@ -69,6 +69,8 @@ def test_stdio_discovery_without_workspace_and_ui_resource(tmp_path: Path) -> No
                 assert result.structuredContent == {
                     "status": "ok",
                     "result": {"binding": None},
+                    "changed_files": [],
+                    "file_sha256": {},
                 }
                 opener = next(
                     t for t in listing.tools if t.name == "open_import_review"
@@ -221,6 +223,11 @@ def test_stdio_saves_inline_correction_and_rejects_stale_retry(
                 assert not result.isError
                 assert result.structuredContent
                 receipt = result.structuredContent["result"]
+                changed = result.structuredContent["changed_files"]
+                assert changed == [PARSED]
+                assert result.structuredContent["file_sha256"] == {
+                    PARSED: digest((store.root / PARSED).read_bytes())
+                }
                 assert set(receipt) == {"source_file", "etag", "review_digest"}
                 assert receipt["etag"] == etag(store.statement(SOURCE))
                 stale = await client.call_tool("update_import_review", args)

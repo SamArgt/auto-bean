@@ -52,7 +52,7 @@ The [grader](../../verify.py) checks:
 - Captured runtime validation succeeds.
 
 The reward is `1` only if all checks pass. Otherwise, it is `0`.
-The verifier writes `reward.txt` and `report.json`. This task has no import
+The verifier writes `reward.txt`, separate scores in `reward.json`, and `report.json`. This task has no import
 review HTML export. The final response guidance is part of the instruction;
 the init grader checks workspace and runtime evidence.
 

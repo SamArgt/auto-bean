@@ -1,5 +1,5 @@
 schema_version = "1.4"
-multi_step_reward_strategy = "final"
+multi_step_reward_strategy = "mean"
 artifacts = [
   { source = "/app/ledger", exclude = [".auto-bean/runtime", ".auto-bean/tmp"] },
   "/logs/agent",
@@ -8,7 +8,7 @@ artifacts = [
 
 [task]
 name = "auto-bean/stale-review"
-version = "3.1.0"
+version = "3.2.0"
 
 [metadata]
 category = "financial-workflow"
@@ -31,7 +31,7 @@ workdir = "/app/ledger"
 
 [[steps]]
 name = "review"
-min_reward = 1.0
+min_reward = { state = 1.0 }
 
 [[steps]]
 name = "stale"

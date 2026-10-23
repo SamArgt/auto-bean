@@ -26,7 +26,7 @@ flowchart TD
     D --> E[Capture workspace and evidence]
     E --> F[Grade in separate verifier]
     C --> F
-    F --> G{Step reward is 1?}
+    F --> G{All state checks pass?}
     G -->|Yes, more steps| H[Resume session with next user turn]
     H --> D
     G -->|No, or final step| I[Save results]
@@ -52,7 +52,7 @@ uv run --group eval harbor run --config evals/harbor/codex.yaml --jobs-dir "$PWD
 
 - All four tasks in `evals/harbor/tasks/`.
 - Model `gpt-6.1-sol` and Codex CLI `0.163.0`.
-- One attempt and one concurrent trial.
+- One attempt and four concurrent trials.
 - The local `AutoBeanCodex` adapter and native session resumption.
 
 `PYTHONPATH` lets Harbor import the local adapter. The adapter installs the
@@ -91,7 +91,8 @@ uv run --group eval harbor run -p evals/harbor/tasks -a nop -n 1 --verifier-env 
 
 - Every oracle task should earn `1`.
 - Every no-op task should earn `0`.
-- A failed intermediate step blocks later steps through its reward gate.
+- Failed state checks block later steps. Trace failures remain visible but do
+  not block progression when every state check passed.
 - Check rewards and nested step errors. A zero command exit alone does not prove a pass.
 
 These are **state-only controls**. The scripted oracle has no Codex trace.
@@ -109,14 +110,33 @@ Each task's Compose file builds from the repository root with the
 | Plugin | Copies `plugins/auto-bean/` from the current checkout, including uncommitted edits |
 | Frontend | Uses pinned Node and `npm ci`; rebuilds and compares the bundle and build evidence |
 | Installation | Installs the complete plugin through a container-local marketplace |
-| Runtime | Preloads dependencies and PDF models; smoke-tests CSV and PDF extraction |
+| Runtime | Agent images preload dependencies; import images also cache PDF models and smoke-test CSV/PDF extraction |
 | Plugin probe | Checks all nine skills, MCP registration, expected tools, the App resource, and an unbound structured call |
 | Init workspace | Leaves `/app/ledger` empty; warms dependencies in a disposable workspace |
 | Import workspace | Generates raw statements and an independent, committed ledger fixture |
 | Verifier | Uses trusted dependencies, a fixed plugin copy, and independently generated expected data |
 
+All verifier phases use the shared `auto-bean-harbor-verifier:local` image.
+The task's verifier Compose file supplies `AUTO_BEAN_EVAL_PHASE`; agent evidence
+cannot select the phase. The verifier stage starts before extraction preparation,
+so it does not install Docling, Torch, model weights, or Codex. Harbor still runs
+its explicit build check for each environment. Identical verifier inputs reuse
+the shared image layers. `pull_policy: never` prevents Compose `up` from building
+the image again after Harbor's explicit build.
+
 The build uses local files. It does not fetch a published plugin or another Git
 revision. Changed plugin inputs invalidate the relevant Docker cache layers.
+
+The init image omits Docling, Torch, and PDF model weights. Import images add the
+extraction dependencies and required models to the shared agent base.
+Agent images keep a reusable cache of the locked CPU dependencies. Temporary
+extraction environments are removed in the layer that creates them. The CSV/PDF
+smoke conversions fetch only the models used by the default pipeline; the build
+does not download the broad set of optional Docling models. The image also omits
+npm download caches and graphical libraries that headless extraction does not need.
+The init and import images share their large base layers. Their displayed sizes
+must not be added together to estimate unique disk use. Docker build cache is
+separate from image size.
 Missing or stale bundled frontend assets cause the build to fail.
 
 The probe does not prove desktop rendering or simulate panel button clicks.
@@ -198,12 +218,16 @@ passes only when the changed decision is preserved and financial writes are bloc
 
 ### Agent trace checks
 
-Every phase also runs [trace.py](trace.py). Full reward requires both the
-existing state checks and these trace checks to pass.
-Init and import are task version `2.1.0`; correction and stale review are
-`3.1.0`. These versions correct supporting-directive, pending-validation,
-source-account identity, and CLI trace handling. Earlier rewards do not
-establish a pass under these versions.
+Every phase also runs [trace.py](trace.py). Full step reward requires both the
+state checks and trace checks to pass. Multi-step tasks gate progression on
+`state = 1`, so trace failures do not prevent later behavioral checks. Their
+trial reward is the mean of graded step rewards; an earlier trace failure
+still reduces the result. A full reward of `1` requires every graded step to
+pass both scopes. Setup errors still abort a step. Harbor excludes ungraded
+steps from that mean, so check nested step errors and completed step counts
+before treating an aggregate reward as an end-to-end pass.
+Init and import are task version `2.2.0`; correction and stale review are
+`3.2.0`. Earlier rewards use different progression and aggregation rules.
 
 ```mermaid
 flowchart LR
@@ -224,7 +248,7 @@ flowchart LR
 | Needs input | Import, Process, Query, Categorize | Extraction preparation; Docling on each source; ledger query; `git status` |
 | Correct | Import, Query, Categorize | Ledger query; review validation; `git status` |
 | Approve | Import, Write, Query, Prices, Memory | Written validation with a session; `git status` |
-| Stale | Import | `git status`; current review file reads |
+| Stale | Import | `git status`; fresh evidence for externally changed review files |
 
 - A skill counts when a successful content-read command opens its installed
   `SKILL.md`, or a native standalone `<skill>` user message supplies its complete
@@ -235,11 +259,31 @@ flowchart LR
   and parsed, session, and status schemas. Approval adds the memory schema.
 - Skill and reference reads can come from earlier turns in the same session.
   Linked descendant workers can supply evidence. Unrelated sessions cannot.
-- Each turn must read `ledger.beancount`. Import turns must also read status YAML.
-- Read the workspace marker and, for imports, workspace `MEMORY.md` and account
-  directives. These context reads can carry over within the session.
-- Correct, approve, and stale turns must reread both parsed statement files.
-- Approval must read account and category memory before learning.
+- Check input freshness at workflow boundaries: initial inspection, resumed
+  review or correction, and the decision to write or learn. A new user message
+  alone does not require another read. Here, a turn means one user request and
+  the agent work that follows it. A workflow phase can contain several turns.
+- Inspect the root ledger, workspace marker, and, for imports, status YAML,
+  workspace `MEMORY.md`, and account directives. Correction, approval, and stale
+  review also need the parsed group JSON, including both source sections.
+  Approval also needs account and category memory before learning.
+- Reuse inspected content when it is unchanged. The grader accepts complete
+  native read output that matches the saved workspace snapshot. A bare hash
+  does not establish that the agent inspected the file.
+- The agent knows its own successful native file edits. It does not need to
+  reread them. Across a later boundary, the grader can reconstruct ordinary
+  unified patches from an earlier complete single-file `cat` output and compare
+  the result with the snapshot. Unsupported or incomplete evidence fails closed.
+- Auto Bean review tools and validation return `changed_files` and `file_sha256`
+  for their governed atomic writes. A successful native result that names a
+  changed file establishes awareness of that change. Its resulting SHA-256
+  digest can prove that the file remains unchanged at a later boundary.
+  Read-only operations return an empty list. Unchanged rewrites are excluded.
+- Refresh evidence for external or unreported changes before the next dependent
+  decision. In the stale fixture, the harness changes the parsed group JSON;
+  that file needs refreshed evidence. Unchanged files do not need another read.
+- Trace reports label these checks `fresh:<path>`. Freshness does not grant
+  approval or replace state checks for current review digests and ledger hashes.
 - Workflow commands must occur after the latest native `task_started` boundary.
   Previous review commands cannot satisfy approval checks.
 - Runtime operations must use the plugin launcher or the documented `auto_bean`
@@ -249,11 +293,14 @@ flowchart LR
 - The EUR-only price stage needs no fetch command. State checks validate its
   zero-job result and the saved memory. Stale approval needs no write command.
 
-The reader uses native `CommandExecution` terminal events and verified skill
+The reader uses native `CommandExecution` terminal events, completed `FileChange`
+events, structured Auto Bean `McpToolCall` results, and verified skill
 injections from the pinned Codex CLI, including commands that finish after polling. Successful workflow
 operations require exit code `0`. It never executes submitted shell code.
-Tool-return text, narration, listings, and shell command mentions inside a
-here-document cannot supply execution evidence.
+Narration, listings, and shell command mentions inside a here-document cannot
+supply execution evidence. Structured change receipts establish file awareness;
+they cannot supply required workflow command execution. Shell change receipts
+count only in successful recognized Auto Bean validation results.
 
 Both `subagent.thread_spawn` (CLI 0.163.0) and the older `subagent.spawn`
 parent metadata are recognized. The trace report lists descendant identities
@@ -292,6 +339,11 @@ semicolons or newlines. Two bounded evidence paths recover content reads:
   recover successful reads before a search or directory listing fails. It
   respects explicit failed cat operands and `&&` short-circuiting. Changed,
   absent, hidden, or truncated content does not supply this evidence.
+- A literal `cat` prefix before a launcher query can prove reads when the native
+  output starts with the complete file contents in operand order. Later output
+  cannot replace missing prefix bytes. A helper defined before a Python
+  here-document remains available to a later validation command; the body
+  itself supplies no shell-command evidence.
 
 Other pipelines, conditional blocks, and unsupported Python or JavaScript
 bodies remain opaque.
@@ -313,6 +365,7 @@ Each verifier writes:
 | Artifact | Purpose |
 | --- | --- |
 | `reward.txt` | Binary result: `1` for pass, `0` for fail |
+| `reward.json` | Harbor scores: `reward` for the combined result, `state` for progression, and `trace` for execution evidence |
 | `report.json` | Versioned summary, all executed state assertions and trace checks, source locations, subject context, and failure evidence |
 | `report.md` | Rendered Markdown with failures first, status icons, then skipped and passed checks with full evidence |
 | `trace-report.json` | Each trace requirement, pass state, and matching session file, line, and event ID |

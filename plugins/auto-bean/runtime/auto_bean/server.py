@@ -15,7 +15,13 @@ from mcp.server.lowlevel.helper_types import ReadResourceContents
 from mcp.server.stdio import stdio_server
 from pydantic import AnyUrl
 
-from auto_bean.common import PLUGIN, WorkflowError, checked_path
+from auto_bean.common import (
+    PLUGIN,
+    WorkflowError,
+    change_report,
+    checked_path,
+    record_changes,
+)
 from auto_bean.review import (
     ReviewFiles,
     account_decisions,
@@ -212,9 +218,17 @@ ERROR = obj({"status": {"const": "error"}, "error_code": S, "message": S})
 
 
 def output_schema(schema: dict[str, Any]) -> dict[str, Any]:
+    success = obj({"status": {"const": "ok"}, "result": schema})
+    change_fields = {
+        "changed_files": array(S),
+        "file_sha256": {"type": "object", "additionalProperties": HASH},
+    }
+    success["properties"].update(change_fields)
+    error = copy.deepcopy(ERROR)
+    error["properties"].update(change_fields)
     return {
         "type": "object",
-        "oneOf": [obj({"status": {"const": "ok"}, "result": schema}), ERROR],
+        "oneOf": [success, error],
     }
 
 
@@ -462,18 +476,20 @@ async def read_resource(uri: Any) -> list[ReadResourceContents]:
 
 @server.call_tool()  # type: ignore[untyped-decorator]
 async def call_tool(name: str, arguments: dict[str, Any]) -> types.CallToolResult:
-    try:
-        if name not in CONTRACTS:
-            invalid("Unknown tool.")
-        value = await asyncio.to_thread(dispatch, name, arguments)
-        result: dict[str, Any] = {"status": "ok", "result": value}
-        validate(output_schema(CONTRACTS[name][1]), result)
-    except (WorkflowError, OSError, ValueError) as error:
-        result = {
-            "status": "error",
-            "error_code": getattr(error, "code", "read_failed"),
-            "message": str(error),
-        }
+    with record_changes() as changes:
+        try:
+            if name not in CONTRACTS:
+                invalid("Unknown tool.")
+            value = await asyncio.to_thread(dispatch, name, arguments)
+            result: dict[str, Any] = {"status": "ok", "result": value}
+            validate(output_schema(CONTRACTS[name][1]), result)
+        except (WorkflowError, OSError, ValueError) as error:
+            result = {
+                "status": "error",
+                "error_code": getattr(error, "code", "read_failed"),
+                "message": str(error),
+            }
+    result.update(change_report(Path(str(arguments.get("workspace", "."))), changes))
     return types.CallToolResult(
         content=[types.TextContent(type="text", text=json.dumps(result))],
         structuredContent=result,

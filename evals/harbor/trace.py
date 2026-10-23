@@ -13,6 +13,7 @@ from pathlib import Path, PurePosixPath
 from typing import Any, Callable
 import ast
 import fnmatch
+import hashlib
 import json
 import re
 import shlex
@@ -163,7 +164,8 @@ def snapshot_reader(ledger: Path, plugin: Path) -> Callable[[str], str | None]:
         try:
             if not candidate.resolve().is_relative_to(root.resolve()):
                 return None
-            return candidate.read_text()
+            # Preserve line endings so tool receipts bind the actual file bytes.
+            return candidate.read_bytes().decode("utf-8")
         except (OSError, UnicodeError):
             return None
 
@@ -240,6 +242,7 @@ def observed_cat_reads(
         r"(?:tokens?|characters?|lines?) truncated|output truncated", output, re.I
     ):
         return []
+    prefix_reads = observed_cat_prefix(script, cwd, output, contents)
     lexer = shlex.shlex(script, posix=False, punctuation_chars=";&|<>()\n")
     lexer.whitespace = " \t\r"
     lexer.whitespace_split = True
@@ -255,12 +258,12 @@ def observed_cat_reads(
             if token == "\n" and not group:
                 continue
             if not group and token != "\n":
-                return []
+                return prefix_reads
             if group:
                 groups.append((group, separator))
             group, separator = [], token
         elif token in {"||", "&", "(", ")", ">", ">>", "<", "<<"}:
-            return []
+            return prefix_reads
         else:
             group.append(token)
     if group:
@@ -270,9 +273,9 @@ def observed_cat_reads(
         try:
             argv = shlex.split(" ".join(group))
         except ValueError:
-            return []
+            return prefix_reads
         if not readonly_argv(argv, cwd):
-            return []
+            return prefix_reads
         commands.append((argv, separator))
     # Only passive listing pipelines may surround the cats. Piped cat output
     # needs a separate model for transformations and per-process exit status.
@@ -281,7 +284,7 @@ def observed_cat_reads(
             index + 1 < len(commands) and commands[index + 1][1] == "|"
         ):
             if argv[0] not in {"rg", "sort", "ls", "pwd"}:
-                return []
+                return prefix_reads
     result: list[tuple[tuple[str, ...], str]] = []
     offset = 0
     blocked = False
@@ -306,6 +309,55 @@ def observed_cat_reads(
             if index >= 0:
                 result.append((("cat", path), cwd))
                 offset = index + len(content)
+    return result
+
+
+def observed_cat_prefix(
+    script: str, cwd: str, output: str, contents: Callable[[str], str | None]
+) -> list[tuple[tuple[str, ...], str]]:
+    """Prove a literal cat prefix before an otherwise opaque command.
+
+    Only uninterrupted full file contents at the start of native output count.
+    A later command cannot supply missing prefix bytes after a cat diagnostic.
+    Redirects, pipelines and shell code within the prefix remain unsupported.
+    """
+    lexer = shlex.shlex(script, posix=False, punctuation_chars=";&|<>()\n")
+    lexer.whitespace = " \t\r"
+    lexer.whitespace_split = True
+    try:
+        tokens = list(lexer)
+    except ValueError:
+        return []
+    result: list[tuple[tuple[str, ...], str]] = []
+    offset = 0
+    group: list[str] = []
+    for token in [*tokens, ";"]:
+        if token not in {"&&", ";", "\n"}:
+            group.append(token)
+            continue
+        if not group:
+            continue
+        try:
+            argv = shlex.split(" ".join(group))
+        except ValueError:
+            return result
+        group = []
+        if argv[0] != "cat" or not readonly_argv(argv, cwd):
+            return result
+        for operand in argv[1:]:
+            path = absolute(operand, cwd)
+            content = contents(path)
+            if (
+                not content
+                or not content.strip()
+                or not output.startswith(content, offset)
+                or any(
+                    line.startswith(f"cat: {operand}: ") for line in output.splitlines()
+                )
+            ):
+                return result
+            result.append((("cat", path), cwd))
+            offset += len(content)
     return result
 
 
@@ -385,7 +437,9 @@ def shell_commands(script: str, cwd: str) -> list[tuple[tuple[str, ...], str]]:
         here = re.search(r"<<-?\s*['\"]?(\w+)", line)
         if here:
             heredoc = here[1]
-            continue
+            # Definitions and launcher variables on the header still establish
+            # shell state for commands after the opaque here-document body.
+            line = line[: here.start()].rstrip()
         if function_lines or re.search(r"\w+\s*\(\s*\)\s*\{", line):
             function_lines += line + "\n"
             if function_lines.count("{") > function_lines.count("}"):
@@ -767,6 +821,199 @@ def workspace_read(command: Command, relative: str) -> bool:
     return any(path_matches(expected, path) for path in read_paths(command))
 
 
+def workspace_fresh(command: Command, relative: str) -> bool:
+    """A new turn alone does not invalidate inspected workspace content.
+
+    Historical reads need complete output that matches the verifier snapshot.
+    Current native edits and explicit tool change reports establish knowledge
+    of a change without a redundant read. They do not establish validation.
+    """
+    if command.argv[:1] == ("known-change",):
+        return command.argv[1:] == (f"/app/ledger/{relative}",) and (
+            command.current
+            or command.evidence_kind
+            in {"unchanged_tool_change", "unchanged_agent_edit"}
+        )
+    return workspace_read(command, relative) and (
+        command.current or command.evidence_kind == "native_output_content"
+    )
+
+
+def reported_changes(
+    item: dict[str, Any], contents: Callable[[str], str | None] | None
+) -> list[tuple[str, str]]:
+    """Read structured native results, never assistant claims or output prose.
+
+    Tool reports use changed_files, a list of workspace paths, and optional
+    file_sha256, a map of those paths to their resulting byte digests. Digests
+    allow the same evidence to remain usable at a later workflow boundary.
+    """
+    if item.get("status") != "completed":
+        return []
+    if item.get("type") == "FileChange":
+        changes = item.get("changes", [])
+        if not isinstance(changes, list):
+            return []
+        return [
+            (change["path"], "native_agent_edit")
+            for change in changes
+            if isinstance(change, dict)
+            and isinstance(change.get("path"), str)
+            and isinstance(change.get("diff"), str)
+            and change["diff"]
+        ]
+    if item.get("type") != "McpToolCall" or item.get("server") not in {
+        "auto-bean",
+        "auto-bean-import-review",
+        "import_review",
+    }:
+        return []
+    result = item.get("result")
+    if not isinstance(result, dict) or result.get("isError") is not False:
+        return []
+    data = result.get("structuredContent")
+    if not isinstance(data, dict) or data.get("status") != "ok":
+        return []
+    return change_manifest(data, contents)
+
+
+def change_manifest(
+    data: dict[str, Any], contents: Callable[[str], str | None] | None
+) -> list[tuple[str, str]]:
+    paths = data.get("changed_files")
+    hashes = data.get("file_sha256", {})
+    if not isinstance(paths, list) or not isinstance(hashes, dict):
+        return []
+    result = []
+    for path in paths:
+        if not isinstance(path, str):
+            continue
+        content = contents(absolute(path, "/app/ledger")) if contents else None
+        unchanged = (
+            content is not None
+            and hashes.get(path) == hashlib.sha256(content.encode()).hexdigest()
+        )
+        result.append(
+            (path, "unchanged_tool_change" if unchanged else "native_tool_change")
+        )
+    return result
+
+
+def patch_content(original: str, diff: str) -> str | None:
+    """Replay ordinary unified hunks as data; reject ambiguous patch syntax."""
+    lines = original.splitlines(keepends=True)
+    output: list[str] = []
+    cursor = 0
+    old_count = new_count = expected_old = expected_new = 0
+    in_hunk = False
+    for line in diff.splitlines(keepends=True):
+        match = re.fullmatch(
+            r"@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@[^\n]*\n?", line
+        )
+        if match:
+            if in_hunk and (old_count, new_count) != (expected_old, expected_new):
+                return None
+            expected_old = int(match[2] or "1")
+            expected_new = int(match[4] or "1")
+            start = int(match[1]) if expected_old == 0 else int(match[1]) - 1
+            if start < cursor or start > len(lines):
+                return None
+            output.extend(lines[cursor:start])
+            new_start = int(match[3]) if expected_new == 0 else int(match[3]) - 1
+            if new_start != len(output):
+                return None
+            cursor = start
+            old_count = new_count = 0
+            in_hunk = True
+        elif not in_hunk and line.startswith(("--- ", "+++ ", "diff ", "index ")):
+            continue
+        elif in_hunk and line[:1] in {" ", "-", "+"}:
+            if line[0] in {" ", "-"}:
+                if cursor >= len(lines) or lines[cursor] != line[1:]:
+                    return None
+                cursor += 1
+                old_count += 1
+            if line[0] in {" ", "+"}:
+                output.append(line[1:])
+                new_count += 1
+        else:
+            return None
+    if not in_hunk or (old_count, new_count) != (expected_old, expected_new):
+        return None
+    return "".join(output + lines[cursor:])
+
+
+def unchanged_edits(
+    sessions: list[tuple[Path, list[dict[str, Any]], dict[str, Any]]],
+    allowed: set[Any],
+    contents: Callable[[str], str | None] | None,
+) -> set[tuple[Path, int, str]]:
+    """Carry authored updates across boundaries when their full postimage matches.
+
+    Only complete single-file cat output and ordinary unified patches can be
+    reconstructed. Other current edits still count without a redundant read.
+    """
+    if contents is None:
+        return set()
+    timeline = sorted(
+        (
+            (event.get("timestamp", ""), str(path), number, path, event)
+            for path, events, meta in sessions
+            if meta.get("id", meta.get("session_id")) in allowed
+            for number, event in enumerate(events, 1)
+        ),
+        key=lambda row: row[:3],
+    )
+    known: dict[str, str] = {}
+    matches = set()
+    for _, _, number, path, event in timeline:
+        payload = event.get("payload", {})
+        if event.get("type") != "event_msg" or payload.get("type") != "item_completed":
+            continue
+        item = payload.get("item", {})
+        if item.get("status") != "completed":
+            continue
+        if item.get("type") == "CommandExecution" and item.get("exit_code") == 0:
+            argv = item.get("command", [])
+            if (
+                len(argv) != 3
+                or argv[1] not in {"-c", "-lc"}
+                or PurePosixPath(argv[0]).name not in {"sh", "bash", "zsh"}
+            ):
+                continue
+            cwd = item.get("cwd", "/app/ledger").removeprefix("file://")
+            commands = shell_commands(argv[2], cwd)
+            # No surrounding program can forge the observed cat bytes.
+            if (
+                len(commands) == 1
+                and commands[0][0][:1] == ("cat",)
+                and len(commands[0][0]) == 2
+                and argv[2].strip() == shlex.join(commands[0][0])
+            ):
+                output = item.get("aggregated_output", "")
+                if isinstance(output, str) and not re.search(
+                    r"truncated", output, re.I
+                ):
+                    known[absolute(commands[0][0][1], cwd)] = output
+        elif item.get("type") == "FileChange":
+            for change in item.get("changes", []):
+                if (
+                    not isinstance(change, dict)
+                    or not isinstance(change.get("path"), str)
+                    or not isinstance(change.get("diff"), str)
+                ):
+                    continue
+                target = absolute(change["path"], "/app/ledger")
+                updated = patch_content(known.get(target, ""), change["diff"])
+                if updated is None:
+                    known.pop(target, None)
+                    continue
+                known[target] = updated
+                if contents(target) == updated:
+                    matches.add((path, number, target))
+    return matches
+
+
 def operation(command: Command, name: str, *args: str) -> bool:
     argv = command.argv
     # Plain timeout propagates the child's exit status. Options such as
@@ -878,6 +1125,9 @@ def load_commands(
                     }
                 )
     result = []
+    # Reconstruct prior authored changes before deciding whether a turn boundary
+    # needs refreshed content. Native results remain the only source of evidence.
+    edits = unchanged_edits(sessions, allowed, contents)
     for path, events, meta in sessions:
         if meta.get("id", meta.get("session_id")) not in allowed:
             continue
@@ -904,6 +1154,28 @@ def load_commands(
             ):
                 continue
             item = payload.get("item", {})
+            for changed_path, kind in reported_changes(item, contents):
+                if ".." in PurePosixPath(changed_path).parts:
+                    continue
+                changed_path = absolute(changed_path, "/app/ledger")
+                if (
+                    kind == "native_agent_edit"
+                    and (path, line_number, changed_path) in edits
+                ):
+                    kind = "unchanged_agent_edit"
+                if not changed_path.startswith("/app/ledger/") or any(
+                    token in changed_path for token in ("..", "*", "?", "[")
+                ):
+                    continue
+                result.append(
+                    Command(
+                        f"{path.relative_to(logs)}:{line_number}:{item.get('id', '')}",
+                        event["timestamp"] >= boundary,
+                        ("known-change", changed_path),
+                        "/app/ledger",
+                        evidence_kind=kind,
+                    )
+                )
             if (
                 item.get("type") != "CommandExecution"
                 or item.get("status") not in {"completed", "failed"}
@@ -957,6 +1229,35 @@ def load_commands(
                         evidence_kind,
                     )
                 )
+            # Only a successful, recognized Auto Bean validation may supply a
+            # shell result manifest. Echoed JSON and arbitrary Python cannot.
+            if item["exit_code"] == 0 and any(
+                operation(Command("", True, command, directory), "validate")
+                for command, directory, _ in observed
+            ):
+                try:
+                    data = json.loads(item.get("aggregated_output", ""))
+                except (ValueError, TypeError):
+                    continue
+                if not isinstance(data, dict) or data.get("state") != "passed":
+                    continue
+                for changed_path, kind in change_manifest(data, contents):
+                    if ".." in PurePosixPath(changed_path).parts:
+                        continue
+                    changed_path = absolute(changed_path, cwd)
+                    if not changed_path.startswith("/app/ledger/") or any(
+                        token in changed_path for token in ("..", "*", "?", "[")
+                    ):
+                        continue
+                    result.append(
+                        Command(
+                            f"{path.relative_to(logs)}:{line_number}:{item.get('id', '')}",
+                            event["timestamp"] >= boundary,
+                            ("known-change", changed_path),
+                            cwd,
+                            evidence_kind=kind,
+                        )
+                    )
     return result
 
 
@@ -1096,19 +1397,7 @@ def grade_trace(
             ".auto-bean/memory/category_mappings.json",
         ]
     for file in files:
-        # Common guidance says to load workspace context once per session.
-        # Mutable review inputs and learning targets must be read in this turn.
-        scope = (
-            commands
-            if file
-            in {
-                ".auto-bean/workspace.json",
-                ".auto-bean/memory/MEMORY.md",
-                "beancount/accounts.beancount",
-            }
-            else current
-        )
-        check(f"read:{file}", [c for c in scope if workspace_read(c, file)])
+        check(f"fresh:{file}", [c for c in commands if workspace_fresh(c, file)])
     check(
         "command:git-status",
         [

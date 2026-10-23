@@ -4,6 +4,9 @@ import asyncio
 import json
 import subprocess
 import runpy
+import os
+import shlex
+import sys
 from pathlib import Path, PurePosixPath
 from typing import Any
 from unittest.mock import AsyncMock, call
@@ -300,8 +303,10 @@ def test_tasks_run_directly_and_keep_grading_out_of_agent_images() -> None:
     ]
     assert not tasks[0].has_steps
     assert tasks[1].has_steps
-    assert tasks[1].config.multi_step_reward_strategy == "final"
-    assert tasks[1].config.steps and tasks[1].config.steps[0].min_reward == 1.0
+    assert tasks[1].config.multi_step_reward_strategy == "mean"
+    assert tasks[1].config.steps and tasks[1].config.steps[0].min_reward == {
+        "state": 1.0
+    }
     for task, names in zip(
         tasks[1:],
         (
@@ -312,7 +317,8 @@ def test_tasks_run_directly_and_keep_grading_out_of_agent_images() -> None:
     ):
         assert task.config.steps
         assert tuple(step.name for step in task.config.steps) == names
-        assert all(step.min_reward == 1.0 for step in task.config.steps[:-1])
+        assert task.config.multi_step_reward_strategy == "mean"
+        assert all(step.min_reward == {"state": 1.0} for step in task.config.steps[:-1])
         for name in names:
             marker = (
                 suite
@@ -333,21 +339,30 @@ def test_tasks_run_directly_and_keep_grading_out_of_agent_images() -> None:
         assert (solution / "reference.py").is_file()
         tasks[1].paths.validate_input_tree(solution)
     for compose in (suite / "tasks").rglob("docker-compose.yaml"):
-        build = yaml.safe_load(compose.read_text())["services"]["main"]["build"]
+        service = yaml.safe_load(compose.read_text())["services"]["main"]
+        build = service["build"]
         context = build["context"].replace("${CONTEXT_DIR}", str(compose.parent))
         assert Path(context).resolve() == root
         assert build["dockerfile"] == "evals/harbor/environment/Dockerfile"
+        assert service["pull_policy"] == "never"
         if compose.parent.name == "tests":
-            assert (
-                Path(build["args"]["HARBOR_TEST_SCRIPT"])
-                == compose.parent.relative_to(root) / "test.sh"
+            assert service["image"] == "auto-bean-harbor-verifier:local"
+            assert "args" not in build
+            assert service["environment"]["AUTO_BEAN_EVAL_PHASE"] == (
+                "init"
+                if compose.parent.parent.name == "init-ledger"
+                else compose.parent.parent.name
             )
     dockerfile = (suite / "environment/Dockerfile").read_text()
-    agent_stages, verifier_stage = dockerfile.split("FROM base AS verifier")
+    agent_stages, verifier_stage = dockerfile.split("FROM ledger-base AS verifier")
     assert "COPY plugins/auto-bean /opt/" in agent_stages
     assert "COPY evals/harbor/verify.py" not in agent_stages
     assert "reference.py" not in dockerfile
     assert "COPY evals/harbor/verify.py" in verifier_stage
+    assert "HARBOR_TEST_SCRIPT" not in dockerfile
+    assert "environment/verify.sh /tests/test.sh" in verifier_stage
+    assert "--extraction" not in verifier_stage
+    assert "prefetch.py" not in verifier_stage
     assert "npm ci --ignore-scripts" in agent_stages
     assert "cmp /tmp/expected-bundle.html" in agent_stages
     references = list((suite / "tasks").glob("*/solution/*reference.py"))
@@ -364,7 +379,8 @@ def test_native_harbor_config_defaults() -> None:
     config = JobConfig.model_validate(
         yaml.safe_load((PLUGIN.parents[1] / "evals/harbor/codex.yaml").read_text())
     )
-    assert config.n_attempts == config.n_concurrent_trials == 1
+    assert config.n_attempts == 1
+    assert config.n_concurrent_trials == 4
     assert config.agents[0].model_name == "gpt-6.1-sol"
     # The overview links use the reported name, while the Rollouts filter uses
     # the configured name/import path. Keep both equal for this custom agent.
@@ -383,6 +399,112 @@ def test_native_harbor_config_defaults() -> None:
     assert config.datasets[0].path == Path("evals/harbor/tasks")
 
 
+def test_stale_setup_uses_managed_python_and_changes_only_review_rationale(
+    reviewed: tuple[Path, Path, dict[str, Any]], tmp_path: Path
+) -> None:
+    root, evidence, _ = reviewed
+    suite = PLUGIN.parents[1] / "evals/harbor"
+    original = suite / "tasks/stale-review/steps/stale/workdir/setup.sh"
+    before = {
+        p.relative_to(root).as_posix(): p.read_bytes()
+        for p in root.rglob("*")
+        if p.is_file() and ".git" not in p.relative_to(root).parts
+    }
+    tools = tmp_path / "tools"
+    tools.mkdir()
+    (tools / "sh").symlink_to("/bin/sh")
+    launcher = tools / "launch.sh"
+    arguments = tmp_path / "arguments.txt"
+    launcher.write_text(
+        f"printf '%s\\n' \"$@\" > {shlex.quote(str(arguments))}\n"
+        f"exec {shlex.quote(sys.executable)} -\n"
+    )
+    script = tmp_path / "setup.sh"
+    script.write_text(
+        original.read_text()
+        .replace(
+            "/opt/auto-bean-marketplace/plugins/auto-bean/runtime/launch.sh",
+            str(launcher),
+        )
+        .replace("/app/ledger", str(root))
+        .replace("/opt/eval-evidence", str(evidence))
+    )
+    # Neither python nor python3 exists on this PATH, as in the agent image.
+    result = subprocess.run(
+        ["/bin/bash", str(script)],
+        env={**os.environ, "PATH": str(tools)},
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stderr
+    assert arguments.read_text().splitlines() == [
+        "run",
+        "--workspace",
+        str(root),
+        "python",
+        "-",
+    ]
+    assert (evidence / "step-name").read_text() == "stale\n"
+    changed = []
+    for relative, old_bytes in before.items():
+        after = (root / relative).read_bytes()
+        if after == old_bytes:
+            continue
+        changed.append(relative)
+        expected = json.loads(old_bytes)
+        source = next(
+            d
+            for d in expected["statements"]
+            if d["source_file"] == "statements/raw/checking.csv"
+        )
+        row = next(r for r in source["extracted_records"] if r["record_id"] == "C-001")
+        row["review"]["rationale"] = STALE_RATIONALE
+        assert json.loads(after) == expected
+    assert len(changed) == 1 and changed[0].startswith("statements/parsed/")
+
+
+@pytest.mark.parametrize("phase", [None, "review", "stale"])
+def test_shared_verifier_entrypoint_requires_explicit_phase(
+    tmp_path: Path, phase: str | None
+) -> None:
+    suite = PLUGIN.parents[1] / "evals/harbor"
+    arguments = tmp_path / "arguments.txt"
+    interpreter = tmp_path / "python"
+    interpreter.write_text(
+        f"#!/bin/sh\nprintf '%s\\n' \"$@\" > {shlex.quote(str(arguments))}\n"
+    )
+    interpreter.chmod(0o755)
+    script = tmp_path / "verify.sh"
+    script.write_text(
+        (suite / "environment/verify.sh")
+        .read_text()
+        .replace("/opt/verifier/bin/python", str(interpreter))
+    )
+    env = {
+        key: value for key, value in os.environ.items() if key != "AUTO_BEAN_EVAL_PHASE"
+    }
+    if phase is not None:
+        env["AUTO_BEAN_EVAL_PHASE"] = phase
+    result = subprocess.run(
+        ["/bin/bash", str(script)], env=env, capture_output=True, text=True
+    )
+    if phase is None:
+        assert result.returncode != 0
+        assert not arguments.exists()
+    else:
+        assert result.returncode == 0, result.stderr
+        assert arguments.read_text().splitlines() == [
+            "/opt/evals/harbor/verify.py",
+            phase,
+            "--ledger",
+            "/app/ledger",
+            "--plugin",
+            "/opt/auto-bean-marketplace/plugins/auto-bean",
+            "--expected",
+            "/opt/expected.json",
+        ]
+
+
 def test_fixture_regeneration_overwrites_previous_files(tmp_path: Path) -> None:
     raw, root = tmp_path / "raw", tmp_path / "ledger"
     raw_inputs(raw)
@@ -394,6 +516,35 @@ def test_fixture_regeneration_overwrites_previous_files(tmp_path: Path) -> None:
     raw_inputs(raw)
     assert import_ledger(root, PLUGIN, raw) == expected
     assert not (root / "obsolete-result.txt").exists()
+
+
+def test_state_gates_continue_without_hiding_earlier_trace_failure() -> None:
+    from types import SimpleNamespace
+    from harbor.trial.multi_step import MultiStepTrial
+    from harbor.trial.trial import Trial
+    from harbor.models.trial.result import StepResult
+    from harbor.models.verifier.result import VerifierResult
+
+    rewards = [
+        {"reward": 0, "state": 1, "trace": 0},
+        {"reward": 1, "state": 1, "trace": 1},
+    ]
+    for scores in rewards:
+        assert MultiStepTrial._min_reward_failure(scores, {"state": 1.0}) is None
+    assert MultiStepTrial._min_reward_failure({"reward": 1}, {"state": 1.0}) is not None
+    trial = SimpleNamespace(
+        result=SimpleNamespace(
+            step_results=[
+                StepResult(
+                    step_name=str(index), verifier_result=VerifierResult(rewards=scores)
+                )
+                for index, scores in enumerate(rewards)
+            ]
+        )
+    )
+    combined = Trial._aggregate_step_rewards(trial)
+    assert combined is not None
+    assert combined.rewards == {"reward": 0.5, "state": 1, "trace": 0.5}
 
 
 def test_build_metadata_records_current_plugin_without_host_credentials(
@@ -1093,6 +1244,11 @@ def test_trace_and_state_joint_reward(
     assert report["trace_passed"] == has_trace
     assert report["trace_policy"] == policy
     assert (logs / "reward.txt").read_text().strip() == str(1 - wanted)
+    rewards = json.loads((logs / "reward.json").read_text())
+    assert rewards == {"reward": 1 - wanted, "state": 1, "trace": int(has_trace)}
+    from harbor.trial.multi_step import MultiStepTrial
+
+    assert MultiStepTrial._min_reward_failure(rewards, {"state": 1.0}) is None
     assert (logs / "trace-report.json").is_file()
     assert (logs / "report.md").is_file()
     assert report["schema_version"] == 2
@@ -1145,6 +1301,11 @@ def test_report_preserves_passes_and_marks_unexecuted_checks(
     assert "Unreachable requirement" not in json.dumps(report)
     assert report["check_summary"]["trace"]["error"] == 1
     assert (logs / "reward.txt").read_text() == "0\n"
+    rewards = json.loads((logs / "reward.json").read_text())
+    from harbor.trial.multi_step import MultiStepTrial
+
+    assert rewards["state"] == 0
+    assert MultiStepTrial._min_reward_failure(rewards, {"state": 1.0}) is not None
     text = (logs / "report.md").read_text()
     assert "First requirement failed" in text
     assert "Remaining state checks" in text

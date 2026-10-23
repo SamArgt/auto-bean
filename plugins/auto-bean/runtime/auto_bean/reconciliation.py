@@ -11,7 +11,14 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
-from auto_bean.common import WorkflowError, checked_path, digest, workspace
+from auto_bean.common import (
+    WorkflowError,
+    change_report,
+    checked_path,
+    digest,
+    record_changes,
+    workspace,
+)
 from auto_bean.review import (
     ReviewFiles,
     etag,
@@ -883,9 +890,11 @@ def main() -> int:
     parser.add_argument("--price-run")
     parser.add_argument("--stage", choices=("review", "written"), default="written")
     args = parser.parse_args()
-    result = validate_import(
-        args.workspace, args.session, args.stage, price_run_id=args.price_run
-    )
+    with record_changes() as changes:
+        result = validate_import(
+            args.workspace, args.session, args.stage, price_run_id=args.price_run
+        )
+    result.update(change_report(args.workspace, changes))
     print(json.dumps(result, indent=2))
     return 0 if result["state"] == "passed" else 1
 

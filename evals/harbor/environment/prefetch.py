@@ -1,4 +1,4 @@
-"""Prefetch and smoke-test the locked Docling pipeline before timing trials."""
+"""Cache only the models used by the locked default CSV/PDF pipeline."""
 
 import shutil
 import subprocess
@@ -10,7 +10,9 @@ environments = list(
 if len(environments) != 1:
     raise RuntimeError("Expected exactly one extraction runtime")
 binary = environments[0].parent
-subprocess.run([str(binary / "docling-tools"), "models", "download"], check=True)
+# Running the real conversions fetches their required models. The broad models
+# download command also fetches unused code/formula and figure classifiers and
+# duplicates artifacts in a second model cache.
 for path in sorted(Path("/opt/raw-fixtures").iterdir()):
     subprocess.run(
         [
@@ -24,5 +26,5 @@ for path in sorted(Path("/opt/raw-fixtures").iterdir()):
         check=True,
         timeout=120,
     )
-# Keep model cache and uv downloads, but never leak extracted answers into trials.
+# Keep the required model cache, but never leak extracted answers into trials.
 shutil.rmtree("/opt/extraction-smoke")

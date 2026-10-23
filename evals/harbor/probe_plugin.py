@@ -33,6 +33,23 @@ EXPECTED_MCP_TOOLS = {
 }
 
 
+def check_unbound_result(result: dict[str, Any]) -> None:
+    """Check the unbound call contract while allowing extra response metadata."""
+    data = result.get("structuredContent")
+    if (
+        result.get("isError") is not False
+        or not isinstance(data, dict)
+        or data.get("status") != "ok"
+        or data.get("result") != {"binding": None}
+        or data.get("changed_files") != []
+        or data.get("file_sha256") != {}
+    ):
+        raise RuntimeError(
+            "Harmless unbound structured call failed: expected an ok response, "
+            "null binding, and an empty change receipt."
+        )
+
+
 async def probe_mcp(plugin: Path) -> None:
     """Exercise the declared stdio transport without creating a ledger workspace."""
     config = json.loads((plugin / "mcp.json").read_text())["mcpServers"][
@@ -112,11 +129,7 @@ async def probe_mcp(plugin: Path) -> None:
         result = await request(
             4, "tools/call", {"name": "open_import_review", "arguments": {}}
         )
-        if result.get("structuredContent") != {
-            "status": "ok",
-            "result": {"binding": None},
-        }:
-            raise RuntimeError("Harmless unbound structured call failed")
+        check_unbound_result(result)
         print(
             "Local MCP tools, App resource and structured call passed; rendering is tested separately."
         )

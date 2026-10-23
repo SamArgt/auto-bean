@@ -1459,6 +1459,14 @@ def main() -> int:
     write_json(args.logs / "report.json", report)
     write_report_markdown(args.logs / "report.md", report)
     (args.logs / "reward.txt").write_text("1\n" if report["passed"] else "0\n")
+    write_json(
+        args.logs / "reward.json",
+        {
+            "reward": int(report["passed"]),
+            "state": int(report["state_passed"]),
+            "trace": int(report["trace_passed"]),
+        },
+    )
     print(json.dumps(report))
     return 0 if report["passed"] else 1
 

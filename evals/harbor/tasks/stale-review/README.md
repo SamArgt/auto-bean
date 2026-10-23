@@ -86,8 +86,9 @@ No phase may commit or push.
 
 ## Results and source map
 
-- [task.toml](task.toml) uses the final step reward.
-- Each verifier writes `reward.txt`, `report.json`, and a read-only review HTML file.
+- [task.toml](task.toml) averages step rewards and gates the stale turn on `state = 1`.
+- Trace failures reduce the step reward but do not block progression after passed state checks.
+- Each verifier writes `reward.txt`, separate scores in `reward.json`, `report.json`, and a read-only review HTML file.
 - See [shared result paths and limits](../../README.md#inspect-results).
 - [Oracle solution](solution/solve.sh) and [reference helper](solution/stale_reference.py)
   cover the same stale-decision case for explicit control runs.
@@ -99,13 +100,17 @@ The full reward also requires the [trace grader](../../trace.py) to pass in both
 | Step | Skills that must have been read | Commands required in this turn |
 | --- | --- | --- |
 | Review | Import, Process, Query, Categorize | Extraction preparation; Docling for both sources; `bean-query`; review validation; `git status` |
-| Stale | Import | `git status` and current content reads |
+| Stale | Import | `git status` and refreshed evidence for the changed group JSON |
 
 - Read common guidance, the import contract, and parsed, session, and status schemas.
-- Each turn must read the root ledger and import status. Read the workspace
-  marker, workspace `MEMORY.md`, and account directives once in the session.
-- The stale turn must reread both parsed statements after the harness change.
-- Earlier reads cannot satisfy this reread requirement.
+- Check freshness at initial inspection and resumed review. Include the root
+  ledger, import status, workspace marker, workspace `MEMORY.md`, account
+  directives, and both parsed source sections.
+- Reuse unchanged inspected content and known agent edits. Auto Bean change
+  receipts identify tool changes. A new turn alone does not require another read.
+- The harness changes the parsed group JSON outside the agent. Refresh evidence
+  for that file before deciding whether to write. Earlier content that no longer
+  matches cannot satisfy this check. Unchanged files can carry over.
 - The stale turn does not require Write, re-extraction, price fetching, or written validation.
 - State checks still prove that the changed rationale is preserved and financial
   files are unchanged.
