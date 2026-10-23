@@ -134,6 +134,106 @@ def literal_cat_sequence(
     return result if previous_ok == (exit_code == 0) else []
 
 
+def cats_after_search(
+    script: str, cwd: str, output: str, exit_code: int
+) -> list[tuple[tuple[str, ...], str]]:
+    """Recognize cats after one literal rg/head pipeline and passive status calls.
+
+    Only semicolons separate these unconditional commands. The final command
+    must be cat, so its exit status and native cat diagnostics can be checked.
+    Never credit the pipeline, interpret scripts, or accept redirected output.
+    """
+    lexer = shlex.shlex(script, posix=False, punctuation_chars=";&|<>()\n")
+    lexer.whitespace = " \t\r"
+    lexer.whitespace_split = True
+    try:
+        tokens = list(lexer)
+        if any(
+            t in {"&&", "||", "&", "(", ")", ">", ">>", "<", "<<", "\n"} for t in tokens
+        ):
+            return []
+        groups: list[list[str]] = [[]]
+        for token in tokens:
+            if token == ";":
+                groups.append([])
+            else:
+                groups[-1].append(token)
+        prefix = groups.pop(0)
+        if prefix.count("|") != 1 or not groups:
+            return []
+        boundary = prefix.index("|")
+        search = shlex.split(" ".join(prefix[:boundary]))
+        head = shlex.split(" ".join(prefix[boundary + 1 :]))
+        if (
+            search[:2] != ["rg", "-n"]
+            or not readonly_argv(search, cwd)
+            or len(head) != 2
+            or head[0] != "head"
+            or not re.fullmatch(r"-[1-9]\d*", head[1])
+        ):
+            return []
+        cats = []
+        for group in groups:
+            argv = shlex.split(" ".join(group))
+            if argv == ["git", "status", "--short"]:
+                continue
+            if not argv or argv[0] != "cat" or not readonly_argv(argv, cwd):
+                return []
+            cats.append(shlex.join(argv))
+        if not groups[-1] or groups[-1][0] != "cat":
+            return []
+    except ValueError:
+        return []
+    return literal_cat_sequence("; ".join(cats), cwd, output, exit_code)
+
+
+def ends_with_validation(script: str, cwd: str) -> bool:
+    """Require a literal final command, including syntax the parser may skip."""
+    lines = [line for line in script.splitlines() if line.strip()]
+    if not lines:
+        return False
+    try:
+        lexer = shlex.shlex(lines[-1], posix=False, punctuation_chars=";&|<>()")
+        lexer.whitespace_split = True
+        tokens = list(lexer)
+        if any(t in {"||", "|", "&", "(", ")", ">", ">>", "<", "<<"} for t in tokens):
+            return False
+        tail = tokens
+        for index, token in enumerate(tokens):
+            if token in {";", "&&"}:
+                tail = tokens[index + 1 :]
+        argv = shlex.split(" ".join(tail))
+    except ValueError:
+        return False
+    if not argv or argv[0] not in {"sh", "auto_bean", "timeout"}:
+        return False
+    if any("$(" in arg or "`" in arg for arg in argv):
+        return False
+    terminal = shell_commands(script, cwd)
+    return bool(terminal) and operation(
+        Command("", True, terminal[-1][0], terminal[-1][1]), "validate"
+    )
+
+
+def validation_output(output: str) -> dict[str, Any] | None:
+    """Decode the final JSON object, never an earlier printed receipt.
+
+    The caller must first prove a successful final trusted validation command.
+    Its output may follow opaque script output. Trailing prose, truncation,
+    malformed JSON, and an earlier receipt followed by another result fail closed.
+    """
+    if re.search(r"truncated", output, re.I):
+        return None
+    starts = [m.start() for m in re.finditer(r"(?m)^\{", output)]
+    if not starts:
+        return None
+    try:
+        data = json.loads(output[starts[-1] :])
+    except ValueError:
+        return None
+    return data if isinstance(data, dict) and data.get("state") == "passed" else None
+
+
 def snapshot_reader(ledger: Path, plugin: Path) -> Callable[[str], str | None]:
     """Map container paths to verifier-owned plugin files and saved ledger data.
 
@@ -1255,6 +1355,12 @@ def load_commands(
                     argv[2], cwd, item.get("aggregated_output", ""), item["exit_code"]
                 )
             )
+            observed.extend(
+                (command, directory, "native_cat_diagnostics")
+                for command, directory in cats_after_search(
+                    argv[2], cwd, item.get("aggregated_output", ""), item["exit_code"]
+                )
+            )
             if item["exit_code"] == 0:
                 observed.extend(
                     (("python-read", path), cwd, "native_python_read")
@@ -1287,15 +1393,9 @@ def load_commands(
                 )
             # Only a successful, recognized Auto Bean validation may supply a
             # shell result manifest. Echoed JSON and arbitrary Python cannot.
-            if item["exit_code"] == 0 and any(
-                operation(Command("", True, command, directory), "validate")
-                for command, directory, _ in observed
-            ):
-                try:
-                    data = json.loads(item.get("aggregated_output", ""))
-                except (ValueError, TypeError):
-                    continue
-                if not isinstance(data, dict) or data.get("state") != "passed":
+            if item["exit_code"] == 0 and ends_with_validation(argv[2], cwd):
+                data = validation_output(item.get("aggregated_output", ""))
+                if data is None:
                     continue
                 for changed_path, kind in change_manifest(data, contents):
                     if ".." in PurePosixPath(changed_path).parts:

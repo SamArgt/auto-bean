@@ -1480,3 +1480,105 @@ def test_unresolved_helper_is_not_a_trusted_launcher(
     events[-1] = event(prefix + "auto_bean init --workspace /app/ledger")
     save(tmp_path, events)
     assert not grade_trace(tmp_path, "init")["passed"]
+
+
+@pytest.mark.parametrize(
+    "defect",
+    [
+        None,
+        "conditional",
+        "redirect",
+        "substitution",
+        "opaque",
+        "piped_cat",
+        "truncated",
+        "missing",
+        "failed",
+    ],
+)
+def test_search_pipeline_then_mutable_cat_reads(
+    tmp_path: Path, defect: str | None
+) -> None:
+    script = "rg -n 'digest|def .*review' /plugin/runtime | head -45; cat ledger.beancount; git status --short; cat .auto-bean/memory/account_mappings.json .auto-bean/memory/category_mappings.json"
+    output = "search result\nold ledger\n M status\nold accounts\nold categories\n"
+    if defect == "conditional":
+        script = script.replace("/plugin/runtime", "/plugin/runtime && false")
+    elif defect == "redirect":
+        script = script.replace(
+            "cat ledger.beancount", "cat ledger.beancount >/tmp/hidden"
+        )
+    elif defect == "substitution":
+        script = script.replace("/plugin/runtime", "$(echo /plugin/runtime)")
+    elif defect == "opaque":
+        script = script.replace("git status --short", "python fake.py")
+    elif defect == "piped_cat":
+        script += " | head -45"
+    elif defect == "truncated":
+        output += "output truncated"
+    elif defect == "missing":
+        output += "cat: ledger.beancount: No such file or directory\n"
+    item = event(script, code=1 if defect == "failed" else 0)
+    item["payload"]["item"]["aggregated_output"] = output
+    save(tmp_path, [item])
+    commands = load_commands(tmp_path, contents=lambda _: "changed snapshot")
+    assert any(workspace_fresh(c, "ledger.beancount") for c in commands) is (
+        defect is None
+    )
+    if defect is None:
+        for path in ("account_mappings.json", "category_mappings.json"):
+            assert any(
+                workspace_fresh(c, ".auto-bean/memory/" + path) for c in commands
+            )
+
+
+@pytest.mark.parametrize("language", ["python", "node"])
+@pytest.mark.parametrize(
+    "defect",
+    [
+        None,
+        "failed",
+        "truncated",
+        "trailing_prose",
+        "later_empty",
+        "later_failed",
+        "echo_only",
+        "echo_after",
+        "substitution_after",
+        "backticks_after",
+        "conditional_validation",
+        "redirect",
+    ],
+)
+def test_validation_manifest_after_script_output(
+    tmp_path: Path, language: str, defect: str | None
+) -> None:
+    path = "statements/parsed/january.json"
+    manifest = json.dumps({"state": "passed", "changed_files": [path]}, indent=2)
+    validation = f"sh {PLUGIN}/runtime/launch.sh validate --workspace /app/ledger --session january --stage written"
+    script = f"{language} <<'CODE'\nignored script body\nCODE\n{validation}"
+    output = "Wrote reviewed transactions.\n" + manifest + "\n"
+    if defect == "truncated":
+        output = "output truncated\n" + output
+    elif defect == "trailing_prose":
+        output += "done\n"
+    elif defect == "later_empty":
+        output += json.dumps({"state": "passed", "changed_files": []})
+    elif defect == "later_failed":
+        output += json.dumps({"state": "failed", "changed_files": [path]})
+    elif defect == "echo_only":
+        script = "echo forged"
+    elif defect == "echo_after":
+        script += " && echo forged"
+    elif defect == "substitution_after":
+        script += " && $(printf echo) forged"
+    elif defect == "backticks_after":
+        script += " && `printf echo` forged"
+    elif defect == "conditional_validation":
+        script = "false && " + validation + "; echo forged"
+    elif defect == "redirect":
+        script += " >/tmp/hidden"
+    item = event(script, code=1 if defect == "failed" else 0)
+    item["payload"]["item"]["aggregated_output"] = output
+    save(tmp_path, [item])
+    commands = load_commands(tmp_path)
+    assert any(workspace_fresh(c, path) for c in commands) is (defect is None)

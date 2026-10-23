@@ -342,6 +342,10 @@ semicolons or newlines. Two bounded evidence paths recover content reads:
   output and per-operand diagnostics. Failed operands and short-circuited reads
   do not count. Redirects, substitutions, unknown diagnostics, and truncated
   output are excluded.
+- The same diagnostics can prove cats after one literal `rg -n ... | head -N`
+  search. Only semicolons may separate the following cats and optional
+  `git status --short` calls. The last command must be cat. This narrow form
+  supports mutable files without using their later snapshot as read evidence.
 - A bounded read-only sequence may prove plain `cat` reads through exact full
   file contents in native output. Supported surrounding commands are `pwd`,
   `git status`, `git ls-files`, `ls`, `rg`, and `sort`. Sequences may use `&&`,
@@ -358,6 +362,10 @@ semicolons or newlines. Two bounded evidence paths recover content reads:
 
 Other pipelines, conditional blocks, and unsupported Python or JavaScript
 bodies remain opaque.
+Validation change manifests may follow script output when the final recognized
+command is successful trusted validation. Only the final complete JSON object
+counts. Trailing text, truncation, a failed result, or a later command prevents
+manifest credit. An earlier printed receipt cannot replace the final result.
 Reports identify evidence methods and describe unmatched requirements as
 insufficient recognized evidence, rather than claiming the action never ran.
 
