@@ -1000,6 +1000,27 @@ def test_human_correction_requires_separate_approval(tmp_path: Path) -> None:
     import_checks(root, PLUGIN, evidence, expected, "review", explicit_group=False)
     correction_checks(root)
     doc = read_fixture(root / "statements/parsed/january.json")
+    transaction_decisions(doc)["C-001"]["answer"] = "Example Market is Expenses:Food."
+    savings = read_fixture(
+        root / "statements/parsed/january.json", "statements/raw/savings.pdf"
+    )
+    savings["statement_metadata"]["accounts"][0]["review"]["answer"] = (
+        "SAVINGS-TEST maps to Assets:Savings."
+    )
+    write_json(root / "statements/parsed/january.json", savings)
+    write_json(root / "statements/parsed/january.json", doc)
+    correction_checks(root)
+    postings = transaction_decisions(doc)["C-001"]["postings"]
+    food_posting = next(p for p in postings if p["account"] == "Expenses:Food")
+    food_posting["account"] = "Expenses:Bank-Fees"
+    write_json(root / "statements/parsed/january.json", doc)
+    with pytest.raises(AssertionError, match="Wrong corrected transaction category"):
+        correction_checks(root)
+    food_posting["account"] = "Expenses:Food"
+    transaction_decisions(doc)["C-001"]["answer"] = "   "
+    write_json(root / "statements/parsed/january.json", doc)
+    with pytest.raises(WorkflowError, match="nonempty text"):
+        correction_checks(root)
     transaction_decisions(doc)["C-001"].pop("answer")
     write_json(root / "statements/parsed/january.json", doc)
     with pytest.raises(AssertionError, match="human answer"):

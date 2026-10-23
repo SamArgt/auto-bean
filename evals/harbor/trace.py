@@ -27,6 +27,7 @@ class Command:
     cwd: str
     agent_id: str | None = None
     evidence_kind: str = "exit_status"
+    output_complete: bool = True
 
 
 SKILLS = {
@@ -422,11 +423,15 @@ def shell_commands(script: str, cwd: str) -> list[tuple[tuple[str, ...], str]]:
     helper: bool | None = None
     run_only = False
     helper_timeout: str | None = None
+    conditional_variables: set[str] = set()
 
     def substitute(match: re.Match[str]) -> str:
         return variables.get(match[1] or match[2], match[0])
 
     for line in script.splitlines():
+        for key in conditional_variables:
+            variables.pop(key, None)
+        conditional_variables.clear()
         if not line.strip() or line.lstrip().startswith("#"):
             continue
         result = []
@@ -496,6 +501,9 @@ def shell_commands(script: str, cwd: str) -> list[tuple[tuple[str, ...], str]]:
         conditional = False
         for index, group in enumerate(groups):
             if index and separators[index - 1] == ";":
+                for key in conditional_variables:
+                    variables.pop(key, None)
+                conditional_variables.clear()
                 line_result = []
                 conditional = False
             if not group:
@@ -530,9 +538,11 @@ def shell_commands(script: str, cwd: str) -> list[tuple[tuple[str, ...], str]]:
             # assignments into subsequent commands or resolving helper bodies.
             for key, value in [] if prefixed else assignments:
                 if conditional:
-                    variables.pop(key, None)
-                else:
-                    variables[key] = re.sub(r"\$(?:\{(\w+)\}|(\w+))", substitute, value)
+                    # A successful final && operand proves earlier assignments
+                    # ran. Their values must not escape this chain: a later
+                    # semicolon or newline could mask a short-circuited branch.
+                    conditional_variables.add(key)
+                variables[key] = re.sub(r"\$(?:\{(\w+)\}|(\w+))", substitute, value)
             expanded = [
                 value
                 if value in literal_variables
@@ -1014,13 +1024,14 @@ def unchanged_edits(
     return matches
 
 
-def operation(command: Command, name: str, *args: str) -> bool:
+def launcher_arguments(command: Command) -> tuple[str, ...]:
+    """Return arguments only for a recognized installed launcher invocation."""
     argv = command.argv
     # Plain timeout propagates the child's exit status. Options such as
     # --preserve-status, arbitrary wrappers and invalid/zero durations do not count.
     if argv[0] in {"timeout", "/usr/bin/timeout"}:
         if len(argv) < 3 or not re.fullmatch(r"[1-9]\d*(?:\.\d+)?[smhd]?", argv[1]):
-            return False
+            return ()
         argv = argv[2:]
     if argv[0] in {"sh", "bash"} and len(argv) > 2:
         launcher = argv[1]
@@ -1028,14 +1039,54 @@ def operation(command: Command, name: str, *args: str) -> bool:
             path_matches(launcher.removesuffix("/runtime/launch.sh"), root)
             for root in PLUGIN_ROOTS
         ):
-            return False
+            return ()
         tail = argv[2:]
         if tail[:1] == ("run",):
             if tail[1:3] != ("--workspace", "/app/ledger"):
-                return False
+                return ()
             tail = tail[3:]
     else:
+        return ()
+    return tail
+
+
+def ledger_query(command: Command, *, accounts: bool = False) -> bool:
+    """Recognize current, noninteractive queries that inspect ledger columns.
+
+    This is an execution check, not a BQL interpreter. Keep a narrow SELECT
+    surface and leave financial correctness to the independent state checks.
+    """
+    if (
+        not command.current
+        or not command.output_complete
+        or not operation(command, "bean-query", "ledger.beancount")
+    ):
         return False
+    tail = launcher_arguments(command)
+    if (
+        len(tail) != 3
+        or absolute(tail[1], command.cwd) != "/app/ledger/ledger.beancount"
+    ):
+        return False
+    query = tail[2].strip().removesuffix(";")
+    if ";" in query or "--" in query or "/*" in query:
+        return False
+    # Quoted strings and aliases are not inspected ledger columns.
+    query = re.sub(r"'[^']*'|\"[^\"]*\"", "", query)
+    projection = re.split(r"\b(?:FROM|WHERE|GROUP|ORDER|LIMIT)\b", query, flags=re.I)[0]
+    projection = re.sub(r"\bAS\s+\w+", "", projection, flags=re.I)
+    if not re.match(r"^SELECT\s+", projection, re.I):
+        return False
+    columns = (
+        r"account"
+        if accounts
+        else r"account|date|position|balance|narration|payee|meta"
+    )
+    return bool(re.search(rf"\b(?:{columns})\b", projection, re.I))
+
+
+def operation(command: Command, name: str, *args: str) -> bool:
+    tail = launcher_arguments(command)
     if not tail or tail[0] != name:
         return False
     if name == "validate" and "--price-run" in tail:
@@ -1227,6 +1278,11 @@ def load_commands(
                         if meta.get("id", meta.get("session_id")) != root_id
                         else None,
                         evidence_kind,
+                        not bool(
+                            re.search(
+                                r"truncated", item.get("aggregated_output", ""), re.I
+                            )
+                        ),
                     )
                 )
             # Only a successful, recognized Auto Bean validation may supply a
@@ -1378,13 +1434,27 @@ def grade_trace(
             f"reference:{reference}",
             [c for c in commands if plugin_read(c, f"references/{reference}")],
         )
-    files = ["ledger.beancount", ".auto-bean/workspace.json"]
+    files = [".auto-bean/workspace.json"]
+    if phase == "init":
+        files.append("ledger.beancount")
     if phase != "init":
         files += [
             "statements/import-status.yml",
             ".auto-bean/memory/MEMORY.md",
-            "beancount/accounts.beancount",
         ]
+        for relative, accounts in (
+            ("ledger.beancount", False),
+            ("beancount/accounts.beancount", True),
+        ):
+            check(
+                "fresh:account-evidence" if accounts else "fresh:ledger-evidence",
+                [
+                    c
+                    for c in commands
+                    if (c.output_complete and workspace_fresh(c, relative))
+                    or ledger_query(c, accounts=accounts)
+                ],
+            )
     if phase in {"correct", "approve", "stale"}:
         files += (
             parsed_paths

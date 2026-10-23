@@ -263,10 +263,21 @@ flowchart LR
   review or correction, and the decision to write or learn. A new user message
   alone does not require another read. Here, a turn means one user request and
   the agent work that follows it. A workflow phase can contain several turns.
-- Inspect the root ledger, workspace marker, and, for imports, status YAML,
-  workspace `MEMORY.md`, and account directives. Correction, approval, and stale
+- Inspect the workspace marker and, for imports, status YAML,
+  workspace `MEMORY.md`, and relevant ledger/account evidence. Correction, approval, and stale
   review also need the parsed group JSON, including both source sections.
   Approval also needs account and category memory before learning.
+- Full ledger dumps are not required. Bounded `sed` ranges or `rg` matches in
+  the root ledger and account directives can supply content evidence. A current,
+  successful launcher `bean-query ledger.beancount "SELECT ..."` can replace
+  these file reads: select ledger columns, including `account` for account
+  evidence. Filter by relevant accounts, dates or source IDs. Empty query results
+  can establish absence. Help, constant-only queries, hidden/truncated output,
+  unrelated ledgers, failed commands and prior-turn queries do not count.
+  This trace check establishes inspection, not query completeness; independent
+  state checks still enforce the financial outcome. Initialization still requires
+  inspection of the new root ledger. Validation and hashes alone do not count
+  as ledger inspection.
 - Reuse inspected content when it is unchanged. The grader accepts complete
   native read output that matches the saved workspace snapshot. A bare hash
   does not establish that the agent inspected the file.

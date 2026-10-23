@@ -1137,7 +1137,13 @@ def correction_checks(root: Path) -> None:
             decision.get("state") == "confirmed", "Missing resolved inline correction"
         )
         require("approval" not in doc["review"], "Correction was treated as approval")
-        require(decision.get("answer") == value, "Missing inline human answer")
+        answer = decision.get("answer")
+        # Answers preserve user wording. The structured fields below carry the
+        # resolved account; do not require the prose to equal an account name.
+        require(
+            isinstance(answer, str) and bool(answer.strip()),
+            "Missing inline human answer",
+        )
         if raw == SOURCES[0]:
             require(
                 any(p["account"] == value for p in decision["postings"]),

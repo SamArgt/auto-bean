@@ -10,7 +10,7 @@ from typing import Any
 import pytest
 
 from evals.harbor.trace import grade_trace, load_commands, patch_content, shell_commands
-from evals.harbor.trace import snapshot_reader
+from evals.harbor.trace import snapshot_reader, workspace_fresh
 
 PLUGIN = "/tmp/codex-home/plugins/cache/auto-bean/auto-bean/0.2.0"
 START = "2026-10-21T10:00:00Z"
@@ -93,6 +93,105 @@ def test_each_phase_accepts_observed_workflow(tmp_path: Path, phase: str) -> Non
     report = grade_trace(tmp_path, phase)
     assert report["passed"], report
     assert all(check["evidence"] for check in report["checks"])
+
+
+@pytest.mark.parametrize("mode", ["query", "empty_query", "ranges", "matches"])
+def test_targeted_ledger_evidence_without_full_reads(tmp_path: Path, mode: str) -> None:
+    events = passing_events("stale")
+    events[2] = event(
+        "cat .auto-bean/workspace.json statements/import-status.yml .auto-bean/memory/MEMORY.md"
+    )
+    scripts = {
+        "ranges": [
+            "sed -n '1,8p' ledger.beancount",
+            "sed -n '2,4p' beancount/accounts.beancount",
+        ],
+        "matches": [
+            "rg '^include' ledger.beancount",
+            "rg 'open Assets:(Checking|Savings)' beancount/accounts.beancount",
+        ],
+    }.get(
+        mode,
+        [
+            f"sh {PLUGIN}/runtime/launch.sh run --workspace /app/ledger "
+            'bean-query ledger.beancount "SELECT account, sum(position) '
+            "WHERE account ~ 'Assets:(Checking|Savings)' AND date < 2026-02-01 GROUP BY account\""
+        ],
+    )
+    for script in scripts:
+        row = event(script)
+        if mode == "empty_query":
+            row["payload"]["item"]["aggregated_output"] = ""
+        events.append(row)
+    save(tmp_path, events)
+    report = grade_trace(tmp_path, "stale")
+    assert report["passed"], report
+
+
+@pytest.mark.parametrize(
+    "defect",
+    [
+        "failed",
+        "prior",
+        "other_ledger",
+        "help",
+        "constant",
+        "quoted",
+        "alias",
+        "hidden",
+        "masked",
+        "truncated",
+        "hash",
+        "validation",
+        "no_account",
+    ],
+)
+def test_targeted_ledger_evidence_rejects_insufficient_queries(
+    tmp_path: Path, defect: str
+) -> None:
+    events = passing_events("stale")
+    events[2] = event(
+        "cat .auto-bean/workspace.json statements/import-status.yml .auto-bean/memory/MEMORY.md"
+    )
+    launcher = f"sh {PLUGIN}/runtime/launch.sh"
+    query = {
+        "constant": "SELECT 1",
+        "quoted": "SELECT 'account'",
+        "alias": "SELECT 1 AS account",
+        "no_account": "SELECT narration WHERE date = 2026-01-05",
+    }.get(defect, "SELECT account, sum(position) GROUP BY account")
+    script = (
+        f'{launcher} run --workspace /app/ledger bean-query ledger.beancount "{query}"'
+    )
+    if defect == "other_ledger":
+        script = script.replace(
+            "bean-query ledger.beancount", "bean-query other.beancount"
+        )
+    elif defect == "help":
+        script += " --help"
+    elif defect == "hidden":
+        script += " >/dev/null"
+    elif defect == "masked":
+        script += "; true"
+    elif defect == "hash":
+        script = "sha256sum ledger.beancount beancount/accounts.beancount"
+    elif defect == "validation":
+        script = f"{launcher} validate --workspace /app/ledger --session january --stage review"
+    row = event(
+        script,
+        code=1 if defect == "failed" else 0,
+        timestamp="2026-10-21T09:00:00Z" if defect == "prior" else NOW,
+    )
+    if defect == "truncated":
+        row["payload"]["item"]["aggregated_output"] = "Warning: output truncated"
+    events.append(row)
+    save(tmp_path, events)
+    report = grade_trace(tmp_path, "stale")
+    assert not report["passed"]
+    assert any(
+        c["requirement"] == "fresh:account-evidence" and not c["passed"]
+        for c in report["checks"]
+    )
 
 
 def test_runtime_setup_after_readonly_pipeline_counts(tmp_path: Path) -> None:
@@ -896,9 +995,12 @@ def test_literal_cat_prefix_before_launcher_query(
         else "Changed accounts\n",
         "/app/ledger/beancount/opening-balances.beancount": opening,
     }
-    assert grade_trace(tmp_path, "review", contents=contents.get)["passed"] is (
-        defect is None
-    )
+    # Queries can supply account evidence independently. Test the cat evidence
+    # itself so a valid query cannot hide a broken read recognizer.
+    assert any(
+        workspace_fresh(c, "beancount/accounts.beancount")
+        for c in load_commands(tmp_path, contents=contents.get)
+    ) is (defect is None)
 
 
 def test_assignments_survive_semicolons_but_prior_commands_do_not() -> None:
@@ -927,6 +1029,32 @@ def test_command_prefix_environment_does_not_leak_to_later_commands() -> None:
         "/app/ledger",
     )
     assert commands[0][0][1].startswith("$AUTO_BEAN_PLUGIN")
+
+
+@pytest.mark.parametrize("defect", [None, "failed", "semicolon", "newline"])
+def test_launcher_assignment_in_successful_and_chain(
+    tmp_path: Path, defect: str | None
+) -> None:
+    events = passing_events("correct")
+    events = [
+        row
+        for row in events
+        if " bean-query " not in row["payload"]["item"]["command"][2]
+    ]
+    script = (
+        "git status --short && git ls-files statements/raw && "
+        f"AUTO_BEAN_PLUGIN={PLUGIN} && "
+        'sh "$AUTO_BEAN_PLUGIN/runtime/launch.sh" run --workspace /app/ledger '
+        'bean-query ledger.beancount "SELECT account, sum(position) GROUP BY account"'
+    )
+    if defect in {"semicolon", "newline"}:
+        separator = "; " if defect == "semicolon" else "\n"
+        script = script.replace("git status --short", "false").replace(
+            f"{PLUGIN} && ", f"{PLUGIN}{separator}"
+        )
+    events.append(event(script, code=1 if defect == "failed" else 0))
+    save(tmp_path, events)
+    assert grade_trace(tmp_path, "correct")["passed"] is (defect is None)
 
 
 @pytest.mark.parametrize("timeout", ["", "timeout 60 ", "timeout 120 "])
