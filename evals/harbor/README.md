@@ -208,7 +208,7 @@ establish a pass under these versions.
 ```mermaid
 flowchart LR
     A[Native Codex session logs] --> B[Completed command events]
-    B --> C[Skill and reference reads]
+    A --> C[Verified skill injections and reads]
     B --> D[Current-turn reads and commands]
     C --> E[Trace result]
     D --> E
@@ -217,7 +217,7 @@ flowchart LR
     F -->|No| H[Reward 0]
 ```
 
-| Phase | Required skill reads | Required workflow commands in this turn |
+| Phase | Required loaded skills | Required workflow commands in this turn |
 | --- | --- | --- |
 | Init | Init | Plugin launcher `init`; `git status` |
 | Review | Import, Process, Query, Categorize | Extraction preparation; Docling on each source; ledger query; review validation; `git status` |
@@ -227,7 +227,10 @@ flowchart LR
 | Stale | Import | `git status`; current review file reads |
 
 - A skill counts when a successful content-read command opens its installed
-  `SKILL.md`. A skill name in a prompt or final answer does not count.
+  `SKILL.md`, or a native standalone `<skill>` user message supplies its complete
+  body. The injected name, trusted path, and full body must match the verifier's
+  plugin bundle. Altered, clipped, assistant-authored, or unrelated-session
+  messages do not count. A skill name in a prompt or final answer does not count.
 - Common guidance must be read. Import phases also require the import contract
   and parsed, session, and status schemas. Approval adds the memory schema.
 - Skill and reference reads can come from earlier turns in the same session.
@@ -246,8 +249,8 @@ flowchart LR
 - The EUR-only price stage needs no fetch command. State checks validate its
   zero-job result and the saved memory. Stale approval needs no write command.
 
-The reader uses native `CommandExecution` terminal events from the pinned
-Codex CLI, including commands that finish after polling. Successful workflow
+The reader uses native `CommandExecution` terminal events and verified skill
+injections from the pinned Codex CLI, including commands that finish after polling. Successful workflow
 operations require exit code `0`. It never executes submitted shell code.
 Tool-return text, narration, listings, and shell command mentions inside a
 here-document cannot supply execution evidence.
@@ -263,6 +266,9 @@ simple `&&` chains, and positive-duration `timeout` wrappers. It recognizes the
 documented `auto_bean()` helper and equivalent run-only helpers, with or without
 an internal timeout. A helper must be invoked and resolve to the trusted launcher.
 Definitions alone and arbitrary function bodies do not count.
+Git status checks accept literal `-C` directory options when the effective
+directory is `/app/ledger`. Options that redirect Git's repository or configuration
+do not supply this evidence.
 
 A successful final command after a supported read-only pipeline can count.
 The pipeline itself supplies no execution evidence. Literal Python
@@ -278,13 +284,17 @@ semicolons or newlines. Two bounded evidence paths recover content reads:
   output and per-operand diagnostics. Failed operands and short-circuited reads
   do not count. Redirects, substitutions, unknown diagnostics, and truncated
   output are excluded.
-- A read-only `&&` chain of plain `cat`, `git status`, and an optional final
-  `rg -n` may prove reads through exact full file contents in native output.
+- A bounded read-only sequence may prove plain `cat` reads through exact full
+  file contents in native output. Supported surrounding commands are `pwd`,
+  `git status`, `git ls-files`, `ls`, `rg`, and `sort`. Sequences may use `&&`,
+  semicolons, newlines, and passive listing pipelines such as `rg --files | sort`.
   The verifier maps paths to its plugin bundle and ledger snapshot. This can
-  recover successful reads before a search returns no matches. Changed or
-  absent content does not supply this evidence.
+  recover successful reads before a search or directory listing fails. It
+  respects explicit failed cat operands and `&&` short-circuiting. Changed,
+  absent, hidden, or truncated content does not supply this evidence.
 
-Pipelines, conditional blocks, and Python or JavaScript bodies remain opaque.
+Other pipelines, conditional blocks, and unsupported Python or JavaScript
+bodies remain opaque.
 Reports identify evidence methods and describe unmatched requirements as
 insufficient recognized evidence, rather than claiming the action never ran.
 

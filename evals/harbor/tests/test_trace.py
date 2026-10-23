@@ -731,6 +731,256 @@ def test_failed_search_retains_content_proven_prefix_reads(tmp_path: Path) -> No
     assert not grade_trace(tmp_path, "init", contents=contents.get)["passed"]
 
 
+@pytest.mark.parametrize(
+    "script,code",
+    [
+        (
+            "pwd && git status --short && git ls-files statements/raw && "
+            "git ls-files --others --exclude-standard statements/raw && "
+            "cat .auto-bean/workspace.json && ls .auto-bean/import-sessions && "
+            "cat never-reached.json",
+            2,
+        ),
+        (
+            "cat .auto-bean/workspace.json; git status --short; "
+            "git ls-files statements/raw; ls -la statements/raw; cat schema.json",
+            0,
+        ),
+        (
+            "rg --files references | sort; "
+            "cat ledger.beancount .auto-bean/workspace.json; cat schema.json",
+            0,
+        ),
+        ("cat .auto-bean/workspace.json\ngit status --short\nls statements/raw", 0),
+    ],
+)
+def test_snapshot_proves_reads_in_mixed_native_sequences(
+    tmp_path: Path, script: str, code: int
+) -> None:
+    events = passing_events("init")
+    events[2] = event("cat ledger.beancount")
+    recovered = event(script, code=code)
+    recovered["payload"]["item"]["aggregated_output"] = (
+        '/app/ledger\n?? setup.sh\n{\n  "format_version": 1\n}\n'
+        "ls: cannot access '.auto-bean/import-sessions': No such file or directory\n"
+        if code
+        else '{\n  "format_version": 1\n}\nother output\n'
+    )
+    events.append(recovered)
+    save(tmp_path, events)
+    contents = {
+        "/app/ledger/.auto-bean/workspace.json": '{\n  "format_version": 1\n}\n'
+    }
+    report = grade_trace(tmp_path, "init", contents=contents.get)
+    assert report["passed"], report
+    check = next(
+        c
+        for c in report["checks"]
+        if c["requirement"] == "read:.auto-bean/workspace.json"
+    )
+    assert "native_output_content" in check["detail"]
+    assert not grade_trace(tmp_path, "init")["passed"]
+    contents["/app/ledger/.auto-bean/workspace.json"] = "changed snapshot\n"
+    assert not grade_trace(tmp_path, "init", contents=contents.get)["passed"]
+
+
+@pytest.mark.parametrize(
+    "script",
+    [
+        "cat missing && cat .auto-bean/workspace.json; git status --short",
+        "cat missing &&\ncat .auto-bean/workspace.json; git status --short",
+        "cat missing && rg --files . | sort && cat .auto-bean/workspace.json; git status --short",
+        "cat .auto-bean/workspace.json | sort; git status --short",
+        "false && cat .auto-bean/workspace.json; echo marker",
+        "cat .auto-bean/workspace.json >/dev/null; ls",
+        "cat .auto-bean/workspace.json; rg --files --pre malicious .",
+        "cat .auto-bean/workspace.json; sort -o overwritten.txt",
+        "cat .auto-bean/workspace.json; git -c core.fsmonitor=malicious status",
+        "cd /other; cat .auto-bean/workspace.json; ls",
+        "echo 'cat .auto-bean/workspace.json'; ls",
+    ],
+)
+def test_snapshot_output_cannot_prove_skipped_or_opaque_reads(
+    tmp_path: Path, script: str
+) -> None:
+    events = passing_events("init")
+    events[2] = event("cat ledger.beancount")
+    fake = event(script)
+    fake["payload"]["item"]["aggregated_output"] = (
+        'cat: missing: No such file or directory\n{\n  "format_version": 1\n}\n'
+    )
+    events.append(fake)
+    save(tmp_path, events)
+    contents = {
+        "/app/ledger/.auto-bean/workspace.json": '{\n  "format_version": 1\n}\n'
+    }
+    assert not grade_trace(tmp_path, "init", contents=contents.get)["passed"]
+
+
+@pytest.mark.parametrize(
+    "defect", ["truncated", "partial", "failed_operand", "unfinished"]
+)
+def test_mixed_read_requires_complete_terminal_output(
+    tmp_path: Path, defect: str
+) -> None:
+    events = passing_events("init")
+    events[2] = event("cat ledger.beancount")
+    row = event("cat .auto-bean/workspace.json; git status --short")
+    item = row["payload"]["item"]
+    content = '{\n  "format_version": 1\n}\n'
+    item["aggregated_output"] = content
+    if defect == "truncated":
+        item["aggregated_output"] += "100 tokens truncated\n"
+    elif defect == "partial":
+        item["aggregated_output"] = content[:10]
+    elif defect == "failed_operand":
+        item["aggregated_output"] += (
+            "cat: .auto-bean/workspace.json: Permission denied\n"
+        )
+    else:
+        item.update(status="in_progress", exit_code=None)
+    events.append(row)
+    save(tmp_path, events)
+    contents = {"/app/ledger/.auto-bean/workspace.json": content}
+    assert not grade_trace(tmp_path, "init", contents=contents.get)["passed"]
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "git -C /app/ledger status --short --branch",
+        "git --no-pager -C /app/ledger status --short",
+        "git -C . status --porcelain",
+        "git -C /app -C ledger status --short",
+    ],
+)
+def test_git_status_resolves_literal_working_directory(
+    tmp_path: Path, command: str
+) -> None:
+    events = passing_events("init")
+    events[4] = event(command)
+    save(tmp_path, events)
+    assert grade_trace(tmp_path, "init")["passed"]
+    events[4]["payload"]["item"]["exit_code"] = 1
+    save(tmp_path, events)
+    assert not grade_trace(tmp_path, "init")["passed"]
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "git -C /other status --short",
+        "git -C /app/ledger status --help",
+        "git --git-dir /other/.git status --short",
+        "git -c alias.status=malicious status",
+        "echo git -C /app/ledger status",
+    ],
+)
+def test_git_options_cannot_redirect_or_replace_workspace_status(
+    tmp_path: Path, command: str
+) -> None:
+    events = passing_events("init")
+    events[4] = event(command)
+    save(tmp_path, events)
+    assert not grade_trace(tmp_path, "init")["passed"]
+
+
+def skill_message(source: str) -> dict[str, Any]:
+    return {
+        "timestamp": NOW,
+        "type": "response_item",
+        "payload": {
+            "type": "message",
+            "role": "user",
+            "content": [
+                {
+                    "type": "input_text",
+                    "text": (
+                        "<skill>\n<name>auto-bean:auto-bean-import</name>\n"
+                        f"<path>{PLUGIN}/skills/auto-bean-import/SKILL.md</path>\n"
+                        f"{source}\n</skill>"
+                    ),
+                }
+            ],
+        },
+    }
+
+
+@pytest.mark.parametrize("child", [False, True])
+def test_exact_native_skill_injection_counts_as_loaded_skill(
+    tmp_path: Path, child: bool
+) -> None:
+    source = "---\nname: auto-bean-import\n---\nComplete import instructions.\n"
+    events = passing_events("needs-input")
+    events[0] = event(
+        f"cat {PLUGIN}/skills/{{auto-bean-process,auto-bean-query,auto-bean-categorize}}/SKILL.md"
+    )
+    injection = skill_message(source)
+    save(tmp_path, events if child else [injection, *events])
+    if child:
+        save(tmp_path, [injection], child=True)
+    contents = {f"{PLUGIN}/skills/auto-bean-import/SKILL.md": source}
+    report = grade_trace(tmp_path, "needs-input", contents=contents.get)
+    assert report["passed"], report
+    check = next(c for c in report["checks"] if c["requirement"] == "skill:import")
+    assert check["detail"] == "native_skill_injection"
+    assert not grade_trace(tmp_path, "needs-input")["passed"]
+
+
+@pytest.mark.parametrize(
+    "defect",
+    [
+        "changed",
+        "truncated",
+        "wrong_path",
+        "wrong_name",
+        "assistant",
+        "tool_output",
+        "prose",
+        "extra_block",
+        "unrelated",
+    ],
+)
+def test_skill_injection_requires_exact_source_and_native_session(
+    tmp_path: Path, defect: str
+) -> None:
+    source = "---\nname: auto-bean-import\n---\nComplete import instructions.\n"
+    events = passing_events("needs-input")
+    events[0] = event(
+        f"cat {PLUGIN}/skills/{{auto-bean-process,auto-bean-query,auto-bean-categorize}}/SKILL.md"
+    )
+    injection = skill_message(source)
+    block = injection["payload"]["content"][0]
+    if defect == "changed":
+        block["text"] = block["text"].replace("Complete", "Forged")
+    elif defect == "truncated":
+        block["text"] = block["text"].replace(source, source[:15])
+    elif defect == "wrong_path":
+        block["text"] = block["text"].replace(PLUGIN, "/app/ledger/fake")
+    elif defect == "wrong_name":
+        block["text"] = block["text"].replace(
+            "<name>auto-bean:auto-bean-import", "<name>auto-bean:auto-bean-write"
+        )
+    elif defect == "assistant":
+        injection["payload"]["role"] = "assistant"
+    elif defect == "tool_output":
+        injection["payload"]["type"] = "function_call_output"
+    elif defect == "prose":
+        block["text"] = "I loaded this skill:\n" + block["text"]
+    elif defect == "extra_block":
+        injection["payload"]["content"].append({"type": "input_text", "text": "other"})
+    save(tmp_path, [injection, *events] if defect != "unrelated" else events)
+    if defect == "unrelated":
+        path = save(tmp_path, [injection], child=True)
+        path.write_text(
+            path.read_text().replace(
+                '"parent_thread_id": "root"', '"parent_thread_id": "other"'
+            )
+        )
+    contents = {f"{PLUGIN}/skills/auto-bean-import/SKILL.md": source}
+    assert not grade_trace(tmp_path, "needs-input", contents=contents.get)["passed"]
+
+
 def test_failed_cat_operand_does_not_discard_other_semicolon_reads(
     tmp_path: Path,
 ) -> None:

@@ -1,8 +1,9 @@
 """Grade observed plugin use from native Codex command-completion events.
 
 This is trace evidence, not a system-call audit. Never execute submitted code.
-Only the pinned CLI's completed command events count, not prose or tool output
-that merely mentions a command. Unknown shell constructs fail closed.
+Use completed command events and exact skill injections checked against the
+verifier bundle. Prose and command mentions do not count. Unknown shell
+constructs fail closed.
 """
 
 from __future__ import annotations
@@ -169,6 +170,62 @@ def snapshot_reader(ledger: Path, plugin: Path) -> Callable[[str], str | None]:
     return read
 
 
+def git_context(argv: tuple[str, ...], cwd: str) -> tuple[tuple[str, ...], str] | None:
+    """Resolve Git's literal working-directory options without running Git."""
+    if not argv or argv[0] != "git":
+        return None
+    tail = list(argv[1:])
+    while tail:
+        if tail[0] == "--no-pager":
+            tail.pop(0)
+        elif tail[0] == "-C" and len(tail) > 1:
+            cwd = absolute(tail[1], cwd)
+            del tail[:2]
+        else:
+            break
+    if not tail or tail[0].startswith("-"):
+        return None
+    return ("git", *tail), cwd
+
+
+def readonly_argv(argv: list[str], cwd: str) -> bool:
+    """Bound commands surrounding output-proven reads to passive operations."""
+    if not argv or any("$" in arg or "`" in arg or "\n" in arg for arg in argv):
+        return False
+    if argv[0] == "git":
+        normalized = git_context(tuple(argv), cwd)
+        if normalized is None:
+            return False
+        argv = list(normalized[0])
+        if argv[1] == "status":
+            return all(
+                arg in {"--short", "--porcelain", "--branch"} for arg in argv[2:]
+            )
+        if argv[1] == "ls-files":
+            return all(
+                not arg.startswith("-") or arg in {"--others", "--exclude-standard"}
+                for arg in argv[2:]
+            )
+        return False
+    if argv[0] == "cat":
+        return len(argv) > 1 and all(
+            re.fullmatch(r"[A-Za-z0-9_./-]+", arg) and not arg.startswith("-")
+            for arg in argv[1:]
+        )
+    if argv[0] == "pwd":
+        return len(argv) == 1
+    if argv[0] in {"ls", "sort"}:
+        return all(
+            not arg.startswith("-") or (argv[0] == "ls" and arg in {"-l", "-a", "-la"})
+            for arg in argv[1:]
+        )
+    if argv[:2] == ["rg", "--files"]:
+        return all(not arg.startswith("-") for arg in argv[2:])
+    if argv[:2] == ["rg", "-n"]:
+        return len(argv) >= 4 and all(not arg.startswith("-") for arg in argv[2:])
+    return False
+
+
 def observed_cat_reads(
     script: str, cwd: str, output: str, contents: Callable[[str], str | None]
 ) -> list[tuple[tuple[str, ...], str]]:
@@ -179,6 +236,10 @@ def observed_cat_reads(
     credited; snapshots that changed, empty files, or truncated content cannot
     establish a read. Other supported commands only explain surrounding output.
     """
+    if not output or re.search(
+        r"(?:tokens?|characters?|lines?) truncated|output truncated", output, re.I
+    ):
+        return []
     lexer = shlex.shlex(script, posix=False, punctuation_chars=";&|<>()\n")
     lexer.whitespace = " \t\r"
     lexer.whitespace_split = True
@@ -186,45 +247,57 @@ def observed_cat_reads(
         tokens = list(lexer)
     except ValueError:
         return []
-    groups: list[list[str]] = [[]]
+    groups: list[tuple[list[str], str]] = []
+    group: list[str] = []
+    separator = ";"
     for token in tokens:
-        if token == "&&":
-            groups.append([])
-        elif token in {";", "\n", "|", "||", "&", "(", ")", ">", ">>", "<", "<<"}:
+        if token in {"&&", ";", "\n", "|"}:
+            if token == "\n" and not group:
+                continue
+            if not group and token != "\n":
+                return []
+            if group:
+                groups.append((group, separator))
+            group, separator = [], token
+        elif token in {"||", "&", "(", ")", ">", ">>", "<", "<<"}:
             return []
         else:
-            groups[-1].append(token)
+            group.append(token)
+    if group:
+        groups.append((group, separator))
     commands = []
-    for group in groups:
-        if not group:
-            continue
+    for group, separator in groups:
         try:
             argv = shlex.split(" ".join(group))
         except ValueError:
             return []
-        if any("$" in arg or "`" in arg for arg in argv):
+        if not readonly_argv(argv, cwd):
             return []
-        if argv[0] == "cat":
-            if len(argv) < 2 or any(arg.startswith("-") for arg in argv[1:]):
+        commands.append((argv, separator))
+    # Only passive listing pipelines may surround the cats. Piped cat output
+    # needs a separate model for transformations and per-process exit status.
+    for index, (argv, separator) in enumerate(commands):
+        if separator == "|" or (
+            index + 1 < len(commands) and commands[index + 1][1] == "|"
+        ):
+            if argv[0] not in {"rg", "sort", "ls", "pwd"}:
                 return []
-        elif argv[:2] == ["git", "status"]:
-            if any(arg not in {"--short", "--porcelain"} for arg in argv[2:]):
-                return []
-        elif argv[:2] == ["rg", "-n"]:
-            # Exclude pre-processors, config injection and other execution options.
-            if len(argv) < 4 or any(arg.startswith("-") for arg in argv[2:]):
-                return []
-        else:
-            return []
-        commands.append(argv)
-    if any(argv[0] == "rg" for argv in commands[:-1]):
-        return []
     result: list[tuple[tuple[str, ...], str]] = []
     offset = 0
-    for argv in commands:
+    blocked = False
+    for argv, separator in commands:
+        if separator in {";", "\n"}:
+            blocked = False
+        elif blocked:
+            continue
         if argv[0] != "cat":
             continue
         for operand in argv[1:]:
+            if any(
+                line.startswith(f"cat: {operand}: ") for line in output.splitlines()
+            ):
+                blocked = True
+                continue
             path = absolute(operand, cwd)
             content = contents(path)
             if not content or not content.strip():
@@ -234,6 +307,41 @@ def observed_cat_reads(
                 result.append((("cat", path), cwd))
                 offset = index + len(content)
     return result
+
+
+def injected_skill(
+    payload: dict[str, Any], contents: Callable[[str], str | None]
+) -> str | None:
+    """Match a complete native skill message to the verifier-owned source."""
+    if payload.get("type") != "message" or payload.get("role") != "user":
+        return None
+    content = payload.get("content", [])
+    if not isinstance(content, list) or len(content) != 1:
+        return None
+    block = content[0]
+    if not isinstance(block, dict) or block.get("type") != "input_text":
+        return None
+    text = block.get("text")
+    if not isinstance(text, str):
+        return None
+    match = re.fullmatch(
+        r"<skill>\n<name>auto-bean:auto-bean-([a-z-]+)</name>\n"
+        r"<path>([^\n<>]+)</path>\n(.*)\n</skill>",
+        text,
+        re.DOTALL,
+    )
+    if match is None:
+        return None
+    skill, path, body = match.groups()
+    suffix = f"/skills/auto-bean-{skill}/SKILL.md"
+    if not path.endswith(suffix) or not any(
+        path_matches(path.removesuffix(suffix), root) for root in PLUGIN_ROOTS
+    ):
+        return None
+    expected = contents(path)
+    if not expected or body.rstrip("\n") != expected.rstrip("\n"):
+        return None
+    return path
 
 
 def expand_braces(value: str) -> list[str]:
@@ -598,6 +706,8 @@ def read_paths(command: Command) -> list[str]:
     name = PurePosixPath(argv[0]).name
     if name == "python-read" and command.evidence_kind == "native_python_read":
         return list(argv[1:])
+    if name == "skill-injection" and command.evidence_kind == "native_skill_injection":
+        return list(argv[1:])
     if name not in {"cat", "head", "tail", "sed", "jq", "rg", "grep"}:
         return []
     if name in {"rg", "grep"} and any(
@@ -773,6 +883,21 @@ def load_commands(
             continue
         for line_number, event in enumerate(events, 1):
             payload = event.get("payload", {})
+            if event.get("type") == "response_item" and contents:
+                skill_path = injected_skill(payload, contents)
+                if skill_path is not None:
+                    result.append(
+                        Command(
+                            f"{path.relative_to(logs)}:{line_number}:skill-injection",
+                            event["timestamp"] >= boundary,
+                            ("skill-injection", skill_path),
+                            "/app/ledger",
+                            str(meta.get("id", meta.get("session_id")))
+                            if meta.get("id", meta.get("session_id")) != root_id
+                            else None,
+                            "native_skill_injection",
+                        )
+                    )
             if (
                 event.get("type") != "event_msg"
                 or payload.get("type") != "item_completed"
@@ -989,7 +1114,10 @@ def grade_trace(
         [
             c
             for c in current
-            if c.cwd == "/app/ledger" and c.argv[:2] == ("git", "status")
+            if (git := git_context(c.argv, c.cwd)) is not None
+            and git[1] == "/app/ledger"
+            and git[0][:2] == ("git", "status")
+            and not any(arg in git[0][2:] for arg in ("--help", "-h", "--version"))
         ],
     )
     required: list[tuple[str, ...]] = []
