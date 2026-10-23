@@ -748,7 +748,11 @@ def _check_proposals(
 
 
 def validate_import(
-    root: Path, session_id: str | None = None, stage: str = "written"
+    root: Path,
+    session_id: str | None = None,
+    stage: str = "written",
+    *,
+    price_run_id: str | None = None,
 ) -> dict[str, Any]:
     """The single validation operation. Financial correctness never grants approval."""
     result: dict[str, Any] = {
@@ -762,6 +766,8 @@ def validate_import(
     try:
         if stage not in {"review", "written"}:
             invalid("Validation stage must be review or written.")
+        if price_run_id is not None and not session_id:
+            invalid("Price-run validation requires a session.")
         root = workspace(root)
         status = load_state(checked_path(root, "statements/import-status.yml"))
         validate_state("status", root, status)
@@ -780,7 +786,12 @@ def validate_import(
             session = files.read(files.session_path)
             session_status(session, status)
             result["session_id"] = session_id
-            for item in session_members(session):
+            price_runs = session["price_runs"]
+            if price_run_id is not None:
+                price_runs = [r for r in price_runs if r["run_id"] == price_run_id]
+                if len(price_runs) != 1:
+                    invalid("Selected price run does not exist in the session.")
+            for item in [] if price_run_id is not None else session_members(session):
                 source = item["source_file"]
                 try:
                     source_stage = (
@@ -796,7 +807,7 @@ def validate_import(
                     )
                 except (WorkflowError, OSError, ValueError) as error:
                     result["errors"].append(f"{source}: {error}")
-            for group in session["groups"]:
+            for group in [] if price_run_id is not None else session["groups"]:
                 reports = [
                     result["statements"].get(source) for source in group["source_files"]
                 ]
@@ -818,7 +829,7 @@ def validate_import(
                     result["errors"].append(
                         f"{group['group_id']}: done requires written validation for every member."
                     )
-            for run in session["price_runs"]:
+            for run in price_runs:
                 try:
                     report = _validate_prices(files, run["run_id"], stage)
                     result["prices"][run["run_id"]] = report
@@ -869,9 +880,12 @@ def main() -> int:
     )
     parser.add_argument("--workspace", type=Path, required=True)
     parser.add_argument("--session")
+    parser.add_argument("--price-run")
     parser.add_argument("--stage", choices=("review", "written"), default="written")
     args = parser.parse_args()
-    result = validate_import(args.workspace, args.session, args.stage)
+    result = validate_import(
+        args.workspace, args.session, args.stage, price_run_id=args.price_run
+    )
     print(json.dumps(result, indent=2))
     return 0 if result["state"] == "passed" else 1
 

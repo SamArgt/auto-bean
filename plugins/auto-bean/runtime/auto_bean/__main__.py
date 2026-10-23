@@ -19,6 +19,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     validation = commands.add_parser("validate")
     validation.add_argument("--workspace", type=Path, required=True)
     validation.add_argument("--session")
+    validation.add_argument("--price-run")
     validation.add_argument("--stage", choices=("review", "written"), default="written")
     init = commands.add_parser("init")
     init.add_argument("--workspace", type=Path, required=True)
@@ -60,6 +61,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 ]
                 if arguments.session:
                     args.extend(["--session", arguments.session])
+                if arguments.price_run:
+                    args.extend(["--price-run", arguments.price_run])
                 return run_tool(root, "python", args)
             if arguments.action == "run":
                 return run_tool(root, arguments.tool, arguments.args)

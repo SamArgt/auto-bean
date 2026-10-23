@@ -3,17 +3,17 @@ name: auto-bean-import
 description: Import new statements from statements/raw/ or resume unfinished groups in statements/import-status.yml through review, writing and validation.
 ---
 
-Import owns orchestration/status; parsed decisions are the write input. Read [common guidance](../../references/common.md) once. The [contract](../../references/import-review.md) supplies field meanings, schemas and diagrams. The panel supplements conversation.
+Import owns orchestration/status; parsed decisions are the write input. Read [common guidance](../../references/common.md). Use the [contract](../../references/import-review.md) for fields and schemas. The panel supplements chat.
 
 ## Select and process
 
 1. Inspect `statements/import-status.yml` and its saved sessions. Resume unfinished groups and unresolved price runs, approvals or follow-ups, even when all groups are `done`. Keep session/group IDs, parsed files, decisions, answers and completed evidence. Reopen done groups only for explicit rework. Route structural status migration to `$auto-bean:auto-bean-migrate`.
 2. On every pass, scan `statements/raw/` with Git status and tracked/untracked listings for new PDF/CSV/XLSX/XLS sources. Exclude sources already assigned in saved status. New evidence may resolve a blocked group; unrelated sources may progress independently. Report no changes only when neither new sources nor unfinished session work remain; create no empty session.
 3. Honor user groups; otherwise default to one statement per group and combine sources when shared processing helps. Add new groups needed for reconciliation to the active session so linked rows remain in one session. Preserve existing membership unless the user changes it or evidence warrants an explained revision. With multiple possible sessions, resolve the intended assignment. Summarize new or revised groups before dispatch.
-4. Save membership using the [session](../../references/schemas/session.schema.json) and [status](../../references/schemas/status.schema.json) schemas: one workspace-unique group ID, one parsed path and one YAML lifecycle entry per group; each source belongs to one group. Keep per-source fingerprints and retry counts. Check session/status membership and open the review panel, including on resume. If unavailable, report that limitation and use conversation review.
-5. Assign extraction to `$auto-bean:auto-bean-process`. Supply members, session, fingerprints, parsed target, retry state, matching source hints and [ownership context](../../references/common.md#ownership). Process creates the group JSON before extraction and returns per-source outcomes and one group status proposal. Release only complete, trustworthy source sections downstream.
+4. Save membership using the [session](../../references/schemas/session.schema.json) and [status](../../references/schemas/status.schema.json) schemas: one workspace-unique group ID, parsed path and YAML lifecycle entry per group; each source belongs to one group. Keep per-source fingerprints and retry counts. Check session/status membership and open the review panel, including on resume. If unavailable, report it and review in conversation.
+5. Assign extraction to `$auto-bean:auto-bean-process`. Supply members, session, fingerprints, parsed target, retry state, matching source hints and [ownership](../../references/common.md#ownership). Process creates group JSON before extraction and returns per-source outcomes and a group status proposal. Release only complete, trustworthy sources downstream.
 
-Only Import edits lifecycle YAML, using the [status schema](../../references/schemas/status.schema.json). Keep source facts and decisions in the group's parsed `statements` list, membership/groups/prices in the session, and operational pointers/flags in YAML. Do not create per-source lifecycle entries, separate stage documents or transaction copies in the session.
+Only Import edits lifecycle YAML. Keep source facts and decisions in the group's parsed `statements` list, membership/groups/prices in the session, and pointers/flags in YAML. Do not create per-source lifecycle entries, separate stage documents or transaction copies in the session.
 
 Prefer separate processing and categorization workers for substantial work. For small groups or unavailable delegation, run their skills serially in the main thread with the same stage boundaries. Parallel workers use distinct group files; reuse them for follow-ups when available. Never run two stages on one parsed file at once. Broker input while independent work continues; hold affected members and linked transfers. Check saved answers before resolving blockers. Clarification does not grant approval or require a separate stage approval.
 
@@ -45,20 +45,20 @@ Keep partial/interrupted writes at `final_review` or `write_blocked`. Preserve c
 
 ## Prices and Memory
 
-Run or resume `$auto-bean:auto-bean-prices` after the statement pass, including a price-only resume. Reuse existing runs and resolve pending work before starting another fetch. Do not repeat an unchanged completed run. New directives need separate approval and do not reverse completed groups. No required commodity means a structured zero-job `no_op`.
+Run or resume `$auto-bean:auto-bean-prices` after the statement pass, including price-only resumes. Reuse existing runs; resolve pending work before another fetch. Do not repeat unchanged completed runs. Prices validates with `--price-run <id>` to preserve pending statement reports. New directives need separate approval and do not reverse completed groups. No required commodity means a structured zero-job `no_op`.
 
-Finish the pass with `$auto-bean:auto-bean-memory`, supplying workspace, session/parsed paths and approval context. It derives eligible lessons from the artifacts. Apply any returned workspace `MEMORY.md` edits under its main-thread rules and summarize the outcome.
+Finish with `$auto-bean:auto-bean-memory`, supplying workspace, session/parsed paths and approval context. It derives eligible lessons. Apply returned workspace `MEMORY.md` edits under its main-thread rules and report the outcome.
 
 ## Final status block
 
-End responses that hand control back to the user with this block. Omit it from progress updates and in-flight clarification questions.
+End user handoffs with this block. Omit it from progress updates and in-flight clarification questions.
 
 ```markdown
 ---
 
 ## Import Status: <label>
 
-**Summary:** <outcome with useful counts/paths.>
+**Summary:** <outcome, counts/paths.>
 **Next Step:** <one user action, or "None." when Complete.>
 ```
 

@@ -241,15 +241,16 @@ flowchart LR
   Previous review commands cannot satisfy approval checks.
 - Runtime operations must use the plugin launcher or the documented `auto_bean`
   helper. Extraction must target each original source. Validation must name the
-  workspace, session, and required stage.
+  workspace, session, and required stage. A scoped `--price-run` check cannot
+  satisfy statement validation.
 - The EUR-only price stage needs no fetch command. State checks validate its
   zero-job result and the saved memory. Stale approval needs no write command.
 
 The reader uses native `CommandExecution` terminal events from the pinned
 Codex CLI, including commands that finish after polling. Successful workflow
 operations require exit code `0`. It never executes submitted shell code.
-Tool-return text, narration, listings, and command text inside a here-document
-cannot supply execution evidence.
+Tool-return text, narration, listings, and shell command mentions inside a
+here-document cannot supply execution evidence.
 
 Both `subagent.thread_spawn` (CLI 0.163.0) and the older `subagent.spawn`
 parent metadata are recognized. The trace report lists descendant identities
@@ -262,6 +263,13 @@ simple `&&` chains, and positive-duration `timeout` wrappers. It recognizes the
 documented `auto_bean()` helper and equivalent run-only helpers, with or without
 an internal timeout. A helper must be invoked and resolve to the trusted launcher.
 Definitions alone and arbitrary function bodies do not count.
+
+A successful final command after a supported read-only pipeline can count.
+The pipeline itself supplies no execution evidence. Literal Python
+`Path.read_text()` calls can establish file reads in a successful `python -c`
+command or quoted Python here-document, including through the plugin launcher.
+The reader inspects only a known unconditional prefix. It stops at unknown
+calls, mutations, or control flow and never executes the submitted Python.
 
 For general shell calls, later success cannot prove earlier success across
 semicolons or newlines. Two bounded evidence paths recover content reads:

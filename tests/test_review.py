@@ -755,12 +755,20 @@ def test_split_postings_cannot_be_collapsed_even_when_balanced(
     assert validate(store)["state"] == "passed"
 
 
+@pytest.mark.parametrize("price_only", [False, True])
 def test_price_panel_confirmation_does_not_replace_actual_write(
-    review_store: ReviewFiles,
+    review_store: ReviewFiles, price_only: bool
 ) -> None:
     from auto_bean.review import price_material
 
     store = review_store
+
+    def price_report() -> dict[str, Any]:
+        result = reconciliation.validate_import(
+            store.root, store.session_id, price_run_id="fx" if price_only else None
+        )
+        return dict(result["prices"]["fx"])
+
     run = {
         "run_id": "fx",
         "requested_date": "2026-01-31",
@@ -791,43 +799,94 @@ def test_price_panel_confirmation_does_not_replace_actual_write(
     session = store.read(store.session_path)
     session["price_runs"] = [run]
     save(store, store.session_path, session)
-    assert (
-        reconciliation.validate_import(store.root, store.session_id)["prices"]["fx"][
-            "state"
-        ]
-        == "failed"
-    )
+    assert price_report()["state"] == "failed"
+
     session = store.read(store.session_path)
     store.approve_prices("fx", etag(session), price_material(run))
-    assert (
-        reconciliation.validate_import(store.root, store.session_id)["prices"]["fx"][
-            "state"
-        ]
-        == "failed"
-    )
+    assert price_report()["state"] == "failed"
     (store.root / "ledger.beancount").write_text(
         BASE + "\n2026-01-30 price USD 0.92 EUR\n"
     )
-    report = reconciliation.validate_import(store.root, store.session_id)["prices"][
-        "fx"
-    ]
+    report = price_report()
     assert report["state"] == "passed"
     assert report["records_checked"] == 1
-    assert (
-        reconciliation.validate_import(store.root, store.session_id)["prices"]["fx"]
-        == report
-    )
+    assert price_report() == report
     session = store.read(store.session_path)
     run = session["price_runs"][0]
     run["jobs"][0]["directive"] = "2026-01-30 price USD 0.95 EUR"
     save(store, store.session_path, session)
     assert run["approval"]["digest"] != price_material(run)
+    assert price_report()["state"] == "failed"
+
+
+@pytest.mark.parametrize("broken_ledger", [False, True])
+def test_price_only_validation_preserves_blocked_statement_review(
+    review_store: ReviewFiles, broken_ledger: bool
+) -> None:
+    store = review_store
+    doc = complete(store)
+    row = doc["extracted_records"][0]["review"]
+    row.update(state="needs_input", disposition="hold", postings=[])
+    save(store, PARSED, doc)
+    review = validate(store, "review")
+    assert review["state"] == "failed"
+    before = (store.root / PARSED).read_bytes()
+    status_before = (store.root / "statements/import-status.yml").read_bytes()
+    session = store.read(store.session_path)
+    run = {
+        "run_id": "no-prices",
+        "requested_date": "2026-01-31",
+        "state": "no_op",
+        "required_commodities": [],
+        "coverage": [],
+        "preflight": "passed",
+        "preflight_job_count": 0,
+        "jobs": [],
+        "detail": "No required commodities",
+        "execution": {
+            "state": "complete",
+            "exit_code": 0,
+            "duration_seconds": 0,
+            "stderr_summary": "",
+        },
+    }
+    other = dict(run, run_id="other")
+    session["price_runs"] = [run, other]
+    save(store, store.session_path, session)
+    ledger = store.root / "ledger.beancount"
+    if broken_ledger:
+        ledger.write_text(BASE + "\n2026-01-02 balance Assets:Checking 100 EUR\n")
+    ledger_before = ledger.read_bytes()
+    report = reconciliation.validate_import(
+        store.root, store.session_id, price_run_id="no-prices"
+    )
+    assert report["state"] == ("failed" if broken_ledger else "passed"), report
+    assert report["statements"] == report["groups"] == {}
+    assert set(report["prices"]) == {"no-prices"}
+    assert report["prices"]["no-prices"]["stage"] == "written"
+    assert (store.root / PARSED).read_bytes() == before
+    assert (store.root / "statements/import-status.yml").read_bytes() == status_before
+    assert store.read(store.session_path)["price_runs"][1] == other
+    assert ledger.read_bytes() == ledger_before
+    # A normal session check still reports the statement's unresolved decisions.
     assert (
-        reconciliation.validate_import(store.root, store.session_id)["prices"]["fx"][
-            "state"
-        ]
+        reconciliation.validate_import(store.root, store.session_id, "review")["state"]
         == "failed"
     )
+
+
+@pytest.mark.parametrize("session", [None, "test-session"])
+def test_invalid_price_scope_does_not_publish_reports(
+    review_store: ReviewFiles, session: str | None
+) -> None:
+    store = review_store
+    before = (store.root / PARSED).read_bytes()
+    session_before = (store.root / store.session_path).read_bytes()
+    result = reconciliation.validate_import(store.root, session, price_run_id="unknown")
+    assert result["state"] == "failed"
+    assert result["errors"]
+    assert (store.root / PARSED).read_bytes() == before
+    assert (store.root / store.session_path).read_bytes() == session_before
 
 
 def test_document_directive_is_resolved_from_workspace(

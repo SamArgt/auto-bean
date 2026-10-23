@@ -10,6 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Any, Callable
+import ast
 import fnmatch
 import json
 import re
@@ -309,6 +310,13 @@ def shell_commands(script: str, cwd: str) -> list[tuple[tuple[str, ...], str]]:
             continue
         # Conditional branches, pipelines, subshells and substitutions need a
         # shell AST. Do not guess whether a mentioned command actually ran.
+        if "|" in tokens:
+            # A successful final && operand ran even if an earlier read-only
+            # pipeline masks its producer's status. Credit only that suffix.
+            suffix = readonly_pipeline_suffix(tokens)
+            if suffix is not None:
+                result = shell_commands(suffix, cwd)
+            continue
         if any(
             t in {"||", "|", "&", "(", ")", "if", "then", "for", "while"}
             for t in tokens
@@ -414,6 +422,162 @@ def shell_commands(script: str, cwd: str) -> list[tuple[tuple[str, ...], str]]:
     return result
 
 
+def readonly_pipeline_suffix(tokens: list[str]) -> str | None:
+    """Recognize a literal read-only prefix and its final && command."""
+    if "&&" not in tokens:
+        return None
+    boundary = len(tokens) - 1 - tokens[::-1].index("&&")
+    groups: list[list[str]] = [[]]
+    for token in tokens[:boundary]:
+        if token in {"&&", "|"}:
+            groups.append([])
+        else:
+            groups[-1].append(token)
+    for group in groups:
+        try:
+            argv = shlex.split(" ".join(group))
+        except ValueError:
+            return None
+        if not argv or any(
+            re.search(r"[$`\n]", arg) or arg in {";", "||", "&", "(", ")", ">", "<"}
+            for arg in argv
+        ):
+            return None
+        if argv[0] == "rg" and argv[1:2] == ["--files"]:
+            valid = all(not arg.startswith("-") for arg in argv[2:])
+        elif argv[0] == "cat":
+            valid = len(argv) > 1 and all(not arg.startswith("-") for arg in argv[1:])
+        elif argv[0] == "head":
+            valid = len(argv) == 2 and bool(re.fullmatch(r"-[1-9]\d*", argv[1]))
+        elif argv[:2] == ["sed", "-n"]:
+            valid = len(argv) >= 4 and bool(re.fullmatch(r"\d+(?:,\d+)?p", argv[2]))
+            valid = valid and all(not arg.startswith("-") for arg in argv[3:])
+        else:
+            valid = False
+        if not valid:
+            return None
+    return " ".join(tokens[boundary + 1 :])
+
+
+def python_reads(script: str, cwd: str) -> list[str]:
+    """Inspect a safe, unconditional Python prefix; never run submitted code.
+
+    Only literal Path constructors and reads reached through known bindings
+    count. Stop before unknown calls, mutations or control flow. The caller
+    requires a successful native completion of the Python command itself.
+    """
+    match = re.search(r"<<\s*(['\"]?)(\w+)\1\s*\n", script)
+    if match:
+        if not match[1]:
+            return []
+        # No trailing shell command may hide a Python failure.
+        end = re.search(rf"(?m)^{re.escape(match[2])}\s*$", script[match.end() :])
+        if end is None:
+            return []
+        body = script[match.end() : match.end() + end.start()]
+        if script[match.end() + end.end() :].strip():
+            return []
+        header = script[: match.start()].rstrip()
+        commands = shell_commands(header, cwd)
+    else:
+        body = ""
+        commands = shell_commands(script, cwd)
+    if len(commands) != 1:
+        return []
+    argv, directory = commands[-1]
+    if argv[:1] == ("sh",) and len(argv) > 6:
+        launcher = argv[1]
+        if not any(
+            path_matches(launcher, root + "/runtime/launch.sh") for root in PLUGIN_ROOTS
+        ) or argv[2:5] != ("run", "--workspace", "/app/ledger"):
+            return []
+        argv = argv[5:]
+    if argv[:1] not in {("python",), ("python3",)}:
+        return []
+    if match:
+        if argv[1:] != ("-",):
+            return []
+    elif len(argv) == 3 and argv[1] == "-c":
+        body = argv[2]
+    else:
+        return []
+    try:
+        tree = ast.parse(body)
+    except SyntaxError:
+        return []
+    bindings: dict[str, tuple[str, str]] = {}
+    paths: list[str] = []
+
+    def value(node: ast.AST) -> tuple[str, str]:
+        if isinstance(node, ast.Constant) and isinstance(node.value, str):
+            return "text", node.value
+        if isinstance(node, ast.Name) and node.id in bindings:
+            return bindings[node.id]
+        if isinstance(node, ast.Attribute):
+            owner = value(node.value)
+            if (owner, node.attr) == (("module", "pathlib"), "Path"):
+                return "constructor", "Path"
+            if (owner, node.attr) == (("module", "json"), "loads"):
+                return "function", "loads"
+            raise ValueError
+        if isinstance(node, ast.Call):
+            if isinstance(node.func, ast.Attribute) and node.func.attr == "read_text":
+                path = value(node.func.value)
+                if (
+                    path[0] != "path"
+                    or node.args
+                    or any(
+                        k.arg != "encoding" or value(k.value)[0] != "text"
+                        for k in node.keywords
+                    )
+                ):
+                    raise ValueError
+                paths.append(absolute(path[1], directory))
+                return "data", ""
+            function = value(node.func)
+            if node.keywords or len(node.args) != 1:
+                raise ValueError
+            argument = value(node.args[0])
+            if function == ("constructor", "Path") and argument[0] == "text":
+                return "path", argument[1]
+            if function == ("function", "loads") and argument[0] == "data":
+                return "data", ""
+        raise ValueError
+
+    for node in tree.body:
+        try:
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    if alias.name not in {
+                        "pathlib",
+                        "json",
+                        "hashlib",
+                        "datetime",
+                        "copy",
+                    }:
+                        raise ValueError
+                    bindings[alias.asname or alias.name] = "module", alias.name
+            elif isinstance(node, ast.ImportFrom) and node.module == "pathlib":
+                for alias in node.names:
+                    if alias.name != "Path" or node.level:
+                        raise ValueError
+                    bindings[alias.asname or alias.name] = "constructor", "Path"
+            elif isinstance(node, ast.Assign) and all(
+                isinstance(target, ast.Name) for target in node.targets
+            ):
+                assigned = value(node.value)
+                for target in node.targets:
+                    assert isinstance(target, ast.Name)
+                    bindings[target.id] = assigned
+            elif isinstance(node, ast.Expr):
+                value(node.value)
+            else:
+                break
+        except ValueError:
+            break
+    return paths
+
+
 def absolute(path: str, cwd: str) -> str:
     import posixpath
 
@@ -432,6 +596,8 @@ def read_paths(command: Command) -> list[str]:
     """Only content-reading tools count. Listing and output text do not count."""
     argv = command.argv
     name = PurePosixPath(argv[0]).name
+    if name == "python-read" and command.evidence_kind == "native_python_read":
+        return list(argv[1:])
     if name not in {"cat", "head", "tail", "sed", "jq", "rg", "grep"}:
         return []
     if name in {"rg", "grep"} and any(
@@ -514,6 +680,9 @@ def operation(command: Command, name: str, *args: str) -> bool:
     else:
         return False
     if not tail or tail[0] != name:
+        return False
+    if name == "validate" and "--price-run" in tail:
+        # A price-only result cannot establish statement/session validation.
         return False
     if any(arg in tail for arg in ("--help", "-h", "--version")):
         return False
@@ -638,6 +807,11 @@ def load_commands(
                     argv[2], cwd, item.get("aggregated_output", ""), item["exit_code"]
                 )
             )
+            if item["exit_code"] == 0:
+                observed.extend(
+                    (("python-read", path), cwd, "native_python_read")
+                    for path in python_reads(argv[2], cwd)
+                )
             if contents:
                 observed.extend(
                     (command, directory, "native_output_content")

@@ -179,9 +179,15 @@ def test_failed_extraction_preserves_usable_base(
     assert runtime.ensure_runtime(current, plugin=plugin) == base
 
 
-@pytest.mark.parametrize("session", [None, "import-session"])
+@pytest.mark.parametrize(
+    "session,price_run",
+    [(None, None), ("import-session", None), ("import-session", "prices")],
+)
 def test_validation_uses_managed_runtime(
-    current: Path, monkeypatch: pytest.MonkeyPatch, session: str | None
+    current: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    session: str | None,
+    price_run: str | None,
 ) -> None:
     from auto_bean import __main__ as launcher
 
@@ -195,6 +201,8 @@ def test_validation_uses_managed_runtime(
     args = ["validate", "--workspace", str(current), "--stage", "review"]
     if session:
         args.extend(["--session", session])
+    if price_run:
+        args.extend(["--price-run", price_run])
     assert launcher.main(args) == 1  # A failed validation remains a failed command.
     assert calls == [
         (
@@ -208,6 +216,7 @@ def test_validation_uses_managed_runtime(
                 "--stage",
                 "review",
                 *(["--session", session] if session else []),
+                *(["--price-run", price_run] if price_run else []),
             ],
         )
     ]

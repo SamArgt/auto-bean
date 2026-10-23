@@ -93,6 +93,118 @@ def test_each_phase_accepts_observed_workflow(tmp_path: Path, phase: str) -> Non
     assert all(check["evidence"] for check in report["checks"])
 
 
+def test_runtime_setup_after_readonly_pipeline_counts(tmp_path: Path) -> None:
+    events = passing_events("review")
+    setup = next(
+        e for e in events if "ensure-runtime" in e["payload"]["item"]["command"][2]
+    )
+    setup["payload"]["item"]["command"][2] = (
+        "rg --files .auto-bean | head -30 && cat statements/raw/checking.csv && "
+        + setup["payload"]["item"]["command"][2]
+    )
+    save(tmp_path, events)
+    assert grade_trace(tmp_path, "review")["passed"]
+    setup["payload"]["item"]["exit_code"] = 1
+    save(tmp_path, events)
+    assert not grade_trace(tmp_path, "review")["passed"]
+
+
+@pytest.mark.parametrize(
+    "prefix",
+    [
+        "exit 0 | head -30 && ",
+        "rg --files --pre malicious . | head -30 && ",
+        "cd /other | head -30 && ",
+        "rg --files . | head -30; ",
+        "rg --files . | head -30 || ",
+    ],
+)
+def test_pipeline_cannot_prove_skipped_or_relocated_setup(
+    tmp_path: Path, prefix: str
+) -> None:
+    events = passing_events("review")
+    setup = next(
+        e for e in events if "ensure-runtime" in e["payload"]["item"]["command"][2]
+    )
+    setup["payload"]["item"]["command"][2] = (
+        prefix + setup["payload"]["item"]["command"][2]
+    )
+    save(tmp_path, events)
+    assert not grade_trace(tmp_path, "review")["passed"]
+
+
+@pytest.mark.parametrize("managed", [False, True])
+def test_approval_accepts_literal_python_parsed_read(
+    tmp_path: Path, managed: bool
+) -> None:
+    events = passing_events("approve")
+    events[3] = event(
+        "cat .auto-bean/memory/account_mappings.json .auto-bean/memory/category_mappings.json"
+    )
+    python = (
+        f"sh {PLUGIN}/runtime/launch.sh run --workspace /app/ledger python"
+        if managed
+        else "python3"
+    )
+    events.append(
+        event(
+            f"{python} - <<'PY'\n"
+            "import json,pathlib,hashlib\n"
+            "p=pathlib.Path('statements/parsed/january.json'); d=json.loads(p.read_text())\n"
+            "assert d['statements']\nPY"
+        )
+    )
+    save(tmp_path, events)
+    report = grade_trace(tmp_path, "approve")
+    assert report["passed"], report
+    parsed = next(
+        c
+        for c in report["checks"]
+        if c["requirement"] == "read:statements/parsed/january.json"
+    )
+    assert "native_python_read" in parsed["detail"]
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "from pathlib import Path\nif False: Path('statements/parsed/january.json').read_text()",
+        "from pathlib import Path\ndef read(): return Path('statements/parsed/january.json').read_text()",
+        "from pathlib import Path\nPath=lambda _: None\nPath('statements/parsed/january.json').read_text()",
+        "from pathlib import Path\nPath.read_text=lambda _: ''\nPath('statements/parsed/january.json').read_text()",
+        "from pathlib import Path\nraise SystemExit(0)\nPath('statements/parsed/january.json').read_text()",
+        "print(\"Path('statements/parsed/january.json').read_text()\")",
+        "from pathlib import Path\ntry:\n Path('statements/parsed/january.json').read_text()\nexcept: pass",
+    ],
+)
+def test_python_mentions_shadowing_and_control_flow_do_not_prove_reads(
+    tmp_path: Path, body: str
+) -> None:
+    save(tmp_path, [event(f"python - <<'PY'\n{body}\nPY")])
+    assert not any(
+        c.evidence_kind == "native_python_read" for c in load_commands(tmp_path)
+    )
+
+
+@pytest.mark.parametrize("code,trailer", [(1, ""), (0, "\ntrue")])
+def test_python_failure_cannot_be_hidden(
+    tmp_path: Path, code: int, trailer: str
+) -> None:
+    save(
+        tmp_path,
+        [
+            event(
+                "python - <<'PY'\nfrom pathlib import Path\n"
+                "Path('statements/parsed/january.json').read_text()\nPY" + trailer,
+                code=code,
+            )
+        ],
+    )
+    assert not any(
+        c.evidence_kind == "native_python_read" for c in load_commands(tmp_path)
+    )
+
+
 @pytest.mark.parametrize("index", [0, 1, 2, 4, 5])
 def test_missing_skill_reference_read_or_command_fails(
     tmp_path: Path, index: int
@@ -204,7 +316,11 @@ def test_variable_launcher_and_polled_completion(tmp_path: Path) -> None:
 
 
 def test_wrong_validation_stage_and_missing_session_value_fail(tmp_path: Path) -> None:
-    for replacement in ("--stage review written", "--session --stage written"):
+    for replacement in (
+        "--stage review written",
+        "--session --stage written",
+        "--session january --stage written --price-run prices",
+    ):
         events = passing_events("approve")
         events[-1] = event(
             f"sh {PLUGIN}/runtime/launch.sh validate --workspace /app/ledger {replacement}"

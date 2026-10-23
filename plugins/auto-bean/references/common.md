@@ -76,9 +76,12 @@ Use one operation:
 ```sh
 auto_bean validate --workspace "$AUTO_BEAN_WORKSPACE" --session <session-id> --stage review
 auto_bean validate --workspace "$AUTO_BEAN_WORKSPACE" --session <session-id> --stage written
+auto_bean validate --workspace "$AUTO_BEAN_WORKSPACE" --session <session-id> --price-run <run-id> --stage written
 ```
 
 `review` checks import artifact structure, references, complete decisions, proposed postings and the baseline ledger. It does not claim those transactions are written. `written` checks actual source-row coverage, reviewed postings, supporting directives, available closing balances and price results. It is the default stage. The operation generates validation evidence but never grants approval, writes financial entries or advances status.
+
+For a price outcome, use `--price-run <run-id>` with its session. This validates only that price run and the shared ledger. It leaves statement reports and other price-run reports unchanged. Import and Write use session validation without this filter to check statement completion.
 
 For imports, Import owns review validation, Write owns validation after transaction writes, and Prices owns validation after its outcome. Import must pause session/status, parsed and price-run edits plus ledger writes before any session validation, including worker-initiated checks. Resume edits after terminal completion. The command writes generated reports across the session; its locks do not serialize ordinary file edits or panel activity. A concurrent-change error requires a fresh check against stable files.
 
