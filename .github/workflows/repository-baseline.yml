@@ -8,7 +8,10 @@ on:
 
 jobs:
   quality-baseline:
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
 
     steps:
       - name: Check out repository
@@ -23,14 +26,38 @@ jobs:
         uses: astral-sh/setup-uv@v6
 
       - name: Sync development dependencies
-        run: uv sync --group dev
+        run: uv sync --locked --group dev --group eval
+
+      - name: Set up Node for frontend checks
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Verify bundled review UI
+        run: |
+          npm --prefix frontend/import-review ci
+          npm --prefix frontend/import-review run build
+          npm --prefix frontend/import-review test
+          git diff --exit-code -- plugins/auto-bean/ui
+
+      - name: Check runtime lock
+        run: uv lock --project plugins/auto-bean/runtime --check
 
       - name: Ruff
-        run: uv run ruff check src scripts
+        run: uv run ruff check
 
-      # - name: Pytest
-      #   run: uv run pytest
+      - name: Formatting
+        run: uv run ruff format --check
+
+      - name: Pytest
+        run: uv run pytest tests evals/harbor/tests
 
       - name: Mypy
-        run: uv run mypy src scripts
+        run: uv run mypy
+
+      - name: Check plugin package
+        run: uv run python scripts/package_plugin.py --check
+
+      - name: Packaged runtime smoke
+        run: uv run python scripts/smoke_plugin.py
 

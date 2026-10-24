@@ -1,0 +1,16 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "auto-bean-review-probe",
+  "version": "0.1.0",
+  "description": "Synthetic local MCP panel compatibility check; no ledger access.",
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "Auto Bean Review Probe",
+        "shortDescription": "Local panel compatibility",
+        "category": "Productivity",
+        "capabilities": ["Interactive"]
+      }
+    }
+  }
+}

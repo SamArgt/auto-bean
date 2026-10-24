@@ -1,0 +1,27 @@
+# Only explicit inputs to the Harbor images enter the Docker build context.
+**
+!plugins/
+!plugins/auto-bean/
+!plugins/auto-bean/**
+!frontend/
+!frontend/import-review/
+!frontend/import-review/**
+!evals/
+!evals/harbor/
+!evals/harbor/*.py
+!evals/harbor/environment/
+!evals/harbor/environment/**
+!.agents/
+!.agents/plugins/
+!.agents/plugins/marketplace.json
+!evals/harbor/tasks/
+!evals/harbor/tasks/**/
+!evals/harbor/tasks/**/test.sh
+**/.venv/
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/
+**/.DS_Store
+**/__pycache__/
+**/*.pyc
+**/node_modules/

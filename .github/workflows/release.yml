@@ -1,0 +1,57 @@
+name: Release plugin
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --locked --group dev --group eval
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm --prefix frontend/import-review ci
+      - run: npm --prefix frontend/import-review run build
+      - run: npm --prefix frontend/import-review test
+      - run: git diff --exit-code -- plugins/auto-bean/ui
+      - run: uv lock --project plugins/auto-bean/runtime --check
+      - run: uv run ruff check
+      - run: uv run ruff format --check
+      - run: uv run mypy
+      - run: uv run pytest tests evals/harbor/tests
+      - run: uv run python scripts/package_plugin.py --check
+      - run: uv run python scripts/smoke_plugin.py
+
+  release:
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --locked --group dev --group eval
+      - name: Require matching version tag
+        run: |
+          uv run python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          version = json.loads(Path("plugins/auto-bean/plugin.json").read_text())["version"]
+          assert os.environ["GITHUB_REF_NAME"] == "v" + version
+          PY
+      - run: uv run python scripts/package_plugin.py
+      - name: Publish release archive
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/auto-bean-*.zip --verify-tag --generate-notes

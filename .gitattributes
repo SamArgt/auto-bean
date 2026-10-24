@@ -1,0 +1,2 @@
+# Preserve generated dependency template strings in the reproducible UI bundle.
+plugins/auto-bean/ui/bundle.html -whitespace linguist-generated=true

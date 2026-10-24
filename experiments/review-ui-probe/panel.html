@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Auto Bean review compatibility</title>
+<style>
+body { font: 15px system-ui; margin: 24px; color: var(--color-text-primary, #17251d); background: var(--color-background-primary, #fafbf9); }
+button { padding: 10px 16px; margin: 8px 8px 8px 0; cursor: pointer; }
+pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+</style>
+<h1>Import Review Probe</h1>
+<p>Synthetic data only. This probe does not access a ledger.</p>
+<p id="status" role="status">Connecting to the host…</p>
+<button id="read" disabled>Read synthetic session</button>
+<button id="save" disabled>Save test action</button>
+<button id="continue" disabled>Continue this conversation</button>
+<pre id="output"></pre>
+<script type="module">
+let serial = 0;
+const pending = new Map();
+const actionId = crypto.randomUUID();
+const status = document.querySelector('#status');
+const output = document.querySelector('#output');
+function request(method, params) {
+  return new Promise((resolve, reject) => {
+    const id = ++serial;
+    const timer = setTimeout(() => { pending.delete(id); reject(new Error(`${method} timed out`)); }, 15000);
+    pending.set(id, { resolve, reject, timer });
+    window.parent.postMessage({jsonrpc:'2.0', id, method, params}, '*');
+  });
+}
+window.addEventListener('message', event => {
+  if(event.source !== window.parent || event.data?.jsonrpc !== '2.0') return;
+  const reply = pending.get(event.data.id);
+  if(reply) {
+    pending.delete(event.data.id); clearTimeout(reply.timer);
+    event.data.error ? reply.reject(new Error(JSON.stringify(event.data.error))) : reply.resolve(event.data.result);
+  }
+});
+async function run(action) {
+  try { await action(); } catch(error) { status.textContent = String(error); }
+}
+document.querySelector('#read').onclick = () => run(async () => {
+  const result = await request('tools/call', {name:'open_review_probe', arguments:{}});
+  if(result.isError) throw new Error(JSON.stringify(result.content));
+  output.textContent = JSON.stringify(result.structuredContent, null, 2);
+  status.textContent = 'Local session read succeeded.';
+});
+document.querySelector('#save').onclick = () => run(async () => {
+  const result = await request('tools/call', {name:'save_probe_action', arguments:{action_id:actionId}});
+  if(result.isError) throw new Error(JSON.stringify(result.content));
+  output.textContent = JSON.stringify(result.structuredContent, null, 2);
+  status.textContent = 'Synthetic action saved. Continuation can now be tested.';
+  document.querySelector('#continue').disabled = false;
+});
+document.querySelector('#continue').onclick = () => run(async () => {
+  await request('ui/message', {
+    role:'user', content:[{type:'text',text:`Auto-bean local review probe: synthetic action ${actionId} was saved. This is the same-conversation continuation check. Verify the probe result and continue the implementation task.`}],
+    _meta:{'openai/message':{target:'active',send:true}}
+  });
+  status.textContent = 'Continuation accepted by host; verify it arrived in this conversation.';
+});
+await run(async () => {
+  const result = await request('ui/initialize', {
+    protocolVersion:'2026-01-26', appInfo:{name:'auto-bean-review-probe',version:'0.1.0'},
+    appCapabilities:{availableDisplayModes:['fullscreen']}
+  });
+  window.parent.postMessage({jsonrpc:'2.0',method:'ui/notifications/initialized'}, '*');
+  output.textContent = JSON.stringify(result, null, 2);
+  status.textContent = 'Host bridge connected. Test reading and saving next.';
+  document.querySelector('#read').disabled = false;
+  document.querySelector('#save').disabled = false;
+});
+</script>
+</html>

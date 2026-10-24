@@ -1,0 +1,10 @@
+services:
+  main:
+    image: auto-bean-harbor-verifier:local
+    pull_policy: never
+    environment:
+      AUTO_BEAN_EVAL_PHASE: review
+    build:
+      context: ${CONTEXT_DIR}/../../../../../../..
+      dockerfile: evals/harbor/environment/Dockerfile
+      target: verifier

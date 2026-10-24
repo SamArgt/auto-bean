@@ -1,0 +1,6 @@
+interface:
+  display_name: "Migrate Ledger"
+  short_description: "Migrate or validate and refresh a ledger workspace"
+  default_prompt: "Use $auto-bean:auto-bean-migrate to review this workspace, migrate it if needed, update its AGENTS.md guidance, and validate it with the CLI."
+policy:
+  allow_implicit_invocation: true

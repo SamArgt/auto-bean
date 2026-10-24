@@ -1,0 +1,340 @@
+{
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "session_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "groups": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "group_id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+          },
+          "parsed_group": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string",
+            "pattern": "\\S"
+          },
+          "origin": {
+            "enum": [
+              "user",
+              "agent"
+            ]
+          },
+          "source_files": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "uniqueItems": true
+          }
+        },
+        "required": [
+          "group_id",
+          "parsed_group",
+          "name",
+          "origin",
+          "source_files"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "price_runs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "run_id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+          },
+          "requested_date": {
+            "type": "string",
+            "format": "date"
+          },
+          "state": {
+            "enum": [
+              "pending",
+              "running",
+              "complete",
+              "no_op",
+              "failed",
+              "partial"
+            ]
+          },
+          "required_commodities": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "coverage": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "preflight": {
+            "enum": [
+              "pending",
+              "passed",
+              "failed"
+            ]
+          },
+          "preflight_job_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "execution": {
+            "type": "object",
+            "properties": {
+              "state": {
+                "enum": [
+                  "pending",
+                  "running",
+                  "complete",
+                  "timed_out"
+                ]
+              },
+              "exit_code": {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "duration_seconds": {
+                "type": "number",
+                "minimum": 0
+              },
+              "started_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "ended_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "stderr_summary": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "state",
+              "exit_code",
+              "duration_seconds",
+              "stderr_summary"
+            ],
+            "additionalProperties": false
+          },
+          "jobs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "commodity": {
+                  "type": "string"
+                },
+                "source": {
+                  "type": "string"
+                },
+                "requested_date": {
+                  "type": "string",
+                  "format": "date"
+                },
+                "quote_date": {
+                  "type": "string",
+                  "format": "date"
+                },
+                "outcome": {
+                  "enum": [
+                    "emitted",
+                    "redundant",
+                    "skipped",
+                    "failed",
+                    "unaccounted"
+                  ]
+                },
+                "directive": {
+                  "type": "string"
+                },
+                "detail": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "commodity",
+                "source",
+                "requested_date",
+                "outcome"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "detail": {
+            "type": "string"
+          },
+          "approval": {
+            "type": "object",
+            "properties": {
+              "digest": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "approved_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "origin": {
+                "enum": [
+                  "panel"
+                ]
+              }
+            },
+            "required": [
+              "digest",
+              "approved_at",
+              "origin"
+            ],
+            "additionalProperties": false
+          },
+          "validation": {
+            "type": "object",
+            "properties": {
+              "state": {
+                "enum": [
+                  "passed",
+                  "failed"
+                ]
+              },
+              "stage": {
+                "enum": [
+                  "review",
+                  "written"
+                ]
+              },
+              "checked_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "digest": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "ledger_hashes": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                }
+              },
+              "records_checked": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "balances": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "account_id": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+                    },
+                    "date": {
+                      "type": "string",
+                      "format": "date"
+                    },
+                    "currency": {
+                      "type": "string"
+                    },
+                    "expected": {
+                      "type": "string",
+                      "pattern": "^[+-]?(?:[0-9]+(?:\\.[0-9]+)?|\\.[0-9]+)$"
+                    },
+                    "actual": {
+                      "type": "string",
+                      "pattern": "^[+-]?(?:[0-9]+(?:\\.[0-9]+)?|\\.[0-9]+)$"
+                    },
+                    "state": {
+                      "enum": [
+                        "matched",
+                        "mismatch"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "account_id",
+                    "date",
+                    "currency",
+                    "expected",
+                    "actual",
+                    "state"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "errors": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": [
+              "state",
+              "stage",
+              "checked_at",
+              "digest",
+              "ledger_hashes",
+              "records_checked",
+              "balances",
+              "errors"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "run_id",
+          "requested_date",
+          "state",
+          "required_commodities",
+          "coverage",
+          "preflight",
+          "preflight_job_count",
+          "execution",
+          "jobs",
+          "detail"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "schema_version",
+    "session_id",
+    "created_at",
+    "groups",
+    "price_runs"
+  ],
+  "additionalProperties": false,
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://auto-bean.local/schemas/v1/session"
+}

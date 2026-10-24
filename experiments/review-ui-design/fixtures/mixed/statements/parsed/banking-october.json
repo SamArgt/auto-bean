@@ -1,0 +1,100 @@
+{
+  "schema_version": 2,
+  "group_id": "banking",
+  "statements": [
+    {
+      "schema_version": 2,
+      "document_kind": "statement",
+      "extraction_state": "complete",
+      "source_file": "statements/raw/checking-october.csv",
+      "source_fingerprint": "sha256:f5df397877a3841e169b94f43288d485251bd04036ba259d193f73b6bb67a941",
+      "source_format": "csv",
+      "parse_run_id": "fixture-checking",
+      "parser": {
+        "name": "synthetic-design-fixture",
+        "version": "1"
+      },
+      "parsed_at": "2026-10-21T14:00:00Z",
+      "statement_metadata": {
+        "institution_name": "Example Bank",
+        "statement_name": "Everyday account \u2014 October 2026",
+        "account_owner": "Alex Example (synthetic)",
+        "statement_period": {
+          "start_date": "2026-10-01",
+          "end_date": "2026-10-20"
+        },
+        "accounts": [
+          {
+            "account_id": "checking",
+            "account_name": "Everyday account",
+            "primary_currency": "EUR",
+            "opening_balance": {
+              "date": "2026-10-01",
+              "amount": "1200.00",
+              "currency": "EUR"
+            },
+            "review": {
+              "state": "needs_input",
+              "ledger_account": "Assets:Bank:Checking",
+              "rationale": "Confirm the ledger account for this newly discovered source account.",
+              "suggestions": [
+                "Assets:Bank:Checking"
+              ]
+            }
+          }
+        ]
+      },
+      "extracted_records": [],
+      "review": {
+        "processing": {
+          "attempts": 1,
+          "outcome": "complete",
+          "warnings": [],
+          "evidence": [
+            "Synthetic design fixture. No real statement was read."
+          ]
+        }
+      }
+    },
+    {
+      "schema_version": 2,
+      "document_kind": "statement",
+      "extraction_state": "failed",
+      "source_file": "statements/raw/savings-october.csv",
+      "source_fingerprint": "sha256:748ddbdb47785fc9d6a6a58c1d648faaceb4bcc2c764d1b7c9edae69f7443848",
+      "source_format": "csv",
+      "parse_run_id": "fixture-savings",
+      "parser": {
+        "name": "synthetic-design-fixture",
+        "version": "1"
+      },
+      "parsed_at": "2026-10-21T14:00:00Z",
+      "statement_metadata": {
+        "institution_name": "Example Bank",
+        "statement_name": "Savings account \u2014 October 2026",
+        "account_owner": "Alex Example (synthetic)",
+        "statement_period": {
+          "start_date": "2026-10-01",
+          "end_date": "2026-10-20"
+        },
+        "accounts": []
+      },
+      "extracted_records": [],
+      "review": {
+        "processing": {
+          "attempts": 1,
+          "outcome": "failed",
+          "warnings": [],
+          "evidence": [
+            "Synthetic unreadable-source example"
+          ],
+          "needs_input": true,
+          "suggestions": [
+            "Provide an unlocked statement or clarify the account owner."
+          ],
+          "failure_reason": "The statement is encrypted. How should the import proceed?"
+        }
+      }
+    }
+  ]
+}

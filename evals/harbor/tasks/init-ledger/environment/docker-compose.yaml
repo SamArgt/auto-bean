@@ -1,0 +1,7 @@
+services:
+  main:
+    pull_policy: never
+    build:
+      context: ${CONTEXT_DIR}/../../../../..
+      dockerfile: evals/harbor/environment/Dockerfile
+      target: init-ledger

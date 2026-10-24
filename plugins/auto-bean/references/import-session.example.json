@@ -1,0 +1,72 @@
+{
+  "created_at": "2026-10-21T14:00:00Z",
+  "price_runs": [
+    {
+      "approval": {
+        "approved_at": "2026-10-21T14:35:21.958247Z",
+        "digest": "bdc0e794b82d6f6c654180fddd21a1c79c6b9d33db5496ef0c5265807a92bc10",
+        "origin": "panel"
+      },
+      "coverage": [
+        "USD"
+      ],
+      "detail": "Illustrative explicit USD/EUR snapshot. This fixture output is not market data.",
+      "execution": {
+        "duration_seconds": 0.01,
+        "ended_at": "2026-10-21T14:00:00.010Z",
+        "exit_code": 0,
+        "started_at": "2026-10-21T14:00:00Z",
+        "state": "complete",
+        "stderr_summary": "Synthetic fixture output; no network provider contacted."
+      },
+      "jobs": [
+        {
+          "commodity": "USD",
+          "detail": "Synthetic price; prior-day quote retained explicitly.",
+          "directive": "2026-01-30 price USD 0.92 EUR",
+          "outcome": "emitted",
+          "quote_date": "2026-01-30",
+          "requested_date": "2026-01-31",
+          "source": "fixture:usd-eur"
+        }
+      ],
+      "preflight": "passed",
+      "preflight_job_count": 1,
+      "requested_date": "2026-01-31",
+      "required_commodities": [
+        "USD"
+      ],
+      "run_id": "prices-january-31",
+      "state": "complete",
+      "validation": {
+        "balances": [],
+        "checked_at": "2026-10-21T14:35:22.002091Z",
+        "digest": "bdc0e794b82d6f6c654180fddd21a1c79c6b9d33db5496ef0c5265807a92bc10",
+        "errors": [],
+        "ledger_hashes": {
+          "beancount/accounts.beancount": "514ed4997adcb215bf64bc9a117b539538d7ffc3f60a4f90f743b1cd6e95edb7",
+          "beancount/imports.beancount": "80539b8ff48aa5f7d26b50b97d95a0d4a7ab0c95e939a20e9c0a3c7448843c9a",
+          "beancount/opening.beancount": "60c359c51deb4594c113034f7776949161627027e2598869df32bb474392c312",
+          "beancount/prices.beancount": "f2d54fbeb81b75abb4a3b2b510b87ae4042f28f6dee5518558223872f5760490",
+          "ledger.beancount": "1cd3ed3dd316493dcb7563a0ab2af8818bef00bfcd0164a0938836687778cc0f"
+        },
+        "records_checked": 1,
+        "stage": "written",
+        "state": "passed"
+      }
+    }
+  ],
+  "schema_version": 1,
+  "session_id": "january-2026",
+  "groups": [
+    {
+      "group_id": "checking-january",
+      "name": "January checking",
+      "origin": "agent",
+      "source_files": [
+        "statements/raw/checking/jan-2026.pdf"
+      ],
+      "parsed_group": "statements/parsed/checking-jan-2026.json"
+    }
+  ]
+}

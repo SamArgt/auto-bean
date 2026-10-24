@@ -1,0 +1,7 @@
+interface:
+  display_name: "Write Ledger Transactions"
+  short_description: "Draft and review Beancount transactions safely"
+  default_prompt: "Use $auto-bean:auto-bean-write to draft or correct evidenced transactions and present the validated candidate for review."
+
+policy:
+  allow_implicit_invocation: true

@@ -1,0 +1,7 @@
+interface:
+  display_name: "Categorize Statements"
+  short_description: "Categorize and reconcile an assigned statement group"
+  default_prompt: "Use $auto-bean:auto-bean-categorize for the assigned group; return posting proposals, questions, and one group status proposal to import."
+
+policy:
+  allow_implicit_invocation: false

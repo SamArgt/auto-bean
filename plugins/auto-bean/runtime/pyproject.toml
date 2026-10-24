@@ -1,0 +1,33 @@
+[project]
+name = "auto-bean-runtime"
+version = "0.2.0"
+requires-python = ">=3.13,<3.14"
+dependencies = [
+    "beancount>=3,<4",
+    "beanquery>=0.2,<1",
+    "fava>=1,<2",
+    "beanprice>=2,<3",
+    "jsonschema>=4,<5",
+    "pyyaml>=6,<7",
+    "mcp>=1.30,<2",
+]
+
+[project.optional-dependencies]
+extraction = [
+    "docling>=2,<3",
+    "torch",
+    "torchvision",
+]
+
+[tool.uv]
+package = false
+
+# Statement extraction does not require CUDA. Avoid multi-gigabyte Linux GPU runtimes.
+[tool.uv.sources]
+torch = [{ index = "pytorch-cpu", marker = "sys_platform == 'linux'" }]
+torchvision = [{ index = "pytorch-cpu", marker = "sys_platform == 'linux'" }]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true

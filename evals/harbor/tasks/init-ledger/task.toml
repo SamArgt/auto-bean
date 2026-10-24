@@ -1,0 +1,28 @@
+schema_version = "1.4"
+artifacts = [
+  { source = "/app/ledger", exclude = [".auto-bean/runtime", ".auto-bean/tmp"] },
+  "/logs/agent",
+  "/opt/eval-evidence",
+]
+
+[task]
+name = "auto-bean/init-ledger"
+version = "2.2.0"
+
+[metadata]
+category = "financial-workflow"
+description = "Initialize a validated EUR ledger through the installed Codex plugin."
+
+[agent]
+timeout_sec = 600
+
+[verifier]
+timeout_sec = 120
+environment_mode = "separate"
+
+[environment]
+cpus = 2
+memory_mb = 8192
+storage_mb = 20480
+build_timeout_sec = 1800
+workdir = "/app/ledger"

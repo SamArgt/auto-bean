@@ -1,0 +1,11 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Auto Bean · Import review</title><link rel="stylesheet" href="style.css?v=left-navigation"></head>
+<body>
+<header><a class="brand" href="./"><span class="mark">ab</span> auto bean</a><span class="muted">Import review <span class="badge">Prototype</span></span><details class="demo"><summary>Demo settings</summary><label for="stage">Fixture stage</label><select id="stage"><option value="transactions">Transactions</option><option value="accounts">Accounts first</option><option value="mixed">Mixed stages</option></select><p>Fake JSON · saves persist locally</p><p id="notifications">0 simulated notifications</p><a id="fixture" target="_blank" rel="noopener">Session JSON ↗</a></details></header>
+<div class="workspace-layout"><aside class="sidebar"><p class="eyebrow">This import</p><nav aria-label="Review sections"><button data-tab="session" aria-current="page">Session</button><button data-tab="account">Account</button><div id="accountNav" role="group" aria-label="Source accounts"></div><button data-tab="price">Price</button></nav></aside><main><div class="title"><div><p class="eyebrow">October 2026</p><h1>Review import</h1></div><span id="overview" class="muted"></span></div>
+
+<section id="content" aria-live="polite"><p>Loading fixtures…</p></section></main></div>
+<footer><div><strong id="batchStatus">Loading…</strong><small id="batchHelp"></small></div><div class="actions"><button id="inspect">Saved JSON / diffs</button><button id="reset">Reset demo</button><button class="primary" id="send" disabled>Send saved changes to agent</button></div></footer>
+<dialog id="editor"><div id="editorContent"></div><button class="close" id="close" aria-label="Close transaction">×</button></dialog><div id="toast" role="status" hidden></div><script type="module" src="app.mjs?v=left-navigation"></script>
+</body></html>

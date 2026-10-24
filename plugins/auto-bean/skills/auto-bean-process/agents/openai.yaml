@@ -1,0 +1,7 @@
+interface:
+  display_name: "Process Statements"
+  short_description: "Process a statement group into per-source evidence"
+  default_prompt: "Use $auto-bean:auto-bean-process for the assigned group; return normalized evidence and one group status proposal without editing the shared index."
+
+policy:
+  allow_implicit_invocation: false

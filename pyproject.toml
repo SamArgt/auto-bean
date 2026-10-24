@@ -1,60 +1,44 @@
 [project]
-name = "auto-bean"
-version = "0.1.0"
-description = "Local-first coding-agent helpers for operating Beancount ledgers."
-readme = "README.md"
-authors = [
-    { name = "SamArgt", email = "36817478+SamArgt@users.noreply.github.com" }
-]
+name = "auto-bean-dev"
+version = "0.2.0"
+description = "Development tooling for the auto-bean Codex plugin."
 requires-python = ">=3.13,<3.14"
-dependencies = [
-    "beancount",
-    "click>=8.3.1,<9",
-    "fava",
-    "rich>=14,<15",
-]
+dependencies = []
+
+[tool.uv]
+package = false
 
 [dependency-groups]
 dev = [
     "mypy>=1.18.2,<2",
     "pytest>=7.4,<9",
     "ruff>=0.15.2,<0.16",
+    "pyyaml>=6,<7",
+    "types-pyyaml>=6,<7",
+    "jsonschema>=4,<5",
+    "types-jsonschema>=4,<5",
+    "mcp>=1.30,<2",
 ]
-
-[project.scripts]
-auto-bean = "auto_bean:main"
-
-[build-system]
-requires = ["hatchling>=1.27,<2"]
-build-backend = "hatchling.build"
-
-[tool.hatch.build.targets.wheel]
-packages = ["src/auto_bean"]
-
-[tool.hatch.build.targets.wheel.force-include]
-"workspace_template" = "auto_bean/_packaged_assets/workspace_template"
-"skill_sources" = "auto_bean/_packaged_assets/skill_sources"
-
-[tool.hatch.build.targets.sdist]
-include = [
-    "/src",
-    "/tests",
-    "/workspace_template",
-    "/skill_sources",
-    "/README.md",
-    "/LICENSE",
-    "/AGENTS.md",
+eval = [
+    "beancount>=3.2.3",
+    "harbor==0.24.0",
+    "reportlab>=5.0.1",
 ]
 
 [tool.pytest.ini_options]
-pythonpath = ["src"]
+pythonpath = ["plugins/auto-bean/runtime"]
 testpaths = ["tests"]
 
 [tool.mypy]
 python_version = "3.13"
-files = ["src", "tests", "scripts"]
+files = ["plugins/auto-bean/runtime", "tests", "scripts", "evals"]
+mypy_path = ["plugins/auto-bean/runtime", "scripts"]
 strict = true
 warn_unused_ignores = true
+
+[[tool.mypy.overrides]]
+module = ["harbor.*", "reportlab.*", "beancount.*"]
+ignore_missing_imports = true
 
 [tool.ruff]
 target-version = "py313"

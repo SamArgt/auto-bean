@@ -1,0 +1,486 @@
+{
+  "schema_version": 2,
+  "group_id": "banking",
+  "statements": [
+    {
+      "schema_version": 2,
+      "document_kind": "statement",
+      "extraction_state": "complete",
+      "source_file": "statements/raw/checking-october.csv",
+      "source_fingerprint": "sha256:f5df397877a3841e169b94f43288d485251bd04036ba259d193f73b6bb67a941",
+      "source_format": "csv",
+      "parse_run_id": "fixture-checking",
+      "parser": {
+        "name": "synthetic-design-fixture",
+        "version": "1"
+      },
+      "parsed_at": "2026-10-21T14:00:00Z",
+      "statement_metadata": {
+        "institution_name": "Example Bank",
+        "statement_name": "Everyday account \u2014 October 2026",
+        "account_owner": "Alex Example (synthetic)",
+        "statement_period": {
+          "start_date": "2026-10-01",
+          "end_date": "2026-10-20"
+        },
+        "accounts": [
+          {
+            "account_id": "checking",
+            "account_name": "Everyday account",
+            "primary_currency": "EUR",
+            "opening_balance": {
+              "date": "2026-10-01",
+              "amount": "1200.00",
+              "currency": "EUR"
+            },
+            "closing_balance": {
+              "date": "2026-10-20",
+              "amount": "1376.21",
+              "currency": "EUR"
+            },
+            "review": {
+              "state": "confirmed",
+              "ledger_account": "Assets:Bank:Checking",
+              "rationale": "Synthetic source account mapped to its matching fixture ledger account."
+            }
+          }
+        ]
+      },
+      "extracted_records": [
+        {
+          "record_id": "alex",
+          "account_id": "checking",
+          "transaction_date": "2026-10-18",
+          "description": "Transfer to Alex",
+          "amount": "-120.00",
+          "currency": "EUR",
+          "source_reference": "row:2",
+          "raw_fields": {
+            "reference": "TRANSFER TO ALEX"
+          },
+          "review": {
+            "state": "needs_input",
+            "disposition": "hold",
+            "postings": [
+              {
+                "account": "Assets:Bank:Checking",
+                "amount": "-120.00",
+                "currency": "EUR"
+              },
+              {
+                "account": "Expenses:Dining",
+                "amount": "120.00",
+                "currency": "EUR"
+              }
+            ],
+            "rationale": "Is this a shared expense or a transfer to another account?",
+            "suggestions": [
+              "Shared expense (dining)",
+              "Transfer to another account I own"
+            ]
+          }
+        },
+        {
+          "record_id": "save-out",
+          "account_id": "checking",
+          "transaction_date": "2026-10-17",
+          "description": "Move to savings",
+          "amount": "-500.00",
+          "currency": "EUR",
+          "source_reference": "row:3",
+          "raw_fields": {
+            "reference": "SAVE-1017"
+          },
+          "review": {
+            "state": "confirmed",
+            "disposition": "paired_transfer",
+            "postings": [
+              {
+                "account": "Assets:Bank:Checking",
+                "amount": "-500.00",
+                "currency": "EUR"
+              },
+              {
+                "account": "Assets:Bank:Savings",
+                "amount": "500.00",
+                "currency": "EUR"
+              }
+            ],
+            "rationale": "Both statement rows match by amount, currency and reference. They describe one shared ledger transaction.",
+            "findings": [
+              "likely_transfer"
+            ],
+            "posting_owner": "statements/raw/checking-october.csv",
+            "linked_records": [
+              {
+                "source_file": "statements/raw/savings-october.csv",
+                "account_id": "savings",
+                "record_id": "save-in"
+              }
+            ]
+          }
+        },
+        {
+          "record_id": "market",
+          "account_id": "checking",
+          "transaction_date": "2026-10-16",
+          "description": "March\u00e9 du quartier",
+          "amount": "-64.80",
+          "currency": "EUR",
+          "source_reference": "row:4",
+          "raw_fields": {
+            "reference": "MARCH\u00c9 DU QUARTIER"
+          },
+          "review": {
+            "state": "confirmed",
+            "disposition": "post",
+            "postings": [
+              {
+                "account": "Assets:Bank:Checking",
+                "amount": "-64.80",
+                "currency": "EUR"
+              },
+              {
+                "account": "Expenses:Food:Groceries",
+                "amount": "64.80",
+                "currency": "EUR"
+              }
+            ],
+            "rationale": "Matched the grocery category used for this merchant."
+          }
+        },
+        {
+          "record_id": "salary",
+          "account_id": "checking",
+          "transaction_date": "2026-10-15",
+          "description": "Monthly salary",
+          "amount": "2400.00",
+          "currency": "EUR",
+          "source_reference": "row:5",
+          "raw_fields": {
+            "reference": "MONTHLY SALARY"
+          },
+          "review": {
+            "state": "confirmed",
+            "disposition": "post",
+            "postings": [
+              {
+                "account": "Assets:Bank:Checking",
+                "amount": "2400.00",
+                "currency": "EUR"
+              },
+              {
+                "account": "Income:Salary",
+                "amount": "-2400.00",
+                "currency": "EUR"
+              }
+            ],
+            "rationale": "Matched the recurring salary payment."
+          }
+        },
+        {
+          "record_id": "broker-out",
+          "account_id": "checking",
+          "transaction_date": "2026-10-12",
+          "description": "Fund brokerage",
+          "amount": "-300.00",
+          "currency": "EUR",
+          "source_reference": "row:6",
+          "raw_fields": {
+            "reference": "INVEST-1012"
+          },
+          "review": {
+            "state": "confirmed",
+            "disposition": "paired_transfer",
+            "postings": [
+              {
+                "account": "Assets:Bank:Checking",
+                "amount": "-300.00",
+                "currency": "EUR"
+              },
+              {
+                "account": "Assets:Broker:Cash",
+                "amount": "300.00",
+                "currency": "EUR"
+              }
+            ],
+            "rationale": "Both statement rows match by amount, currency and reference. They describe one shared ledger transaction.",
+            "findings": [
+              "likely_transfer"
+            ],
+            "posting_owner": "statements/raw/checking-october.csv",
+            "linked_records": [
+              {
+                "source_file": "statements/raw/brokerage-october.csv",
+                "account_id": "brokerage",
+                "record_id": "broker-in"
+              }
+            ]
+          }
+        },
+        {
+          "record_id": "rent",
+          "account_id": "checking",
+          "transaction_date": "2026-10-05",
+          "description": "Apartment rent",
+          "amount": "-1100.00",
+          "currency": "EUR",
+          "source_reference": "row:7",
+          "raw_fields": {
+            "reference": "APARTMENT RENT"
+          },
+          "review": {
+            "state": "confirmed",
+            "disposition": "post",
+            "postings": [
+              {
+                "account": "Assets:Bank:Checking",
+                "amount": "-1100.00",
+                "currency": "EUR"
+              },
+              {
+                "account": "Expenses:Housing:Rent",
+                "amount": "1100.00",
+                "currency": "EUR"
+              }
+            ],
+            "rationale": "Matched the recurring monthly rent."
+          }
+        },
+        {
+          "record_id": "transport",
+          "account_id": "checking",
+          "transaction_date": "2026-10-03",
+          "description": "City transport",
+          "amount": "-86.40",
+          "currency": "EUR",
+          "source_reference": "row:8",
+          "raw_fields": {
+            "reference": "CITY TRANSPORT"
+          },
+          "review": {
+            "state": "confirmed",
+            "disposition": "post",
+            "postings": [
+              {
+                "account": "Assets:Bank:Checking",
+                "amount": "-86.40",
+                "currency": "EUR"
+              },
+              {
+                "account": "Expenses:Transport",
+                "amount": "86.40",
+                "currency": "EUR"
+              }
+            ],
+            "rationale": "Matched the monthly transport pass."
+          }
+        },
+        {
+          "record_id": "split",
+          "account_id": "checking",
+          "transaction_date": "2026-10-02",
+          "description": "Dinner & shared groceries",
+          "amount": "-52.59",
+          "currency": "EUR",
+          "source_reference": "row:9",
+          "raw_fields": {
+            "reference": "CB CAFE & MARKET / RECEIPT 0206"
+          },
+          "review": {
+            "state": "confirmed",
+            "disposition": "post",
+            "postings": [
+              {
+                "account": "Assets:Bank:Checking",
+                "amount": "-52.59",
+                "currency": "EUR"
+              },
+              {
+                "account": "Expenses:Dining",
+                "amount": "32.59",
+                "currency": "EUR"
+              },
+              {
+                "account": "Expenses:Food:Groceries",
+                "amount": "20.00",
+                "currency": "EUR"
+              }
+            ],
+            "rationale": "Receipt splits 32.59 EUR for dining and 20.00 EUR for shared groceries."
+          }
+        }
+      ],
+      "review": {
+        "processing": {
+          "attempts": 1,
+          "outcome": "complete",
+          "warnings": [],
+          "evidence": [
+            "Synthetic design fixture. No real statement was read."
+          ]
+        }
+      }
+    },
+    {
+      "schema_version": 2,
+      "document_kind": "statement",
+      "extraction_state": "complete",
+      "source_file": "statements/raw/savings-october.csv",
+      "source_fingerprint": "sha256:748ddbdb47785fc9d6a6a58c1d648faaceb4bcc2c764d1b7c9edae69f7443848",
+      "source_format": "csv",
+      "parse_run_id": "fixture-savings",
+      "parser": {
+        "name": "synthetic-design-fixture",
+        "version": "1"
+      },
+      "parsed_at": "2026-10-21T14:00:00Z",
+      "statement_metadata": {
+        "institution_name": "Example Bank",
+        "statement_name": "Savings account \u2014 October 2026",
+        "account_owner": "Alex Example (synthetic)",
+        "statement_period": {
+          "start_date": "2026-10-01",
+          "end_date": "2026-10-20"
+        },
+        "accounts": [
+          {
+            "account_id": "savings",
+            "account_name": "Savings account",
+            "primary_currency": "EUR",
+            "opening_balance": {
+              "date": "2026-10-01",
+              "amount": "5000.00",
+              "currency": "EUR"
+            },
+            "closing_balance": {
+              "date": "2026-10-20",
+              "amount": "5502.20",
+              "currency": "EUR"
+            },
+            "review": {
+              "state": "confirmed",
+              "ledger_account": "Assets:Bank:Savings",
+              "rationale": "Synthetic source account mapped to its matching fixture ledger account."
+            }
+          }
+        ]
+      },
+      "extracted_records": [
+        {
+          "record_id": "interest",
+          "account_id": "savings",
+          "transaction_date": "2026-10-20",
+          "description": "Interest after withholding",
+          "amount": "4.20",
+          "currency": "EUR",
+          "source_reference": "row:2",
+          "raw_fields": {
+            "reference": "INTEREST OCT / GROSS 6.00 TAX 1.80"
+          },
+          "review": {
+            "state": "confirmed",
+            "disposition": "post",
+            "postings": [
+              {
+                "account": "Assets:Bank:Savings",
+                "amount": "4.20",
+                "currency": "EUR"
+              },
+              {
+                "account": "Expenses:Tax:Withholding",
+                "amount": "1.80",
+                "currency": "EUR"
+              },
+              {
+                "account": "Income:Interest",
+                "amount": "-6.00",
+                "currency": "EUR"
+              }
+            ],
+            "rationale": "6.00 EUR gross interest less 1.80 EUR withholding tax; 4.20 EUR credited."
+          }
+        },
+        {
+          "record_id": "fee",
+          "account_id": "savings",
+          "transaction_date": "2026-10-19",
+          "description": "Savings service fee",
+          "amount": "-2.00",
+          "currency": "EUR",
+          "source_reference": "row:3",
+          "raw_fields": {
+            "reference": "SAVINGS SERVICE FEE"
+          },
+          "review": {
+            "state": "confirmed",
+            "disposition": "post",
+            "postings": [
+              {
+                "account": "Assets:Bank:Savings",
+                "amount": "-2.00",
+                "currency": "EUR"
+              },
+              {
+                "account": "Expenses:Bank:Fees",
+                "amount": "2.00",
+                "currency": "EUR"
+              }
+            ],
+            "rationale": "Monthly service fee shown on the statement."
+          }
+        },
+        {
+          "record_id": "save-in",
+          "account_id": "savings",
+          "transaction_date": "2026-10-17",
+          "description": "Transfer from everyday",
+          "amount": "500.00",
+          "currency": "EUR",
+          "source_reference": "row:4",
+          "raw_fields": {
+            "reference": "SAVE-1017"
+          },
+          "review": {
+            "state": "confirmed",
+            "disposition": "paired_transfer",
+            "postings": [
+              {
+                "account": "Assets:Bank:Checking",
+                "amount": "-500.00",
+                "currency": "EUR"
+              },
+              {
+                "account": "Assets:Bank:Savings",
+                "amount": "500.00",
+                "currency": "EUR"
+              }
+            ],
+            "rationale": "Both statement rows match by amount, currency and reference. They describe one shared ledger transaction.",
+            "findings": [
+              "likely_transfer"
+            ],
+            "posting_owner": "statements/raw/checking-october.csv",
+            "linked_records": [
+              {
+                "source_file": "statements/raw/checking-october.csv",
+                "account_id": "checking",
+                "record_id": "save-out"
+              }
+            ]
+          }
+        }
+      ],
+      "review": {
+        "processing": {
+          "attempts": 1,
+          "outcome": "complete",
+          "warnings": [],
+          "evidence": [
+            "Synthetic design fixture. No real statement was read."
+          ]
+        }
+      }
+    }
+  ]
+}

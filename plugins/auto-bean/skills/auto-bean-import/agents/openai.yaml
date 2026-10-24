@@ -1,0 +1,7 @@
+interface:
+  display_name: "Import Statements"
+  short_description: "Run the full statement import workflow"
+  default_prompt: "Use $auto-bean:auto-bean-import to discover new statements and resume groups or price follow-ups, with coordinated processing, review and ledger writes."
+
+policy:
+  allow_implicit_invocation: true

@@ -1,7 +1,8 @@
 # BMAD Method
-.agents/
-!workspace_template/.agents/
-!workspace_template/.agents/**
+/.agents/*
+!/.agents/plugins/
+/.agents/plugins/*
+!/.agents/plugins/marketplace.json
 _bmad/
 
 # Byte-compiled / optimized / DLL files
@@ -12,9 +13,7 @@ __pycache__/
 # Environments
 .env
 .venv
-.auto-bean/
-!workspace_template/.auto-bean/
-!workspace_template/.auto-bean/**
+/.auto-bean/
 
 # Distribution / packaging
 .Python
@@ -56,4 +55,8 @@ coverage.xml
 
 .mypy_cache/
 .ruffle_cache/
+.ruff_cache/
 .DS_Store
+
+# Frontend development dependencies
+node_modules/
