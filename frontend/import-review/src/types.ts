@@ -107,6 +107,7 @@ export type Transaction = {
     findings?: string[];
     disposition: string;
     existing_transaction?: { path: string; line: number };
+    posting_owner?: string;
     linked_records?: {
       source_file: string;
       account_id: string;

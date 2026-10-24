@@ -19,6 +19,7 @@ export function TextEdit({
   value,
   etag,
   suggestions = [],
+  choices = [],
   disabled,
   allowConfirm = false,
   saveLabel = "Save correction",
@@ -29,6 +30,7 @@ export function TextEdit({
   value: string;
   etag: string;
   suggestions?: string[];
+  choices?: string[];
   disabled: boolean;
   allowConfirm?: boolean;
   saveLabel?: string;
@@ -37,10 +39,12 @@ export function TextEdit({
 }) {
   const [edit, setEdit] = useState<string | null>(null),
     [base, setBase] = useState(etag);
+  const [custom, setCustom] = useState(false);
   const dirty = edit !== null;
   useDraft(dirty);
   return (
     <form
+      className={choices.length ? "choice-form" : undefined}
       onSubmit={async (e) => {
         e.preventDefault();
         const submitted = edit ?? value;
@@ -48,10 +52,53 @@ export function TextEdit({
           setEdit((current) => (current === submitted ? null : current));
       }}
     >
-      <label>
+      {choices.length > 0 && (
+        <label className="choice-options">
+          {label} suggestions
+          <select
+            aria-label={`${label} choices`}
+            disabled={disabled}
+            value={
+              custom || (edit !== null && !choices.includes(edit))
+                ? "__custom"
+                : (edit ?? "")
+            }
+            onChange={(e) => {
+              if (!dirty) setBase(etag);
+              const value = e.target.value;
+              setCustom(value === "__custom");
+              setEdit(value === "__custom" ? "" : value);
+            }}
+          >
+            <option value="" disabled>
+              Choose a suggestion
+            </option>
+            {choices.map((choice) => (
+              <option key={choice} value={choice}>
+                {choice}
+              </option>
+            ))}
+            <option value="__custom">Something else</option>
+          </select>
+        </label>
+      )}
+      <label
+        className="choice-custom"
+        hidden={
+          choices.length > 0 &&
+          !custom &&
+          (edit === null || choices.includes(edit))
+        }
+      >
         {label}
         <input
           aria-label={label}
+          disabled={disabled}
+          placeholder={
+            choices.length
+              ? "Choose a suggestion or enter a correction"
+              : undefined
+          }
           value={edit ?? value}
           onFocus={() => onSearch?.(edit ?? value)}
           onChange={(e) => {
@@ -65,6 +112,7 @@ export function TextEdit({
         <select
           aria-label={`${label} suggestions`}
           value=""
+          disabled={disabled}
           onChange={(e) => {
             if (!dirty) setBase(etag);
             setEdit(e.target.value);
@@ -88,19 +136,35 @@ export function TextEdit({
       )}
       <div className="actions">
         <button
+          className={choices.length ? "primary" : undefined}
           disabled={
             disabled || (!dirty && !allowConfirm) || !(edit ?? value).trim()
           }
           type="submit"
         >
-          {allowConfirm && !dirty ? "Confirm mapping" : saveLabel}
+          {allowConfirm && !dirty
+            ? "Confirm mapping"
+            : choices.length &&
+                !custom &&
+                (edit === null || choices.includes(edit))
+              ? "Save choice"
+              : saveLabel}
         </button>
         {dirty && (
-          <button type="button" onClick={() => setEdit(null)}>
+          <button
+            type="button"
+            onClick={() => {
+              setEdit(null);
+              setCustom(false);
+            }}
+          >
             Discard edit
           </button>
         )}
       </div>
+      {choices.length > 0 && value && edit === null && (
+        <p className="saved-answer">Saved answer: {value}</p>
+      )}
     </form>
   );
 }
@@ -110,8 +174,12 @@ export function TransactionCard({
   disabled,
   onSave,
   onAnswer,
+  onLink,
+  navigationDisabled = false,
 }: {
   row: Transaction;
+  onLink?: (source: string, account: string, record: string) => void;
+  navigationDisabled?: boolean;
   etag: string;
   disabled: boolean;
   onSave: (p: Posting[], r: string) => Promise<boolean>;
@@ -136,6 +204,9 @@ export function TransactionCard({
         </strong>{" "}
         · {r.account_id}
       </p>
+      <p className="rationale">
+        {d?.rationale ?? "Rationale is not available yet."}
+      </p>
       <p>{d ? readable(d.disposition) : "Categorization pending"}</p>
       {d?.postings.map((p, i) => (
         <p key={i}>
@@ -152,7 +223,7 @@ export function TransactionCard({
         <p>
           {r.source_reference} · {r.record_id}
         </p>
-        <p>{d?.rationale ?? "Unavailable"}</p>
+
         <p>{d?.findings?.map(readable).join(", ")}</p>
         {d?.existing_transaction && (
           <div>
@@ -164,20 +235,24 @@ export function TransactionCard({
         )}
         {d?.linked_records?.map((l, i) => (
           <p key={i}>
-            {filename(l.source_file)} · {l.account_id} · {l.record_id}
+            {onLink ? (
+              <button
+                disabled={navigationDisabled}
+                onClick={() => onLink(l.source_file, l.account_id, l.record_id)}
+              >
+                Follow transfer · {filename(l.source_file)} · {l.account_id}
+              </button>
+            ) : (
+              `${filename(l.source_file)} · ${l.account_id}`
+            )}{" "}
+            · {l.record_id}
           </p>
         ))}
       </details>
-      {d?.suggestions?.length ? (
-        <ul>
-          {d.suggestions.map((suggestion) => (
-            <li key={suggestion}>{suggestion}</li>
-          ))}
-        </ul>
-      ) : null}
       {needs && d && (
         <TextEdit
           label="Transaction answer"
+          choices={d.suggestions}
           value={d.answer ?? ""}
           etag={etag}
           disabled={disabled}
@@ -186,7 +261,14 @@ export function TransactionCard({
         />
       )}
       {!needs && d?.answer && <p>Saved answer: {d.answer}</p>}
-      {d && !edit && (
+      {d?.disposition === "paired_transfer" && (
+        <p className="notice">
+          Shared transfer postings are read-only. Posting owner:{" "}
+          {d.posting_owner ?? "unavailable"}. Ask the agent to review a
+          correction.
+        </p>
+      )}
+      {d && d.disposition !== "paired_transfer" && !edit && (
         <button
           disabled={disabled}
           onClick={() => {

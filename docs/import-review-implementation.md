@@ -30,6 +30,10 @@ The plugin runs a bundled stdio MCP process with no hosted endpoint or HTTP list
 
 The panel shows YAML statuses, accounts, reported/query balances, postings, inline input needs, panel confirmations, validator results and price runs. Internal content checks detect intervening edits, including direct agent file changes. A correction is saved before requesting continuation in the same conversation; a failed continuation can be retried without resubmitting the edit. The panel never writes ledger entries.
 
+The MCP panel uses the design from `experiments/review-ui-design/`. Its persistent sidebar contains Session, source accounts and Price. Session groups show source membership, reported opening and closing balances, mapping state and source review controls. The Account view uses a paged transaction table and a modal editor. Needed-input filtering applies to the full source account through the MCP tool. Search and internal-transfer filtering apply to the current page. Linked transfers locate the exact peer across pages. Shared transfer postings remain read-only and identify their posting owner.
+
+Inline suggestions save answers through the existing review tools. Ledger account suggestions remain mapping corrections. The fixed footer shows saved changes and the server's remaining review blockers. Saves remain silent until explicit batch sending. Drafts retain their original content token during polling. Navigation, filtering and dialog closing pause while a draft exists. If a refreshed page no longer contains an open row, its draft stays visible and saving pauses. The plugin bundle contains the real bridge integration; synthetic browser previews do not establish installed-host acceptance.
+
 Export HTML creates a self-contained read-only snapshot with all saved rows and review evidence. It excludes unsaved edits and raw attachments. Evaluation capture retains a snapshot per executed import step, or an explicit unavailable-review page if no valid review exists. Exported pages have no live approval controls.
 
 ## Guidance and examples

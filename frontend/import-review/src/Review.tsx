@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { DraftContext, TextEdit, TransactionCard } from "./ReviewForms";
+import { DraftContext } from "./ReviewForms";
 import { StatementValidation, SessionPrices } from "./ReviewPanels";
+import { TransactionTable } from "./TransactionTable";
+import { StatementEvidence } from "./StatementEvidence";
+import { SessionOverview } from "./SessionOverview";
 import { ReviewExport } from "./ReviewExport";
 export { TextEdit } from "./ReviewForms";
 import type {
@@ -13,20 +16,10 @@ import type {
   Detail,
   Overview,
   Page,
-  Transaction,
 } from "./types";
 
 const readable = (s: string) => s.replaceAll("_", " ");
 const filename = (s: string) => s.split("/").at(-1) ?? s;
-function groupTransactions(rows: Transaction[]): [string, Transaction[]][] {
-  const groups = new Map<string, Transaction[]>();
-  for (const row of rows.slice(0, 100)) {
-    const group = groups.get(row.account_id) ?? [];
-    group.push(row);
-    groups.set(row.account_id, group);
-  }
-  return [...groups];
-}
 export function Review({
   bridge,
   initialBinding,
@@ -57,6 +50,17 @@ function ReviewSession({
     [overview, setOverview] = useState<Overview | null>(null);
   const [workspace, setWorkspace] = useState(initialBinding?.workspace ?? ""),
     [sessionId, setSessionId] = useState(initialBinding?.session_id ?? "");
+  const [focusRecord, setFocusRecord] = useState<{ record_id: string } | null>(
+    null,
+  );
+  const [view, setView] = useState<"session" | "account" | "price">("session");
+  const [catalog, setCatalog] = useState<Record<string, Detail>>({});
+  const [accountNeeds, setAccountNeeds] = useState<
+    Record<string, number | null>
+  >({});
+  const [catalogErrors, setCatalogErrors] = useState<Record<string, string>>(
+    {},
+  );
   const [source, setSource] = useState<string | null>(null),
     [detail, setDetail] = useState<Detail | null>(null),
     [page, setPage] = useState<Page | null>(null);
@@ -124,7 +128,40 @@ function ReviewSession({
         pagePromise,
       ]);
       if (!current()) return;
-      if (summary.status === "fulfilled") setOverview(summary.value);
+      if (summary.status === "fulfilled") {
+        setOverview(summary.value);
+        const sources = summary.value.statements.map((s) => s.source_file);
+        const details = await Promise.allSettled(
+          sources.map((file) =>
+            file === source && d.status === "fulfilled" && d.value
+              ? Promise.resolve(d.value)
+              : bridge.call<Detail>("read_import_statement", {
+                  ...binding,
+                  source_file: file,
+                }),
+          ),
+        );
+        if (!current()) return;
+        const errors: Record<string, string> = {};
+        setCatalog((previous) => {
+          const next: Record<string, Detail> = {};
+          sources.forEach((file, i) => {
+            const result = details[i];
+            if (result.status === "fulfilled") next[file] = result.value;
+            else {
+              if (previous[file]) next[file] = previous[file];
+            }
+          });
+          return next;
+        });
+        // Compute failures outside the state updater, which React may defer.
+        sources.forEach((file, i) => {
+          const result = details[i];
+          if (result.status === "rejected")
+            errors[file] = String(result.reason);
+        });
+        setCatalogErrors(errors);
+      }
       if (d.status === "fulfilled") setDetail(d.value);
       if (p.status === "fulfilled") setPage(p.value);
       setInvalidReads({
@@ -156,22 +193,80 @@ function ReviewSession({
       document.removeEventListener("visibilitychange", onVisible);
     };
   }, [refresh]);
+  useEffect(() => {
+    if (!binding) return;
+    let cancelled = false;
+    const accounts = Object.entries(catalog).flatMap(([file, detail]) =>
+      detail.statement_metadata.accounts.map((account) => ({ file, account })),
+    );
+    void Promise.allSettled(
+      accounts.map(({ file, account }) =>
+        bridge.call<Page>("list_import_transactions", {
+          ...binding,
+          source_file: file,
+          account_id: account.account_id,
+          offset: 0,
+          limit: 1,
+          needs_input: true,
+        }),
+      ),
+    ).then((results) => {
+      if (cancelled) return;
+      setAccountNeeds(
+        Object.fromEntries(
+          accounts.map(({ file, account }, i) => {
+            const result = results[i];
+            return [
+              JSON.stringify([file, account.account_id]),
+              result.status === "fulfilled"
+                ? result.value.total +
+                  (account.review?.state === "needs_input" ? 1 : 0)
+                : null,
+            ];
+          }),
+        ),
+      );
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [bridge, binding, catalog]);
   async function sendBatch() {
-    if (!binding || !overview || activeSubmission.current || drafts.size || loadError || (!notified && !overview?.review_batch?.ready)) return;
+    if (
+      !binding ||
+      !overview ||
+      activeSubmission.current ||
+      drafts.size ||
+      loadError ||
+      (!notified && !overview?.review_batch?.ready)
+    )
+      return;
     activeSubmission.current = true;
     setBusy(true);
     try {
-      const batch = notified ?? await bridge.call<ReviewBatch>("prepare_import_review_batch", {...binding, token: overview.review_batch.token});
+      const batch =
+        notified ??
+        (await bridge.call<ReviewBatch>("prepare_import_review_batch", {
+          ...binding,
+          token: overview.review_batch.token,
+        }));
       if (!notified) {
         await bridge.continue(binding.session_id, batch.subjects);
         setNotified(batch);
       }
-      await bridge.call<ReviewBatch>("acknowledge_import_review_batch", {...binding, pending_token: batch.pending_token});
+      await bridge.call<ReviewBatch>("acknowledge_import_review_batch", {
+        ...binding,
+        pending_token: batch.pending_token,
+      });
       setNotified(null);
-      setNotice("Saved changes sent. The agent will read the JSON and continue the import.");
+      setNotice(
+        "Saved changes sent. The agent will read the JSON and continue the import.",
+      );
       await refresh();
     } catch (e) {
-      setNotice(`Changes remain saved. Send failed: ${String(e)}. Refresh before retrying.`);
+      setNotice(
+        `Changes remain saved. Send failed: ${String(e)}. Refresh before retrying.`,
+      );
       await refresh();
     } finally {
       activeSubmission.current = false;
@@ -189,7 +284,9 @@ function ReviewSession({
         source_file: source,
         update,
       });
-      setNotice("Saved to JSON. Send saved changes when the current review is complete.");
+      setNotice(
+        "Saved to JSON. Send saved changes when the current review is complete.",
+      );
       await refresh();
       return true;
     } catch (e) {
@@ -240,15 +337,245 @@ function ReviewSession({
   const selected = overview?.statements.find((s) => s.source_file === source);
   const done = selected?.status === "done";
   const unavailable = Boolean(
-    invalidReads.summary || invalidReads.detail || selected?.error,
+    !selected || invalidReads.summary || invalidReads.detail || selected?.error,
   );
   const transactionsUnavailable = Boolean(
-    invalidReads.summary || invalidReads.page || selected?.error,
+    !selected || invalidReads.summary || invalidReads.page || selected?.error,
   );
+  function navigate(
+    nextView: typeof view,
+    nextSource: string | null = null,
+    nextAccount = "",
+  ) {
+    if (drafts.size || busy) return;
+    setFocusRecord(null);
+    setView(nextView);
+    if (source !== nextSource) {
+      setDetail(null);
+      setPage(null);
+    }
+    if (account !== nextAccount) setPage(null);
+    setSource(nextSource);
+    setAccount(nextAccount);
+    setOffset(0);
+    setNeeds(false);
+    setError("");
+  }
+  async function followTransfer(
+    file: string,
+    accountId: string,
+    recordId: string,
+  ) {
+    if (!binding || drafts.size || activeSubmission.current) return;
+    const key = queryKey;
+    activeSubmission.current = true;
+    setBusy(true);
+    setError("");
+    try {
+      let nextOffset = 0;
+      while (latestQuery.current === key) {
+        const result = await bridge.call<Page>("list_import_transactions", {
+          ...binding,
+          source_file: file,
+          account_id: accountId,
+          offset: nextOffset,
+          limit: 100,
+          needs_input: false,
+        });
+        if (latestQuery.current !== key) return;
+        if (result.rows.some((row) => row.record_id === recordId)) {
+          navigate("account", file, accountId);
+          setOffset(nextOffset);
+          setFocusRecord({ record_id: recordId });
+          return;
+        }
+        nextOffset += 100;
+        if (nextOffset >= result.total)
+          throw Error(
+            "The linked transaction is no longer available. Refresh and ask the agent to review the transfer.",
+          );
+      }
+    } catch (e) {
+      if (latestQuery.current === key) setError(String(e));
+    } finally {
+      activeSubmission.current = false;
+      setBusy(false);
+    }
+  }
+  const statementContent = source ? (
+    <section key={source} className="statement-detail">
+      <h2>
+        {view === "account"
+          ? (detail?.statement_metadata.accounts.find(
+              (a) => a.account_id === account,
+            )?.account_name ?? "Transactions")
+          : filename(source)}
+      </h2>
+      <p className="context">
+        Group status: {readable(selected?.status ?? "unavailable")} ·{" "}
+        {selected?.updated_at
+          ? `Updated ${selected.updated_at}`
+          : "Update time unavailable"}
+      </p>
+      {selected?.error && (
+        <div className="error" role="alert">
+          {selected.error}
+        </div>
+      )}
+      {done && (
+        <p className="notice">
+          This statement is complete. Request explicit rework in the
+          conversation before changing its decisions.
+        </p>
+      )}
+      {detail && (
+        <>
+          {view === "session" && (
+            <StatementEvidence
+              detail={detail}
+              disabled={busy || unavailable || done}
+              accounts={accounts}
+              onSearch={search}
+              onSubmit={submit}
+            />
+          )}
+          {view === "account" && (
+            <>
+              <div className="filters">
+                <label>
+                  Account
+                  <select
+                    aria-label="Account"
+                    value={account}
+                    disabled={!!drafts.size}
+                    onChange={(e) =>
+                      navigate("account", source, e.target.value)
+                    }
+                  >
+                    <option value="">All accounts</option>
+                    {detail.statement_metadata.accounts.map((a) => (
+                      <option key={a.account_id} value={a.account_id}>
+                        {a.account_name ?? a.account_id}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="checkbox">
+                  <input
+                    type="checkbox"
+                    checked={needs}
+                    disabled={!!drafts.size}
+                    onChange={(e) => {
+                      setNeeds(e.target.checked);
+                      setOffset(0);
+                    }}
+                  />
+                  Needs input
+                </label>
+              </div>
+              {page && (
+                <TransactionTable
+                  key={`${source}:${account}:${needs}:${offset}`}
+                  page={page}
+                  source={source}
+                  focusRecord={focusRecord}
+                  disabled={busy || transactionsUnavailable || done}
+                  navigationDisabled={!!drafts.size || busy}
+                  onLink={(file, id, record) =>
+                    void followTransfer(file, id, record)
+                  }
+                  onAnswer={(row, value, etag) =>
+                    submit({
+                      kind: "answer",
+                      subject_kind: "transaction",
+                      subject_id: row.record_id,
+                      value,
+                      expected_etag: etag,
+                    })
+                  }
+                  onSave={(row, value, etag) =>
+                    submit({
+                      kind: "postings",
+                      subject_id: row.record_id,
+                      value,
+                      expected_etag: etag,
+                    })
+                  }
+                />
+              )}
+              {page && (
+                <div className="actions pagination">
+                  <span>
+                    {page.total === 0
+                      ? "No matching transactions."
+                      : `${offset + 1}–${Math.min(offset + 100, page.total)} of ${page.total}`}
+                  </span>
+                  <button
+                    disabled={offset === 0 || !!drafts.size || busy}
+                    onClick={() => setOffset(Math.max(0, offset - 100))}
+                  >
+                    Previous
+                  </button>
+                  <button
+                    disabled={
+                      !page ||
+                      offset + 100 >= page.total ||
+                      !!drafts.size ||
+                      busy
+                    }
+                    onClick={() => setOffset(offset + 100)}
+                  >
+                    Next
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+          {drafts.size > 0 && (
+            <p className="notice">
+              Save or discard unsaved edits before approving this statement.
+            </p>
+          )}
+          {page && page.etag !== detail.etag && (
+            <p className="notice">
+              Statement and transaction views are from different snapshots.
+              Refresh before approval.
+            </p>
+          )}
+          {view === "session" && (
+            <StatementValidation
+              detail={detail}
+              canApprove={
+                selected?.status === "final_review" &&
+                selected.needs_input === 0
+              }
+              disabled={
+                busy ||
+                unavailable ||
+                transactionsUnavailable ||
+                done ||
+                drafts.size > 0 ||
+                !page ||
+                page.etag !== detail.etag
+              }
+              onDecision={(kind) =>
+                submit({
+                  kind,
+                  subject_id: "statement",
+                  expected_etag: detail.etag,
+                  review_digest: detail.review_digest,
+                })
+              }
+            />
+          )}
+        </>
+      )}
+    </section>
+  ) : null;
   return (
     <DraftContext.Provider value={reportDraft}>
-      <main>
-        <header>
+      <div className="review-app">
+        <header className="app-header">
           <div>
             <span className="eyebrow">AUTO BEAN</span>
             <h1>Import review</h1>
@@ -257,454 +584,284 @@ function ReviewSession({
             Refresh
           </button>
         </header>
-        {binding && (
-          <ReviewExport
-            key={`${binding.workspace}:${binding.session_id}`}
-            bridge={bridge}
-            binding={binding}
-          />
-        )}
-        {!binding ? (
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              setBinding({ workspace, session_id: sessionId });
-            }}
-          >
-            <p>Open the session created by your import agent.</p>
-            <label>
-              Ledger workspace
-              <input
-                required
-                value={workspace}
-                onChange={(e) => setWorkspace(e.target.value)}
-              />
-            </label>
-            <label>
-              Session ID
-              <input
-                required
-                value={sessionId}
-                onChange={(e) => setSessionId(e.target.value)}
-              />
-            </label>
-            <button type="submit">Open session</button>
-          </form>
-        ) : (
-          <div className="context" title={binding.workspace}>
-            {binding.workspace}
-            <br />
-            Session {binding.session_id}
-            {!initialBinding && (
-              <button
-                onClick={() => {
-                  setNotified(null);
-                    setBinding(null);
-                  setOverview(null);
-                  setSource(null);
-                  setDetail(null);
-                  setPage(null);
-                  setError("");
-                  setLoadError("");
-                }}
-              >
-                Change session
-              </button>
-            )}
-          </div>
-        )}
-        {loadError && (
-          <div role="alert" className="error">
-            Refresh failed: {loadError}
-            <p>
-              Displayed results may be stale. Related actions are paused until a
-              successful refresh.
-            </p>
-          </div>
-        )}
-        {error && (
-          <div role="alert" className="error">
-            {error}
-            <p>
-              Your unsaved edits remain in this view. Refresh and review
-              conflicts before resubmitting.
-            </p>
-          </div>
-        )}
-        {notice && (
-          <div role="status" className="notice">
-            {notice}
-
-          </div>
-        )}
-        {overview && (
-          <>
-            <section className="card" aria-label="Saved changes">
-              <strong>{overview.review_batch?.pending_count ?? 0} saved changes</strong>
-              <p>{overview.review_batch?.blockers.length ? `${overview.review_batch.blockers.length} current inputs still need review.` : "All current required inputs reviewed."}</p>
-              {!!overview.review_batch?.blockers.length && <details><summary>Remaining inputs</summary><ul>{overview.review_batch.blockers.map(item => <li key={item}>{item}</li>)}</ul></details>}
-              <button disabled={busy || !!drafts.size || !!loadError || (!notified && !overview.review_batch?.ready)} onClick={() => void sendBatch()}>{notified ? "Finish sent batch" : "Send saved changes"}</button>
-              {!!drafts.size && <p>Save or discard unsaved edits before sending.</p>}
-            </section>
-            <nav aria-label="Session statements">
-              <button
-                aria-pressed={!source}
-                onClick={() => {
-                  setSource(null);
-                  setDetail(null);
-                  setPage(null);
-                }}
-              >
-                Session & prices
-              </button>
-              {overview.statements.map((s) => (
+        <div className="workspace-layout">
+          {overview && (
+            <aside className="sidebar">
+              <p className="eyebrow">IMPORT WORKSPACE</p>
+              <nav aria-label="Review navigation">
                 <button
-                  className={s.needs_input ? "needs" : ""}
-                  aria-pressed={source === s.source_file}
-                  key={s.source_file}
-                  onClick={() => {
-                    if (source === s.source_file) return;
-                    setSource(s.source_file);
-                    setDetail(null);
-                    setPage(null);
-                    setOffset(0);
-                    setAccount("");
-                  }}
+                  aria-current={view === "session" ? "page" : undefined}
+                  disabled={!!drafts.size || busy}
+                  onClick={() => navigate("session")}
                 >
-                  <strong>{filename(s.source_file)}</strong>
-                  <span>
-                    Group: {readable(s.status)}
-                    {s.needs_input > 0
-                      ? ` · ⚠ ${s.needs_input} need input`
-                      : ""}
-                  </span>
-                  {s.error && <span>Artifact unavailable</span>}
+                  Session
                 </button>
-              ))}
-            </nav>
-            {source ? (
-              <>
-                <h2>{filename(source)}</h2>
-                <p className="context">
-                  Group status: {readable(selected?.status ?? "unavailable")} ·{" "}
-                  {selected?.updated_at
-                    ? `Updated ${selected.updated_at}`
-                    : "Update time unavailable"}
-                </p>
-                {selected?.error && (
-                  <div className="error" role="alert">
-                    {selected.error}
-                  </div>
+                <button
+                  aria-current={view === "account" ? "page" : undefined}
+                  disabled={!!drafts.size || busy}
+                  onClick={() =>
+                    navigate(
+                      "account",
+                      source ?? overview.statements[0]?.source_file ?? null,
+                    )
+                  }
+                >
+                  Account
+                </button>
+                <div className="account-nav">
+                  {overview.statements.flatMap((s) =>
+                    (
+                      catalog[s.source_file]?.statement_metadata.accounts ?? []
+                    ).map((a) => (
+                      <button
+                        className="sidebar-account"
+                        key={`${s.source_file}:${a.account_id}`}
+                        aria-current={
+                          view === "account" &&
+                          source === s.source_file &&
+                          account === a.account_id
+                            ? "page"
+                            : undefined
+                        }
+                        disabled={!!drafts.size || busy}
+                        onClick={() =>
+                          navigate("account", s.source_file, a.account_id)
+                        }
+                      >
+                        <span>
+                          <strong>{a.account_name ?? a.account_id}</strong>
+                          <small>{filename(s.source_file)}</small>
+                        </span>
+                        {accountNeeds[
+                          JSON.stringify([s.source_file, a.account_id])
+                        ] ? (
+                          <span
+                            className="badge warn"
+                            title="Outstanding account and transaction inputs"
+                          >
+                            {
+                              accountNeeds[
+                                JSON.stringify([s.source_file, a.account_id])
+                              ]
+                            }
+                          </span>
+                        ) : accountNeeds[
+                            JSON.stringify([s.source_file, a.account_id])
+                          ] === null ? (
+                          <span
+                            className="badge"
+                            title="Input count unavailable"
+                          >
+                            ?
+                          </span>
+                        ) : null}
+                      </button>
+                    )),
+                  )}
+                  {!Object.keys(catalog).length && (
+                    <p className="muted">
+                      Account evidence is not available yet.
+                    </p>
+                  )}
+                </div>
+                <button
+                  aria-current={view === "price" ? "page" : undefined}
+                  disabled={!!drafts.size || busy}
+                  onClick={() => navigate("price")}
+                >
+                  Price
+                </button>
+              </nav>
+            </aside>
+          )}
+          <main>
+            {binding && (
+              <details className="export-panel">
+                <summary>Export saved review</summary>
+                <ReviewExport
+                  key={`${binding.workspace}:${binding.session_id}`}
+                  bridge={bridge}
+                  binding={binding}
+                />
+              </details>
+            )}
+            {!binding ? (
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  setBinding({ workspace, session_id: sessionId });
+                }}
+              >
+                <p>Open the session created by your import agent.</p>
+                <label>
+                  Ledger workspace
+                  <input
+                    required
+                    value={workspace}
+                    onChange={(e) => setWorkspace(e.target.value)}
+                  />
+                </label>
+                <label>
+                  Session ID
+                  <input
+                    required
+                    value={sessionId}
+                    onChange={(e) => setSessionId(e.target.value)}
+                  />
+                </label>
+                <button type="submit">Open session</button>
+              </form>
+            ) : (
+              <div className="context" title={binding.workspace}>
+                {binding.workspace}
+                <br />
+                Session {binding.session_id}
+                {!initialBinding && (
+                  <button
+                    disabled={!!drafts.size || busy}
+                    onClick={() => {
+                      setNotified(null);
+                      setBinding(null);
+                      setOverview(null);
+                      setCatalog({});
+                      setCatalogErrors({});
+                      setView("session");
+                      setSource(null);
+                      setDetail(null);
+                      setPage(null);
+                      setError("");
+                      setLoadError("");
+                    }}
+                  >
+                    Change session
+                  </button>
                 )}
-                {done && (
-                  <p className="notice">
-                    This statement is complete. Request explicit rework in the
-                    conversation before changing its decisions.
+              </div>
+            )}
+            {loadError && (
+              <div role="alert" className="error">
+                Refresh failed: {loadError}
+                <p>
+                  Displayed results may be stale. Related actions are paused
+                  until a successful refresh.
+                </p>
+              </div>
+            )}
+            {error && (
+              <div role="alert" className="error">
+                {error}
+                <p>
+                  Your unsaved edits remain in this view. Refresh and review
+                  conflicts before resubmitting.
+                </p>
+              </div>
+            )}
+            {notice && (
+              <div role="status" className="notice">
+                {notice}
+              </div>
+            )}
+            {overview && (
+              <>
+                <div className="title">
+                  <div>
+                    <p className="eyebrow">IMPORT REVIEW</p>
+                    <h1>
+                      {view === "session"
+                        ? "Session"
+                        : view === "price"
+                          ? "Price"
+                          : "Account"}
+                    </h1>
+                  </div>
+                  <span className="badge">
+                    {overview.statements.length} statements ·{" "}
+                    {overview.statements.reduce(
+                      (sum, item) => sum + item.needs_input,
+                      0,
+                    )}{" "}
+                    outstanding inputs
+                  </span>
+                </div>
+                {view === "session" && (
+                  <SessionOverview
+                    selectedDetail={statementContent}
+                    overview={overview}
+                    catalog={catalog}
+                    errors={catalogErrors}
+                    disabled={!!drafts.size || busy}
+                    selected={source}
+                    onSource={(file) => navigate("session", file)}
+                    onAccount={(file, id) => navigate("account", file, id)}
+                  />
+                )}
+                {view === "account" && statementContent}
+                {view === "account" && !source && (
+                  <p className="empty">
+                    Choose a source account when statement evidence is
+                    available.
                   </p>
                 )}
-                {detail && (
-                  <>
-                    <p>Extraction: {readable(detail.extraction_state)}</p>
-                    {detail.processing.failure_reason && (
-                      <p className="error">
-                        {detail.processing.failure_reason}
-                      </p>
-                    )}
-                    {detail.processing.warnings.map((w, i) => (
-                      <p className="notice" key={i}>
-                        {w}
-                      </p>
-                    ))}
-                    {detail.processing.needs_input && (
-                      <section className="card needs">
-                        <h3>⚠ Processing needs input</h3>
-                        {detail.processing.suggestions?.length ? (
-                          <ul>
-                            {detail.processing.suggestions.map((suggestion) => (
-                              <li key={suggestion}>{suggestion}</li>
-                            ))}
-                          </ul>
-                        ) : null}
-                        <TextEdit
-                          label="Processing answer"
-                          value={detail.processing.answer ?? ""}
-                          etag={detail.etag}
-                          disabled={busy || unavailable || done}
-                          saveLabel="Save answer"
-                          onSave={(value, etag) =>
-                            submit({
-                              kind: "answer",
-                              subject_kind: "statement",
-                              subject_id: "statement",
-                              value,
-                              expected_etag: etag,
-                            })
-                          }
-                        />
-                      </section>
-                    )}
-                    {!detail.processing.needs_input &&
-                      detail.processing.answer && (
-                        <p>
-                          Saved processing answer: {detail.processing.answer}
-                        </p>
-                      )}
-                    <h3>Accounts & balances</h3>
-                    {detail.statement_metadata.accounts.length === 0 ? (
-                      <p className="muted">
-                        Account evidence is not available yet.
-                      </p>
-                    ) : (
-                      detail.statement_metadata.accounts.map((a) => {
-                        const d = a.review;
-                        return (
-                          <section
-                            className={`card ${d?.state === "needs_input" ? "needs" : ""}`}
-                            key={a.account_id}
-                          >
-                            <h4>
-                              {d?.state === "needs_input"
-                                ? "⚠ Needs input · "
-                                : ""}
-                              {a.account_name ?? a.account_id}
-                            </h4>
-                            {a.account_owner && <p>{a.account_owner}</p>}
-                            <p>
-                              {d?.rationale ??
-                                "Mapping proposal not available yet."}
-                            </p>
-                            {d?.suggestions?.length ? (
-                              <ul>
-                                {d.suggestions.map((suggestion) => (
-                                  <li key={suggestion}>{suggestion}</li>
-                                ))}
-                              </ul>
-                            ) : null}
-                            {d?.answer && <p>Saved answer: {d.answer}</p>}
-                            {d && (
-                              <TextEdit
-                                label="Ledger mapping"
-                                value={d.ledger_account ?? ""}
-                                etag={detail.etag}
-                                suggestions={accounts}
-                                onSearch={search}
-                                disabled={busy || unavailable || done}
-                                allowConfirm={d.state === "needs_input"}
-                                onSave={(value, etag) =>
-                                  submit({
-                                    kind: "mapping",
-                                    subject_id: a.account_id,
-                                    value,
-                                    expected_etag: etag,
-                                  })
-                                }
-                              />
-                            )}
-                            {d?.state === "needs_input" && (
-                              <details>
-                                <summary>Other account clarification</summary>
-                                <TextEdit
-                                  label="Account answer"
-                                  value={d.answer ?? ""}
-                                  etag={detail.etag}
-                                  disabled={busy || unavailable || done}
-                                  saveLabel="Save answer"
-                                  onSave={(value, etag) =>
-                                    submit({
-                                      kind: "answer",
-                                      subject_kind: "account",
-                                      subject_id: a.account_id,
-                                      value,
-                                      expected_etag: etag,
-                                    })
-                                  }
-                                />
-                              </details>
-                            )}
-                            <dl>
-                              {(
-                                [
-                                  "opening_balance",
-                                  "closing_balance",
-                                  "available_balance",
-                                ] as const
-                              ).map((key) => (
-                                <div key={key}>
-                                  <dt>{readable(key)}</dt>
-                                  <dd>
-                                    {a[key]
-                                      ? `${a[key].amount} ${a[key].currency} · ${a[key].date}`
-                                      : "Unavailable"}
-                                  </dd>
-                                </div>
-                              ))}
-                            </dl>
-                            {d?.proposed_directives?.map((line, i) => (
-                              <pre key={i}>{line}</pre>
-                            ))}
-                            {d?.reconciliation?.map((r, i) => (
-                              <p key={i}>
-                                Ledger {r.ledger_amount ?? "unavailable"}{" "}
-                                {r.currency} on {r.date} · {readable(r.state)}
-                                {r.difference !== undefined
-                                  ? ` · Difference ${r.difference}`
-                                  : ""}
-                                <br />
-                                <small>{r.provenance}</small>
-                              </p>
-                            ))}
-                          </section>
-                        );
-                      })
-                    )}
-                    <h3>Transactions</h3>
-                    <div className="filters">
-                      <label>
-                        Account
-                        <select
-                          value={account}
-                          onChange={(e) => {
-                            setAccount(e.target.value);
-                            setOffset(0);
-                          }}
-                        >
-                          <option value="">All accounts</option>
-                          {detail.statement_metadata.accounts.map((a) => (
-                            <option key={a.account_id} value={a.account_id}>
-                              {a.account_name ?? a.account_id}
-                            </option>
+                {view === "price" ? (
+                  <SessionPrices
+                    overview={overview}
+                    disabled={busy || invalidReads.summary}
+                    onApprove={approvePrices}
+                    mode="price"
+                  />
+                ) : null}
+                <footer className="review-footer" aria-label="Saved changes">
+                  <div>
+                    <strong>
+                      {overview.review_batch?.pending_count ?? 0} saved changes
+                    </strong>
+                    <p>
+                      {overview.review_batch?.blockers.length
+                        ? `${overview.review_batch.blockers.length} current inputs still need review.`
+                        : "All current required inputs reviewed."}
+                    </p>
+                    {!!overview.review_batch?.blockers.length && (
+                      <details>
+                        <summary>Remaining inputs</summary>
+                        <ul>
+                          {overview.review_batch.blockers.map((item) => (
+                            <li key={item}>{item}</li>
                           ))}
-                        </select>
-                      </label>
-                      <label className="checkbox">
-                        <input
-                          type="checkbox"
-                          checked={needs}
-                          onChange={(e) => {
-                            setNeeds(e.target.checked);
-                            setOffset(0);
-                          }}
-                        />
-                        Needs input
-                      </label>
-                    </div>
-                    {page && (
-                      <>
-                        <p>
-                          {page.total === 0
-                            ? "No matching transactions."
-                            : `${offset + 1}–${Math.min(offset + 100, page.total)} of ${page.total}`}
-                        </p>
-                        {groupTransactions(page.rows).map(
-                          ([accountId, rows]) => (
-                            <section
-                              key={accountId}
-                              aria-label={`Transactions for ${accountId}`}
-                            >
-                              <h4>
-                                {detail.statement_metadata.accounts.find(
-                                  (a) => a.account_id === accountId,
-                                )?.account_name ?? accountId}
-                              </h4>
-                              {rows.map((row) => (
-                                <TransactionCard
-                                  key={row.record_id}
-                                  row={row}
-                                  onAnswer={(value, etag) =>
-                                    submit({
-                                      kind: "answer",
-                                      subject_kind: "transaction",
-                                      subject_id: row.record_id,
-                                      value,
-                                      expected_etag: etag,
-                                    })
-                                  }
-                                  etag={page.etag}
-                                  disabled={
-                                    busy || transactionsUnavailable || done
-                                  }
-                                  onSave={(value, etag) =>
-                                    submit({
-                                      kind: "postings",
-                                      subject_id: row.record_id,
-                                      value,
-                                      expected_etag: etag,
-                                    })
-                                  }
-                                />
-                              ))}
-                            </section>
-                          ),
-                        )}
-                        <div className="actions">
-                          <button
-                            disabled={offset === 0}
-                            onClick={() => setOffset(Math.max(0, offset - 100))}
-                          >
-                            Previous
-                          </button>
-                          <button
-                            disabled={offset + 100 >= page.total}
-                            onClick={() => setOffset(offset + 100)}
-                          >
-                            Next
-                          </button>
-                        </div>
-                      </>
+                        </ul>
+                      </details>
                     )}
-                    {drafts.size > 0 && (
-                      <p className="notice">
-                        Save or discard unsaved edits before approving this
-                        statement.
-                      </p>
-                    )}
-                    {page && page.etag !== detail.etag && (
-                      <p className="notice">
-                        Statement and transaction views are from different
-                        snapshots. Refresh before approval.
-                      </p>
-                    )}
-                    <StatementValidation
-                      detail={detail}
-                      canApprove={
-                        selected?.status === "final_review" &&
-                        selected.needs_input === 0
-                      }
-                      disabled={
-                        busy ||
-                        unavailable ||
-                        transactionsUnavailable ||
-                        done ||
-                        drafts.size > 0 ||
-                        !page ||
-                        page.etag !== detail.etag
-                      }
-                      onDecision={(kind) =>
-                        submit({
-                          kind,
-                          subject_id: "statement",
-                          expected_etag: detail.etag,
-                          review_digest: detail.review_digest,
-                        })
-                      }
-                    />
-                  </>
-                )}
+                  </div>
+                  <button
+                    className="primary"
+                    disabled={
+                      busy ||
+                      !!drafts.size ||
+                      !!loadError ||
+                      (!notified && !overview.review_batch?.ready)
+                    }
+                    onClick={() => void sendBatch()}
+                  >
+                    {notified ? "Finish sent batch" : "Send saved changes"}
+                  </button>
+                  {!!drafts.size && (
+                    <p>Save or discard unsaved edits before sending.</p>
+                  )}
+                </footer>
               </>
-            ) : (
-              <SessionPrices
-                overview={overview}
-                disabled={busy || invalidReads.summary}
-                onApprove={approvePrices}
-              />
             )}
-          </>
-        )}
-        <footer>
-          Local review · Refreshes every 2 seconds while visible · Canonical
-          writes require approval
-        </footer>
-      </main>
+            {!!drafts.size && (
+              <p className="notice" role="status">
+                Save or discard unsaved edits before changing views, filters, or
+                sending.
+              </p>
+            )}
+            <p className="subtle">
+              Local review · Refreshes every 2 seconds while visible · Canonical
+              writes require approval
+            </p>
+          </main>
+        </div>
+      </div>
     </DraftContext.Provider>
   );
 }
