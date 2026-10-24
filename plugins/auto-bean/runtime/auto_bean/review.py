@@ -226,7 +226,135 @@ class ReviewFiles:
                 "origin": "panel",
             }
             self._publish(self.session_path, data, expected_etag)
+            self.record_batch("price run " + run_id, "approval", run["approval"])
             return dict(run)
+
+    @property
+    def batch_path(self) -> Path:
+        return checked_path(
+            self.root, f".auto-bean/review-batches/{self.session_id}.json"
+        )
+
+    def batch_receipts(self) -> dict[str, Any]:
+        if not self.batch_path.exists():
+            return {"receipts": {}, "pending": {}}
+        data = load_state(self.batch_path)
+        if not isinstance(data.get("receipts"), dict) or not isinstance(
+            data.get("pending"), dict
+        ):
+            invalid("Invalid review batch bookkeeping.")
+        return data
+
+    def record_batch(self, source: str, subject: str, value: Any) -> None:
+        """Called under the writer lock after the canonical artifact is saved."""
+        batch = self.batch_receipts()
+        key = source + "#" + subject
+        batch["receipts"][key] = etag({"value": value})
+        batch["pending"][key] = {"source": source, "subject": subject}
+        self.batch_path.parent.mkdir(parents=True, exist_ok=True)
+        atomic_write(self.batch_path, json_bytes(batch))
+
+    def review_batch(self) -> dict[str, Any]:
+        batch = self.batch_receipts()
+        receipts = batch["receipts"]
+        blockers: list[str] = []
+        snapshots: dict[str, str] = {}
+        session = self.read(self.session_path)
+
+        def reviewed(source: str, subject: str, value: Any) -> bool:
+            return bool(receipts.get(source + "#" + subject) == etag({"value": value}))
+
+        for member in session_members(session):
+            source = member["source_file"]
+            try:
+                status = self.status_entry(source, member["parsed_group"])[
+                    "current_status"
+                ]
+                if status == "done":
+                    continue
+                if (
+                    status == "raw_ready"
+                    and not checked_path(self.root, member["parsed_group"]).exists()
+                ):
+                    # Extraction has not produced review inputs for this group yet.
+                    snapshots[source] = "awaiting extraction"
+                    continue
+                doc = self.statement(source)
+                snapshots[source] = etag(doc)
+                processing = doc["review"]["processing"]
+                if processing.get("needs_input") and not reviewed(
+                    source, "statement", processing
+                ):
+                    blockers.append(source + ": source input")
+                for account in doc["statement_metadata"]["accounts"]:
+                    if account.get("review", {}).get(
+                        "state"
+                    ) == "needs_input" and not reviewed(
+                        source, "account:" + account["account_id"], account
+                    ):
+                        blockers.append(source + ": account " + account["account_id"])
+                for row in doc["extracted_records"]:
+                    decision = row.get("review", {})
+                    if (
+                        decision.get("state") == "needs_input"
+                        or decision.get("disposition") == "hold"
+                    ) and not reviewed(source, "transaction:" + row["record_id"], row):
+                        blockers.append(source + ": transaction " + row["record_id"])
+                try:
+                    require_ready(doc)
+                    approval_available = True
+                except WorkflowError:
+                    approval_available = False
+                if (
+                    approval_available
+                    and status == "final_review"
+                    and doc["review"].get("approval", {}).get("digest") != material(doc)
+                    and not reviewed(source, "decision", material(doc))
+                ):
+                    blockers.append(source + ": statement approval")
+            except (WorkflowError, OSError) as error:
+                blockers.append(source + ": " + str(error))
+        for run in session["price_runs"]:
+            if any(
+                j.get("outcome") == "emitted" for j in run.get("jobs", [])
+            ) and run.get("approval", {}).get("digest") != price_material(run):
+                blockers.append("Price run " + run["run_id"] + ": approval")
+        pending = list(batch["pending"].values())
+        return {
+            "pending_count": len(pending),
+            "pending_token": etag(batch),
+            "token": etag(
+                {
+                    "batch": batch,
+                    "session": session,
+                    "snapshots": snapshots,
+                    "blockers": blockers,
+                }
+            ),
+            "blockers": blockers,
+            "ready": bool(pending) and not blockers,
+            "subjects": sorted({p["source"] for p in pending}),
+        }
+
+    def prepare_batch(self, token: str) -> dict[str, Any]:
+        with writer_lock(self.root):
+            batch = self.review_batch()
+            if batch["token"] != token or not batch["ready"]:
+                raise WorkflowError(
+                    "review_conflict",
+                    "Review inputs changed or remain unanswered. Refresh before sending.",
+                )
+            return batch
+
+    def acknowledge_batch(self, pending_token: str) -> dict[str, Any]:
+        with writer_lock(self.root):
+            batch = self.batch_receipts()
+            if etag(batch) != pending_token:
+                # A newer save must survive acknowledgement of an older batch.
+                return self.review_batch()
+            batch["pending"] = {}
+            atomic_write(self.batch_path, json_bytes(batch))
+            return self.review_batch()
 
     def check_links(self, sources: list[str] | None = None) -> None:
         session = self.read(self.session_path)
@@ -382,6 +510,22 @@ class ReviewFiles:
                 body.pop("approval", None)
             body.pop("validation", None)
             self._publish_statement(source, data, update["expected_etag"])
+            if kind in {"approve", "reject"}:
+                self.record_batch(source, "decision", material(data))
+            elif kind == "answer" and update.get("subject_kind") == "statement":
+                self.record_batch(source, "statement", body["processing"])
+            elif kind == "mapping" or update.get("subject_kind") == "account":
+                account = next(
+                    a
+                    for a in data["statement_metadata"]["accounts"]
+                    if a["account_id"] == subject
+                )
+                self.record_batch(source, "account:" + subject, account)
+            else:
+                row = next(
+                    r for r in data["extracted_records"] if r["record_id"] == subject
+                )
+                self.record_batch(source, "transaction:" + subject, row)
             return {
                 "source_file": source,
                 "etag": etag(data),

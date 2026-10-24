@@ -160,6 +160,16 @@ PRICE_VIEW["required"].extend(["review_digest", "validation_current"])
 GROUP_VIEW = copy.deepcopy(SESSION["properties"]["groups"]["items"])
 GROUP_VIEW["properties"].update({"current_status": S, "updated_at": nullable(S)})
 GROUP_VIEW["required"].extend(["current_status", "updated_at"])
+BATCH = obj(
+    {
+        "pending_count": N,
+        "pending_token": HASH,
+        "token": HASH,
+        "blockers": array(S),
+        "ready": {"type": "boolean"},
+        "subjects": array(S),
+    }
+)
 OVERVIEW = obj(
     {
         **BIND,
@@ -167,6 +177,7 @@ OVERVIEW = obj(
         "statements": array(SUMMARY),
         "groups": array(GROUP_VIEW),
         "price_runs": array(PRICE_VIEW),
+        "review_batch": BATCH,
     }
 )
 CONTRACTS = {
@@ -183,6 +194,8 @@ CONTRACTS = {
         ),
     ),
     "read_import_session": (obj(BIND), OVERVIEW),
+    "prepare_import_review_batch": (obj({**BIND, "token": HASH}), BATCH),
+    "acknowledge_import_review_batch": (obj({**BIND, "pending_token": HASH}), BATCH),
     "read_import_statement": (obj(SOURCE), DETAIL),
     "list_import_transactions": (
         obj(
@@ -258,6 +271,10 @@ def dispatch(name: str, args: dict[str, Any]) -> dict[str, Any]:
         return export_review_html(Path(args["workspace"]), args["session_id"])
     store = ReviewFiles(Path(args["workspace"]), args["session_id"])
     session = store.read(store.session_path)
+    if name == "prepare_import_review_batch":
+        return store.prepare_batch(args["token"])
+    if name == "acknowledge_import_review_batch":
+        return store.acknowledge_batch(args["pending_token"])
     if name == "read_import_session":
         status = load_state(checked_path(store.root, "statements/import-status.yml"))
         validate_state("status", store.root, status)
@@ -305,6 +322,7 @@ def dispatch(name: str, args: dict[str, Any]) -> dict[str, Any]:
             "session_id": store.session_id,
             "etag": etag(session),
             "statements": statements,
+            "review_batch": store.review_batch(),
             "groups": [
                 {
                     **g,
@@ -434,6 +452,7 @@ async def list_tools() -> list[types.Tool]:
                     readOnlyHint=name
                     not in {
                         "update_import_review",
+                        "acknowledge_import_review_batch",
                         "approve_import_prices",
                         "export_import_review",
                     },

@@ -218,8 +218,26 @@ passes only when the changed decision is preserved and financial writes are bloc
 
 ### Agent trace checks
 
+The grader separates execution evidence from content inspection. A literal log
+redirect does not hide a successful command's exit status. It does hide its
+content: redirected output cannot prove a read, query inspection, or change
+receipt. Unsupported shell syntax remains uncredited.
+
+| Evidence | Policy |
+| --- | --- |
+| Skills, references, workspace marker, status, general and governed memory reads | Diagnostic; missing evidence does not block reward |
+| Ledger and account inspection; current parsed group evidence | Required; missing evidence blocks reward |
+| Phase-specific launcher commands and Git status | Required; missing evidence blocks reward |
+| Distinct descendant workers with current group activity | Required; missing evidence blocks reward |
+| Approval, stale-review rejection, mappings, provenance, transfer uniqueness, and written results | Independent required state checks; unchanged |
+
+Each trace row has `required` and `outcome`. An absent match means
+`insufficient_evidence`, not a proven workflow violation. Diagnostic checks still
+reject forged or unrelated evidence. Malformed or absent native traces remain
+blocking. Worker matching uses group activity, not skill-file reads.
+
 Every phase also runs [trace.py](trace.py). Full step reward requires both the
-state checks and trace checks to pass. Multi-step tasks gate progression on
+state checks and required trace checks to pass. Multi-step tasks gate progression on
 `state = 1`, so trace failures do not prevent later behavioral checks. Their
 trial reward is the mean of graded step rewards; an earlier trace failure
 still reduces the result. A full reward of `1` requires every graded step to
@@ -241,7 +259,7 @@ flowchart LR
     F -->|No| H[Reward 0]
 ```
 
-| Phase | Required loaded skills | Required workflow commands in this turn |
+| Phase | Diagnostic skill reads | Required workflow commands in this turn |
 | --- | --- | --- |
 | Init | Init | Plugin launcher `init`; `git status` |
 | Review | Import, Process, Query, Categorize | Extraction preparation; Docling on each source; ledger query; review validation; `git status` |
@@ -255,8 +273,8 @@ flowchart LR
   body. The injected name, trusted path, and full body must match the verifier's
   plugin bundle. Altered, clipped, assistant-authored, or unrelated-session
   messages do not count. A skill name in a prompt or final answer does not count.
-- Common guidance must be read. Import phases also require the import contract
-  and parsed, session, and status schemas. Approval adds the memory schema.
+- Common guidance, import contracts, schemas, and skill reads are diagnostic.
+  Missing read evidence stays visible but does not reduce reward.
 - Skill and reference reads can come from earlier turns in the same session.
   Linked descendant workers can supply evidence. Unrelated sessions cannot.
 - Check input freshness at workflow boundaries: initial inspection, resumed
@@ -324,6 +342,20 @@ simple `&&` chains, and positive-duration `timeout` wrappers. It recognizes the
 documented `auto_bean()` helper and equivalent run-only helpers, with or without
 an internal timeout. A helper must be invoked and resolve to the trusted launcher.
 Definitions alone and arbitrary function bodies do not count.
+An executable header before a quoted here-document retains its successful
+`&&` chain. Body lines are stdin data and cannot supply command evidence.
+The delimiter must match exactly. Missing delimiters, unsupported header tails,
+and later commands that mask an earlier status remain uncredited.
+
+Conditional launcher assignments normally expire at a semicolon or newline.
+They may survive when the prefix contains only literal `cat` or `git ls-files`
+calls and complete native output has no read or repository error diagnostics.
+This recovery requires one shell line with no earlier opaque command that could
+change shell state or hide diagnostics.
+This path is labeled `native_prefix_diagnostics`. It establishes that the
+assignments were reached, not that a query result was inspected. Unknown
+prefixes, redirects, substitutions, truncated output, and command-prefix
+environment bindings cannot establish persistent launcher variables.
 Git status checks accept literal `-C` directory options when the effective
 directory is `/app/ledger`. Options that redirect Git's repository or configuration
 do not supply this evidence.
@@ -349,7 +381,10 @@ semicolons or newlines. Two bounded evidence paths recover content reads:
 - A bounded read-only sequence may prove plain `cat` reads through exact full
   file contents in native output. Supported surrounding commands are `pwd`,
   `git status`, `git ls-files`, `ls`, `rg`, and `sort`. Sequences may use `&&`,
-  semicolons, newlines, and passive listing pipelines such as `rg --files | sort`.
+  semicolons, newlines, literal checksum calls, and passive listing pipelines such
+  as `rg --files | sort` or `rg -n ... | head -N`. Literal brace expansion in a
+  separate read does not invalidate matching file contents. A final search with
+  no matches does not invalidate content-proven earlier reads.
   The verifier maps paths to its plugin bundle and ledger snapshot. This can
   recover successful reads before a search or directory listing fails. It
   respects explicit failed cat operands and `&&` short-circuiting. Changed,
@@ -393,7 +428,10 @@ Each verifier writes:
 Harbor saves trajectories, timing, token usage, configuration, rewards, and
 transferred ledger artifacts under `.cache/harbor/jobs/<job>/`.
 
-`report.json` separates `state_passed`, `trace_passed`, and `trace_policy`.
+`report.json` schema version 3 separates `state_passed`, `trace_passed`, and
+`trace_policy`. Its summary and Markdown list diagnostic gaps separately from
+required failures. Diagnostic gaps cannot turn a passing state/trace result into
+a failure.
 Its `check_summary` counts each status by scope. State checks stop at the first
 failed assertion or exception. Earlier successes remain visible. A skipped row
 marks the remaining state checks; it does not claim that they passed or count

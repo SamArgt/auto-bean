@@ -5,6 +5,7 @@ import { ReviewExport } from "./ReviewExport";
 export { TextEdit } from "./ReviewForms";
 import type {
   ReviewUpdate,
+  ReviewBatch,
   SavedReview,
   SavedPrice,
   Binding,
@@ -75,7 +76,7 @@ function ReviewSession({
       return next;
     });
   }, []);
-  const [saved, setSaved] = useState<SavedReview | SavedPrice | null>(null),
+  const [notified, setNotified] = useState<ReviewBatch | null>(null),
     [notice, setNotice] = useState(""),
     [accounts, setAccounts] = useState<string[]>([]);
   const [invalidReads, setInvalidReads] = useState({
@@ -155,26 +156,26 @@ function ReviewSession({
       document.removeEventListener("visibilitychange", onVisible);
     };
   }, [refresh]);
-  async function resume(savedReview: SavedReview | SavedPrice) {
-    if (!binding) return;
-    setError("");
+  async function sendBatch() {
+    if (!binding || !overview || activeSubmission.current || drafts.size || loadError || (!notified && !overview?.review_batch?.ready)) return;
+    activeSubmission.current = true;
+    setBusy(true);
     try {
-      await bridge.continue(
-        binding.session_id,
-        "run_id" in savedReview
-          ? `price run ${savedReview.run_id}`
-          : savedReview.source_file,
-      );
-      setNotice(
-        "Decision saved. Import agent notified; ledger writing and validation happen in the conversation.",
-      );
-      setSaved(null);
+      const batch = notified ?? await bridge.call<ReviewBatch>("prepare_import_review_batch", {...binding, token: overview.review_batch.token});
+      if (!notified) {
+        await bridge.continue(binding.session_id, batch.subjects);
+        setNotified(batch);
+      }
+      await bridge.call<ReviewBatch>("acknowledge_import_review_batch", {...binding, pending_token: batch.pending_token});
+      setNotified(null);
+      setNotice("Saved changes sent. The agent will read the JSON and continue the import.");
+      await refresh();
     } catch (e) {
-      setSaved(savedReview);
-      setNotice(
-        "Decision saved, but the conversation could not resume. Retry sends the notification without saving again.",
-      );
-      setError(String(e));
+      setNotice(`Changes remain saved. Send failed: ${String(e)}. Refresh before retrying.`);
+      await refresh();
+    } finally {
+      activeSubmission.current = false;
+      setBusy(false);
     }
   }
   async function submit(update: ReviewUpdate) {
@@ -183,14 +184,12 @@ function ReviewSession({
     setBusy(true);
     setError("");
     try {
-      const result = await bridge.call<SavedReview>("update_import_review", {
+      await bridge.call<SavedReview>("update_import_review", {
         ...binding,
         source_file: source,
         update,
       });
-      setSaved(result);
-      setNotice("Decision saved.");
-      await resume(result);
+      setNotice("Saved to JSON. Send saved changes when the current review is complete.");
       await refresh();
       return true;
     } catch (e) {
@@ -207,14 +206,13 @@ function ReviewSession({
     setBusy(true);
     setError("");
     try {
-      const result = await bridge.call<SavedPrice>("approve_import_prices", {
+      await bridge.call<SavedPrice>("approve_import_prices", {
         ...binding,
         run_id: runId,
         expected_etag: overview.etag,
         review_digest: digest,
       });
-      setSaved(result);
-      await resume(result);
+      setNotice("Price approval saved to JSON. Agent not notified.");
       await refresh();
     } catch (error) {
       setError(String(error));
@@ -300,7 +298,8 @@ function ReviewSession({
             {!initialBinding && (
               <button
                 onClick={() => {
-                  setBinding(null);
+                  setNotified(null);
+                    setBinding(null);
                   setOverview(null);
                   setSource(null);
                   setDetail(null);
@@ -335,15 +334,18 @@ function ReviewSession({
         {notice && (
           <div role="status" className="notice">
             {notice}
-            {saved && (
-              <button onClick={() => void resume(saved)}>
-                Retry continuation
-              </button>
-            )}
+
           </div>
         )}
         {overview && (
           <>
+            <section className="card" aria-label="Saved changes">
+              <strong>{overview.review_batch?.pending_count ?? 0} saved changes</strong>
+              <p>{overview.review_batch?.blockers.length ? `${overview.review_batch.blockers.length} current inputs still need review.` : "All current required inputs reviewed."}</p>
+              {!!overview.review_batch?.blockers.length && <details><summary>Remaining inputs</summary><ul>{overview.review_batch.blockers.map(item => <li key={item}>{item}</li>)}</ul></details>}
+              <button disabled={busy || !!drafts.size || !!loadError || (!notified && !overview.review_batch?.ready)} onClick={() => void sendBatch()}>{notified ? "Finish sent batch" : "Send saved changes"}</button>
+              {!!drafts.size && <p>Save or discard unsaved edits before sending.</p>}
+            </section>
             <nav aria-label="Session statements">
               <button
                 aria-pressed={!source}

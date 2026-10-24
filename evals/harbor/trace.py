@@ -215,6 +215,30 @@ def ends_with_validation(script: str, cwd: str) -> bool:
     )
 
 
+def redirected_operations(script: str, cwd: str) -> list[tuple[tuple[str, ...], str]]:
+    """Output redirection hides content, not a terminal command's exit status.
+
+    Strip only literal trailing output-file redirects, then use the same shell
+    control-flow rules as visible operations. Never credit reads or receipts
+    from this path. Input redirects, pipelines, substitutions, and descriptor
+    manipulation other than trailing 2>&1 remain unsupported.
+    """
+    redirect = re.compile(r"\s+(?:[12])?>>?\s*[A-Za-z0-9_./-]+(?:\s+2>&1)?\s*$")
+    lines = script.splitlines()
+    changed = False
+    for index, line in enumerate(lines):
+        stripped = redirect.sub("", line)
+        changed |= stripped != line
+        lines[index] = stripped
+    if not changed:
+        return []
+    return [
+        (argv, directory)
+        for argv, directory in shell_commands("\n".join(lines), cwd)
+        if launcher_arguments(Command("", True, argv, directory))
+    ]
+
+
 def validation_output(output: str) -> dict[str, Any] | None:
     """Decode the final JSON object, never an earlier printed receipt.
 
@@ -312,9 +336,16 @@ def readonly_argv(argv: list[str], cwd: str) -> bool:
         return False
     if argv[0] == "cat":
         return len(argv) > 1 and all(
+            re.fullmatch(r"[A-Za-z0-9_./{},*?-]+", arg) and not arg.startswith("-")
+            for arg in argv[1:]
+        )
+    if argv[0] == "sha256sum":
+        return len(argv) > 1 and all(
             re.fullmatch(r"[A-Za-z0-9_./-]+", arg) and not arg.startswith("-")
             for arg in argv[1:]
         )
+    if argv[0] == "head":
+        return len(argv) == 2 and bool(re.fullmatch(r"-[1-9]\d*", argv[1]))
     if argv[0] == "pwd":
         return len(argv) == 1
     if argv[0] in {"ls", "sort"}:
@@ -384,7 +415,7 @@ def observed_cat_reads(
         if separator == "|" or (
             index + 1 < len(commands) and commands[index + 1][1] == "|"
         ):
-            if argv[0] not in {"rg", "sort", "ls", "pwd"}:
+            if argv[0] not in {"rg", "sort", "ls", "pwd", "head"}:
                 return prefix_reads
     result: list[tuple[tuple[str, ...], str]] = []
     offset = 0
@@ -396,7 +427,7 @@ def observed_cat_reads(
             continue
         if argv[0] != "cat":
             continue
-        for operand in argv[1:]:
+        for operand in (path for arg in argv[1:] for path in expand_braces(arg)):
             if any(
                 line.startswith(f"cat: {operand}: ") for line in output.splitlines()
             ):
@@ -510,7 +541,39 @@ def expand_braces(value: str) -> list[str]:
     ]
 
 
-def shell_commands(script: str, cwd: str) -> list[tuple[tuple[str, ...], str]]:
+def passive_prefix_succeeded(argv: list[str], cwd: str, output: str | None) -> bool:
+    """Use complete native diagnostics for a narrow unconditional read prefix.
+
+    Cat and literal Git file listings report operand/repository errors. No
+    wrappers, redirects, substitutions, alternate repositories, or options
+    that invoke programs are accepted. Unknown prefixes remain conditional.
+    This proves assignment reachability, not content inspection or validation.
+    """
+    if not output or re.search(
+        r"truncated|(?m:^)(?:cat:|fatal:|error:|warning:|usage:|.*(?:bash|sh):)",
+        output,
+        re.I,
+    ):
+        return False
+    if argv[:1] == ["cat"]:
+        return len(argv) > 1 and all(
+            re.fullmatch(r"[A-Za-z0-9_./-]+", arg) and not arg.startswith("-")
+            for arg in argv[1:]
+        )
+    return (
+        argv[:2] == ["git", "ls-files"]
+        and readonly_argv(argv, cwd)
+        and all(
+            arg in {"--others", "--exclude-standard"}
+            or bool(re.fullmatch(r"[A-Za-z0-9_./-]+", arg))
+            for arg in argv[2:]
+        )
+    )
+
+
+def shell_commands(
+    script: str, cwd: str, *, output: str | None = None
+) -> list[tuple[tuple[str, ...], str]]:
     """Recognize literal shell commands; skip scripts, function bodies and data.
 
     Assignments resolve the documented launcher variables. Shell source files and
@@ -524,24 +587,32 @@ def shell_commands(script: str, cwd: str) -> list[tuple[tuple[str, ...], str]]:
     run_only = False
     helper_timeout: str | None = None
     conditional_variables: set[str] = set()
+    # Diagnostics cannot prove a prefix after an opaque command may have changed
+    # descriptors, aliases, or shell state. Limit this recovery to one native line.
+    prefix_proof_allowed = output is not None and len(script.splitlines()) == 1
 
     def substitute(match: re.Match[str]) -> str:
         return variables.get(match[1] or match[2], match[0])
 
     for line in script.splitlines():
+        # Here-document body lines are stdin data, not later shell commands.
+        # Preserve the header's && chain and ignore every body command mention.
+        if heredoc:
+            if line == heredoc:
+                heredoc = None
+            continue
         for key in conditional_variables:
             variables.pop(key, None)
         conditional_variables.clear()
         if not line.strip() or line.lstrip().startswith("#"):
             continue
         result = []
-        if heredoc:
-            if line.strip() == heredoc:
-                heredoc = None
-            continue
         here = re.search(r"<<-?\s*['\"]?(\w+)", line)
         if here:
-            heredoc = here[1]
+            terminal_here = re.search(r"<<\s*(?:'(\w+)'|\"(\w+)\"|(\w+))\s*$", line)
+            if terminal_here is None:
+                return []
+            heredoc = next(part for part in terminal_here.groups() if part is not None)
             # Definitions and launcher variables on the header still establish
             # shell state for commands after the opaque here-document body.
             line = line[: here.start()].rstrip()
@@ -624,6 +695,13 @@ def shell_commands(script: str, cwd: str) -> list[tuple[tuple[str, ...], str]]:
             assignments = []
             while group and re.match(r"^[A-Za-z_][A-Za-z_0-9]*=", group[0]):
                 assignments.append(group.pop(0).split("=", 1))
+            if any(
+                key not in {"AUTO_BEAN_PLUGIN", "AUTO_BEAN_WORKSPACE"}
+                or "$" in value
+                or "`" in value
+                for key, value in assignments
+            ):
+                prefix_proof_allowed = False
             prefixed = bool(assignments and group)
             if prefixed and any(
                 key not in {"AUTO_BEAN_PLUGIN", "AUTO_BEAN_WORKSPACE"}
@@ -632,6 +710,7 @@ def shell_commands(script: str, cwd: str) -> list[tuple[tuple[str, ...], str]]:
                 for key, value in assignments
             ):
                 conditional = True
+                prefix_proof_allowed = False
                 continue
             # Shell expansion happens before a command-prefix environment is
             # applied. Credit literal launcher commands without leaking these
@@ -653,9 +732,17 @@ def shell_commands(script: str, cwd: str) -> list[tuple[tuple[str, ...], str]]:
                 )
                 for value in group
             ]
-            if not expanded or any("$(" in t or "`" in t for t in expanded):
+            if any("$(" in t or "`" in t for t in expanded):
+                prefix_proof_allowed = False
+                conditional = True
                 continue
-            conditional = True
+            if not expanded:
+                continue
+            known_read = prefix_proof_allowed and passive_prefix_succeeded(
+                expanded, cwd, output
+            )
+            prefix_proof_allowed = known_read
+            conditional = conditional or not known_read
             if expanded[0] == "cd" and len(expanded) == 2:
                 if (
                     index < len(separators)
@@ -691,7 +778,7 @@ def shell_commands(script: str, cwd: str) -> list[tuple[tuple[str, ...], str]]:
             # Newlines also mask earlier exit statuses. Assignments above still
             # resolve variables, but only the final executable line is credited.
             result = line_result
-    return result
+    return [] if heredoc else result
 
 
 def readonly_pipeline_suffix(tokens: list[str]) -> str | None:
@@ -1362,6 +1449,18 @@ def load_commands(
                 )
             )
             if item["exit_code"] == 0:
+                baseline = {(command, directory) for command, directory, _ in observed}
+                observed.extend(
+                    (command, directory, "native_prefix_diagnostics")
+                    for command, directory in shell_commands(
+                        argv[2], cwd, output=item.get("aggregated_output", "")
+                    )
+                    if (command, directory) not in baseline
+                )
+                observed.extend(
+                    (command, directory, "redirected_exit_status")
+                    for command, directory in redirected_operations(argv[2], cwd)
+                )
                 observed.extend(
                     (("python-read", path), cwd, "native_python_read")
                     for path in python_reads(argv[2], cwd)
@@ -1384,7 +1483,8 @@ def load_commands(
                         if meta.get("id", meta.get("session_id")) != root_id
                         else None,
                         evidence_kind,
-                        not bool(
+                        evidence_kind != "redirected_exit_status"
+                        and not bool(
                             re.search(
                                 r"truncated", item.get("aggregated_output", ""), re.I
                             )
@@ -1444,10 +1544,12 @@ def grade_trace(
         report["failure"] = str(exc) or "Malformed native trace"
         return report
 
-    def check(label: str, matches: list[Command]) -> None:
+    def check(label: str, matches: list[Command], *, required: bool = True) -> None:
         report["checks"].append(
             {
                 "requirement": label,
+                "required": required,
+                "outcome": "observed" if matches else "insufficient_evidence",
                 "passed": bool(matches),
                 "evidence": list(dict.fromkeys(c.reference for c in matches)),
                 "detail": ", ".join(sorted({c.evidence_kind for c in matches}))
@@ -1460,11 +1562,9 @@ def grade_trace(
     assignments: list[set[str]] = []
     for stage, groups in (stage_groups or {}).items():
         for group in groups:
-            candidates = {
-                c.agent_id
-                for c in commands
-                if c.agent_id and plugin_read(c, f"skills/auto-bean-{stage}/SKILL.md")
-            }
+            # Stage identity comes from current group activity, not a routine
+            # skill-file read. Descendant identity still comes from native metadata.
+            candidates = {c.agent_id for c in current if c.agent_id}
             candidates = {
                 agent
                 for agent in candidates
@@ -1504,6 +1604,8 @@ def grade_trace(
         report["checks"].append(
             {
                 "requirement": "subagents:separate-group-stage-workers",
+                "required": True,
+                "outcome": "insufficient_evidence",
                 "passed": False,
                 "evidence": [],
                 "detail": "Worker identity is recorded in descendant session metadata, but stage/group activity is not fully established. Distinctness is undetermined, not disproven.",
@@ -1517,6 +1619,7 @@ def grade_trace(
                 for c in commands
                 if plugin_read(c, f"skills/auto-bean-{skill}/SKILL.md")
             ],
+            required=False,
         )
     references = ["common.md"]
     if phase != "init":
@@ -1533,6 +1636,7 @@ def grade_trace(
         check(
             f"reference:{reference}",
             [c for c in commands if plugin_read(c, f"references/{reference}")],
+            required=False,
         )
     files = [".auto-bean/workspace.json"]
     if phase == "init":
@@ -1567,7 +1671,12 @@ def grade_trace(
             ".auto-bean/memory/category_mappings.json",
         ]
     for file in files:
-        check(f"fresh:{file}", [c for c in commands if workspace_fresh(c, file)])
+        check(
+            f"fresh:{file}",
+            [c for c in commands if workspace_fresh(c, file)],
+            required=file == "ledger.beancount"
+            or file in (parsed_paths or ["statements/parsed/january.json"]),
+        )
     check(
         "command:git-status",
         [
@@ -1600,5 +1709,10 @@ def grade_trace(
             "command:" + " ".join(spec),
             [c for c in current if operation(c, spec[0], *spec[1:])],
         )
-    report["passed"] = all(c["passed"] for c in report["checks"])
+    report["passed"] = all(c["passed"] for c in report["checks"] if c["required"])
+    report["diagnostics"] = [
+        c["requirement"]
+        for c in report["checks"]
+        if not c["required"] and not c["passed"]
+    ]
     return report

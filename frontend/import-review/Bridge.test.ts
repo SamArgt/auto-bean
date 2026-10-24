@@ -41,15 +41,15 @@ test("a host rejection is a failed continuation, not a successful notification",
     { message: { send } } as unknown as OpenAIExtensions,
   );
   await expect(
-    bridge.continue("session", "statements/raw/a.csv"),
-  ).rejects.toThrow("decision remains saved");
+    bridge.continue("session", ["statements/raw/a.csv"]),
+  ).rejects.toThrow("changes remain saved");
   expect(send).toHaveBeenCalledWith({
     role: "user",
     content: [
       {
         type: "text",
         text: expect.stringContaining(
-          "session session: review of statements/raw/a.csv was updated",
+          "session session: saved review batch is ready",
         ),
       },
     ],

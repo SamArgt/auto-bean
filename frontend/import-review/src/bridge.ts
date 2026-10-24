@@ -33,7 +33,7 @@ export function createBridge(
         );
       return data.result;
     },
-    async continue(sessionId: string, sourceFile: string) {
+    async continue(sessionId: string, subjects: string[]) {
       if (!extensions.message)
         throw new Error("Host does not support same-conversation continuation");
       const result = await extensions.message.send({
@@ -41,14 +41,14 @@ export function createBridge(
         content: [
           {
             type: "text",
-            text: `Auto-bean import session ${sessionId}: review of ${sourceFile} was updated. Read the current review artifacts and continue this import in the same conversation.`,
+            text: `Auto-bean import session ${sessionId}: saved review batch is ready. Updated subjects: ${JSON.stringify(subjects)}. Read the current review artifacts and continue this import in the same conversation.`,
           },
         ],
         _meta: { "openai/message": { target: "active", send: true } },
       });
       if (result.isError)
         throw new Error(
-          "Host could not deliver the continuation. Your decision remains saved.",
+          "Host could not deliver the continuation. Your changes remain saved.",
         );
     },
   };

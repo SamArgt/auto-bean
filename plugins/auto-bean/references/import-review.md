@@ -115,3 +115,11 @@ Inspect source identity, extraction state, account IDs and record count before r
 The [group parsed example](parsed-statement-output.example.json) shows two accounts and six rows, including a split, refund, answered question and reciprocal transfer. The [session example](import-session.example.json) contains group membership, its parsed path and a synthetic price run. The [status example](import-status.example.yml) tracks that group.
 
 These illustrate structure, not instructions or approval. Never copy generated confirmations, hashes or successful results into a real import. The panel and validator produce their own evidence from the selected workspace.
+
+## Panel saves and batch sending
+
+Panel saves write corrections immediately to the parsed-group JSON. Price approvals write to the session JSON. They do not notify the agent or write ledger entries. Import status stays under agent control.
+
+The panel records pending subjects and response fingerprints in `.auto-bean/review-batches/<session_id>.json`. **Send saved changes** is available when every current required input has a saved response, required approvals are complete, and the panel has no drafts. The server checks all session members again before sending. A changed question requires review again.
+
+Send posts one user message to the active conversation through the MCP App bridge. The message contains the session ID and updated source/price-run identifiers. It asks the agent to read the current JSON and continue the import. It does not contain full statement data or draft text. After the host accepts the message, the panel acknowledges the batch. Failed sends keep the pending changes. Acknowledgement never clears newer saves. If acknowledgement fails after a successful message, the open panel retries acknowledgement only.

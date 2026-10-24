@@ -30,7 +30,25 @@ EXPECTED_MCP_TOOLS = {
     "search_ledger_accounts",
     "update_import_review",
     "approve_import_prices",
+    "prepare_import_review_batch",
+    "acknowledge_import_review_batch",
 }
+
+
+def check_tool_contract(tools: dict[str, Any]) -> None:
+    """Require the exact tool set and keep panel tools app-only."""
+    missing = sorted(EXPECTED_MCP_TOOLS - set(tools))
+    unexpected = sorted(set(tools) - EXPECTED_MCP_TOOLS)
+    if missing or unexpected:
+        raise RuntimeError(
+            f"MCP tool discovery disagrees with review contract: "
+            f"missing={missing}, unexpected={unexpected}"
+        )
+    for name in sorted(
+        EXPECTED_MCP_TOOLS - {"open_import_review", "export_import_review"}
+    ):
+        if tools[name].get("_meta", {}).get("ui", {}).get("visibility") != ["app"]:
+            raise RuntimeError(f"MCP tool visibility must be app-only: {name}")
 
 
 def check_unbound_result(result: dict[str, Any]) -> None:
@@ -109,12 +127,7 @@ async def probe_mcp(plugin: Path) -> None:
         await process.stdin.drain()
         listing = await request(2, "tools/list", {})
         tools = {item["name"]: item for item in listing["tools"]}
-        if set(tools) != EXPECTED_MCP_TOOLS or tools["update_import_review"]["_meta"][
-            "ui"
-        ]["visibility"] != ["app"]:
-            raise RuntimeError(
-                "MCP tool discovery/visibility disagrees with review contract"
-            )
+        check_tool_contract(tools)
         resources = await request(
             3,
             "resources/read",

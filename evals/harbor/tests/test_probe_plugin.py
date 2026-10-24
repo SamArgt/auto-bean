@@ -11,7 +11,37 @@ from typing import Any
 import pytest
 
 from auto_bean.common import PLUGIN
-from evals.harbor.probe_plugin import check_unbound_result, probe_mcp
+from evals.harbor.probe_plugin import (
+    EXPECTED_MCP_TOOLS,
+    check_tool_contract,
+    check_unbound_result,
+    probe_mcp,
+)
+
+
+@pytest.mark.parametrize(
+    "defect", [None, "missing", "unexpected", "visible", "no_meta"]
+)
+@pytest.mark.parametrize(
+    "name", ["prepare_import_review_batch", "acknowledge_import_review_batch"]
+)
+def test_batch_tool_discovery_contract(name: str, defect: str | None) -> None:
+    tools: dict[str, Any] = {
+        key: {"_meta": {"ui": {"visibility": ["app"]}}} for key in EXPECTED_MCP_TOOLS
+    }
+    if defect == "missing":
+        del tools[name]
+    elif defect == "unexpected":
+        tools["unknown_tool"] = {}
+    elif defect == "visible":
+        tools[name]["_meta"]["ui"]["visibility"] = ["app", "model"]
+    elif defect == "no_meta":
+        tools[name] = {}
+    if defect is None:
+        check_tool_contract(tools)
+    else:
+        with pytest.raises(RuntimeError, match="MCP tool"):
+            check_tool_contract(tools)
 
 
 @pytest.mark.parametrize(

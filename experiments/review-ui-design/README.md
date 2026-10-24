@@ -1,25 +1,57 @@
-# Review UI design prototype
+# Import review prototype
 
-Serve this folder over HTTP and open `index.html`. The page fetches these synthetic fixtures at startup:
+Static HTML, CSS and JavaScript with synthetic JSON fixtures. The experiment does not use workspace templates. No live ledger, MCP calls or real agent notifications are used.
 
-- `fixtures/session.json`: session membership, parsed-file paths, price run and directive.
-- `fixtures/import-status.json`: workflow status, source identity and parsed-file association.
-- `fixtures/statements/parsed/*.json`: extracted records, account balances, inline review decisions, postings and reciprocal transfer links.
+Run from the repository root:
 
-These files follow the product's `session.schema.json`, `status.schema.json`, and `parsed-v2.schema.json`. Production stores import status as YAML; this prototype uses the equivalent JSON object for browser loading. All names, transactions, quotes and source fingerprints are synthetic. No raw bank files or live ledger are accessed. Fingerprints identify synthetic source labels, not real statement bytes.
+```sh
+uv run python experiments/review-ui-design/serve.py
+```
 
-Edit a fixture and reload the browser to change the initial review. The HTML contains no fallback transaction dataset. Missing files, identity mismatches and invalid reciprocal transfer links show a load error. JSON schemas were checked separately; the browser performs focused identity and link checks, not full schema validation.
+Open http://127.0.0.1:8767/.
 
-The adapter currently supports one source account per statement. It maps the loaded documents into the existing presentation model. Simple posting corrections, approvals and demo outcome controls are in-memory simulations. They never write fixtures or ledger files. Reset reloads the fixture files. Complex postings support in-memory edits to accounts, amounts, currencies, explicit unit costs and unit prices, plus adding/removing lines. Saving requires balanced currency weights and the original statement cash amount. Drafts block approval, persist across navigation, and can be discarded. Saving invalidates the statement’s previous approval. Shared transfer postings remain read-only. Lot dates, labels, total costs and omitted amounts are outside the editor’s supported syntax. Validation is shown as unavailable until supplied in a fixture or simulated with a demo control.
+## Layout
 
-Each transfer uses reciprocal `linked_records` and the same `posting_owner` on both source rows. The UI shows one shared posting set, with navigation to either source row. The fake completion control waits for both statements to be approved.
+The left sidebar contains Session, Account and Price. Individual source accounts stay visible beneath Account, with counts for outstanding inputs.
 
-The production template and runtime are unchanged.
+- **Session:** expand a statement group to see its sources, accounts, opening and closing balances, current questions and available statement approval.
+- **Account:** choose a source account from the left sidebar. Filter transactions by needed input or internal transfers, or search. Open a row to respond, edit postings, splits, fees and simple unit costs/prices, or follow a linked transfer.
+- **Price:** inspect and approve the separate price run.
 
-## Batched review and stage previews
+The fixed footer shows outstanding inputs and saved changes. Saves write schema-validated synthetic JSON copies under `.demo-state/<stage>/` immediately. Send is enabled only when all current questions have responses, available statement/price approvals are saved, and no drafts remain. It simulates one notification and retains the last batch on disk. Refresh preserves saved edits. **Saved JSON / diffs** shows the current files and the before/after diff for each save. **Reset demo** restores that stage from its original fixtures and clears its history.
 
-Saves enqueue the latest change per subject in browser memory. Only the explicit Send saved changes to agent button simulates notification. It requires every currently requested input across the session to be reviewed, all current final-review/price decisions to be recorded, no unsaved drafts and no simulated snapshot/stale conflicts. It does not require stages that have not started. Sending clears the unsent batch and increments a demo notification counter; no MCP call is made.
+Transaction, account and balance choices come from the inline `review.suggestions` arrays. Account suggestions name a ledger account. Balance suggestions request an agent check; they do not authorize an adjustment. Each input shows its rationale first, then a suggestions dropdown and **Save choice**. Select **Something else** in the dropdown to enter a correction. The interface uses slate surfaces, blue actions and amber input indicators.
 
-The stage selector reloads one of three JSON fixture sets: the default transaction-review fixtures, fixtures/accounts (only mapping review), or fixtures/mixed (account, failed extraction and opening-balance clarification). These use the same product schemas. Early responses are kept as answers pending agent review; they do not simulate progression or ledger writing. Missing account evidence and balances are shown as unavailable. Prices have their own sidebar section, including a no-results-yet state.
+Account mappings, clarification answers and postings update their inline review fields in the copied parsed-group JSON. Price approvals update the copied session JSON. Batch bookkeeping and diffs live in `batch.json`. Seed fixtures and reported balances remain unchanged. Send clears the pending queue and increments the simulated notification count; it makes no MCP call. The server checks the save token to reject stale tabs.
 
-These are proposed UI behaviors only. The plugin's per-save notification behavior is unchanged until this design is applied.
+A clarification response does not advance the group, convert held postings into accepted postings, or create validation evidence. An agent pass is still needed. Approval is available for complete, categorized source sections, even if another member blocks the group. Editing postings invalidates that statement's saved approval. Shared transfer postings remain read-only and identify one posting owner. The batch gate includes all available statement approvals.
+
+## Fixtures and current contracts
+
+Fixtures follow the product schemas under `plugins/auto-bean/references/schemas/` and the flow in `plugins/auto-bean/references/import-review.md`:
+
+- `session.json`: session schema v1, group identities, names, origins, memberships, parsed paths and price runs.
+- `import-status.json`: JSON representation of the status YAML schema v1. Lifecycle state belongs to each group; fingerprints and retries belong to its source map.
+- `statements/parsed/banking-october.json`: parsed-group schema v2 with checking and savings source sections.
+- `statements/parsed/investments-october.json`: parsed-group schema v2 with the brokerage source section.
+
+The loader checks exact group membership, unique source ownership, parsed paths, source fingerprints, account IDs and reciprocal transfer links. It supports multiple accounts in each statement. Source data is not embedded in the HTML.
+
+Use **Demo settings** to choose a fixture set:
+
+| URL | Available data |
+| --- | --- |
+| `/` | Three statements, 15 transactions, two internal transfer pairs, splits, tax, fees, unit cost and a price quote |
+| `/?stage=accounts` | Account mapping questions; transactions and closing balances unavailable |
+| `/?stage=mixed` | A source extraction failure, an account question and an opening-balance mismatch |
+
+The group stays at its saved stage while responses await the agent. Unavailable amounts are never displayed as zero. Quotes are illustrative, not market data. The prototype does not simulate ledger writing, stale validation recovery or import completion.
+
+## Checks
+
+```sh
+node --test experiments/review-ui-design/model.test.mjs
+node --check experiments/review-ui-design/app.mjs
+```
+
+All 12 JSON fixtures were validated against the current product JSON Schemas, including date formats. Browser checks cover the three tabs, needed-input filtering, split editing and batch sending in the account-only stage.

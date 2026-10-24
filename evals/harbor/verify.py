@@ -108,12 +108,18 @@ def require(condition: object, message: str) -> None:
 def finish_report(
     report: dict[str, Any], state_checks: list[dict[str, Any]], trace: dict[str, Any]
 ) -> None:
-    """Expose all executed checks without changing the binary grading policy."""
+    """Separate diagnostic reads from required trace and state failures."""
     checks = list(state_checks)
     checks.extend(
         {
             "scope": "trace",
-            "status": "passed" if check["passed"] else "failed",
+            "status": "passed"
+            if check["passed"]
+            else ("failed" if check.get("required", True) else "diagnostic"),
+            "required": check.get("required", True),
+            "outcome": check.get(
+                "outcome", "observed" if check["passed"] else "insufficient_evidence"
+            ),
             "requirement": check["requirement"],
             "evidence": check.get("evidence", []),
             "detail": check.get("detail", ""),
@@ -137,12 +143,12 @@ def finish_report(
                 "detail": "Trace input could not be loaded. No trace assertions ran.",
             }
         )
-    report["schema_version"] = 2
+    report["schema_version"] = 3
     report["checks"] = checks
     report["check_summary"] = {
         scope: {
             status: sum(c["scope"] == scope and c["status"] == status for c in checks)
-            for status in ("passed", "failed", "error", "skipped")
+            for status in ("passed", "failed", "error", "skipped", "diagnostic")
         }
         for scope in ("state", "trace")
     }
@@ -151,7 +157,8 @@ def finish_report(
         "Skipped rows describe unexecuted check groups, not individual check counts. "
         "Assertion labels are failure messages; passed means that condition was absent. "
         "Trace checks run independently. State-dependent trace expectations are only "
-        "available after state checks pass."
+        "available after state checks pass. Diagnostic read gaps do not affect reward. "
+        "Missing required trace evidence still blocks reward; it is not proof of a violated requirement."
     )
 
 
@@ -170,21 +177,31 @@ def write_report_markdown(path: Path, report: dict[str, Any]) -> None:
         f"Phase: **{report['phase']}**. Result: **{'PASS' if report['passed'] else 'FAIL'}**.",
         f"Trace policy: `{report['trace_policy']}`.",
         "",
-        "| Scope | Passed | Failed | Errors | Skipped groups |",
-        "| --- | ---: | ---: | ---: | ---: |",
+        "| Scope | Passed | Failed | Errors | Skipped groups | Diagnostics |",
+        "| --- | ---: | ---: | ---: | ---: | ---: |",
     ]
     for scope, counts in report["check_summary"].items():
         lines.append(
             f"| {scope} | {counts['passed']} | {counts['failed']} | "
-            f"{counts['error']} | {counts['skipped']} |"
+            f"{counts['error']} | {counts['skipped']} | {counts.get('diagnostic', 0)} |"
         )
     lines += ["", report["coverage_note"]]
-    icons = {"passed": "✅", "failed": "❌", "error": "⚠️", "skipped": "⏭️"}
+    icons = {
+        "passed": "✅",
+        "failed": "❌",
+        "error": "⚠️",
+        "skipped": "⏭️",
+        "diagnostic": "ℹ️",
+    }
     ordered = sorted(
         enumerate(report["checks"], 1),
-        key=lambda item: {"failed": 0, "error": 1, "skipped": 2, "passed": 3}[
-            item[1]["status"]
-        ],
+        key=lambda item: {
+            "failed": 0,
+            "error": 1,
+            "skipped": 2,
+            "diagnostic": 3,
+            "passed": 4,
+        }[item[1]["status"]],
     )
     previous = None
     for index, check in ordered:

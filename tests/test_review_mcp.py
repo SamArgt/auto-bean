@@ -224,9 +224,12 @@ def test_stdio_saves_inline_correction_and_rejects_stale_retry(
                 assert result.structuredContent
                 receipt = result.structuredContent["result"]
                 changed = result.structuredContent["changed_files"]
-                assert changed == [PARSED]
+                assert changed == [
+                    ".auto-bean/review-batches/test-session.json",
+                    PARSED,
+                ]
                 assert result.structuredContent["file_sha256"] == {
-                    PARSED: digest((store.root / PARSED).read_bytes())
+                    path: digest((store.root / path).read_bytes()) for path in changed
                 }
                 assert set(receipt) == {"source_file", "etag", "review_digest"}
                 assert receipt["etag"] == etag(store.statement(SOURCE))

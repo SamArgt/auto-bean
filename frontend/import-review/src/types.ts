@@ -151,7 +151,16 @@ export type PriceRun = {
     detail?: string;
   }[];
 };
+export type ReviewBatch = {
+  pending_count: number;
+  pending_token: string;
+  token: string;
+  blockers: string[];
+  ready: boolean;
+  subjects: string[];
+};
 export type Overview = Binding & {
+  review_batch: ReviewBatch;
   etag: string;
   groups: {
     group_id: string;
@@ -175,6 +184,6 @@ export type Overview = Binding & {
 };
 export interface Bridge {
   call<T>(name: string, args: Record<string, unknown>): Promise<T>;
-  continue(sessionId: string, sourceFile: string): Promise<void>;
+  continue(sessionId: string, subjects: string[]): Promise<void>;
   openFile?(path: string): Promise<void>;
 }

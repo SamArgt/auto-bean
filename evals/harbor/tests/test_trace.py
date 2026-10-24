@@ -54,6 +54,13 @@ def save(logs: Path, events: list[dict[str, Any]], *, child: bool = False) -> Pa
     return path
 
 
+def observed(report: dict[str, Any], requirement: str) -> bool:
+    """Diagnostic checks still reject missing or forged evidence."""
+    return bool(
+        next(c for c in report["checks"] if c["requirement"] == requirement)["passed"]
+    )
+
+
 def passing_events(phase: str) -> list[dict[str, Any]]:
     # Explicit representative workflow, independent of the requirement table.
     skills = "init,import,process,categorize,query,write,prices,memory"
@@ -313,7 +320,7 @@ def test_missing_skill_reference_read_or_command_fails(
     events = passing_events("init")
     events.pop(index)
     save(tmp_path, events)
-    assert not grade_trace(tmp_path, "init")["passed"]
+    assert grade_trace(tmp_path, "init")["passed"] is (index in {0, 1})
 
 
 @pytest.mark.parametrize(
@@ -385,13 +392,13 @@ def test_linked_worker_can_supply_skill_evidence(tmp_path: Path) -> None:
     skills = events.pop(0)
     save(tmp_path, events)
     child = save(tmp_path, [skills], child=True)
-    assert grade_trace(tmp_path, "review")["passed"]
+    assert observed(grade_trace(tmp_path, "review"), "skill:import")
     child.write_text(
         child.read_text().replace(
             '"parent_thread_id": "root"', '"parent_thread_id": "unrelated"'
         )
     )
-    assert not grade_trace(tmp_path, "review")["passed"]
+    assert not observed(grade_trace(tmp_path, "review"), "skill:import")
 
 
 def test_missing_malformed_and_ambiguous_traces_fail(tmp_path: Path) -> None:
@@ -444,7 +451,7 @@ def test_listing_skills_does_not_count_as_reading(tmp_path: Path) -> None:
     events = passing_events("init")
     events[0] = event(f"rg --files {PLUGIN}/skills/auto-bean-init/SKILL.md")
     save(tmp_path, events)
-    assert not grade_trace(tmp_path, "init")["passed"]
+    assert not observed(grade_trace(tmp_path, "init"), "skill:init")
 
 
 def test_shell_star_cannot_claim_reads_in_subdirectories(tmp_path: Path) -> None:
@@ -452,7 +459,7 @@ def test_shell_star_cannot_claim_reads_in_subdirectories(tmp_path: Path) -> None
     events[2] = event("cat *")
     save(tmp_path, events)
     report = grade_trace(tmp_path, "init")
-    assert not report["passed"]
+    assert report["passed"]  # The missing workspace read is diagnostic.
     assert not next(
         c
         for c in report["checks"]
@@ -834,13 +841,13 @@ def test_cli_parent_metadata_admits_only_linked_descendants(
     save(tmp_path, events)
     path = save(tmp_path, [skills], child=True)
     path.write_text(path.read_text().replace('"spawn":', f'"{field}":'))
-    assert grade_trace(tmp_path, "review")["passed"]
+    assert observed(grade_trace(tmp_path, "review"), "skill:import")
     path.write_text(
         path.read_text().replace(
             '"parent_thread_id": "root"', '"parent_thread_id": "other"'
         )
     )
-    assert not grade_trace(tmp_path, "review")["passed"]
+    assert not observed(grade_trace(tmp_path, "review"), "skill:import")
 
 
 @pytest.mark.parametrize(
@@ -1134,7 +1141,7 @@ def test_cat_recovery_does_not_credit_missing_or_hidden_reads(
         events[0]["payload"]["item"]["status"] = "in_progress"
         events[0]["payload"]["item"]["exit_code"] = None
     save(tmp_path, events)
-    assert not grade_trace(tmp_path, "init")["passed"]
+    assert not observed(grade_trace(tmp_path, "init"), "skill:init")
 
 
 def test_failed_search_retains_content_proven_prefix_reads(tmp_path: Path) -> None:
@@ -1148,14 +1155,18 @@ def test_failed_search_retains_content_proven_prefix_reads(tmp_path: Path) -> No
     item["aggregated_output"] = "full skill instructions\n"
     save(tmp_path, events)
     contents = {target: "full skill instructions\n"}
-    assert grade_trace(tmp_path, "init", contents=contents.get)["passed"]
-    assert not grade_trace(tmp_path, "init")["passed"]
+    assert observed(grade_trace(tmp_path, "init", contents=contents.get), "skill:init")
+    assert not observed(grade_trace(tmp_path, "init"), "skill:init")
     contents[target] = "changed instructions\n"
-    assert not grade_trace(tmp_path, "init", contents=contents.get)["passed"]
+    assert not observed(
+        grade_trace(tmp_path, "init", contents=contents.get), "skill:init"
+    )
     item["command"][2] = f"false && cat {target}; echo 'full skill instructions'"
     save(tmp_path, events)
     contents[target] = "full skill instructions\n"
-    assert not grade_trace(tmp_path, "init", contents=contents.get)["passed"]
+    assert not observed(
+        grade_trace(tmp_path, "init", contents=contents.get), "skill:init"
+    )
 
 
 @pytest.mark.parametrize(
@@ -1206,9 +1217,14 @@ def test_snapshot_proves_reads_in_mixed_native_sequences(
         if c["requirement"] == "fresh:.auto-bean/workspace.json"
     )
     assert "native_output_content" in check["detail"]
-    assert not grade_trace(tmp_path, "init")["passed"]
+    assert not observed(
+        grade_trace(tmp_path, "init"), "fresh:.auto-bean/workspace.json"
+    )
     contents["/app/ledger/.auto-bean/workspace.json"] = "changed snapshot\n"
-    assert not grade_trace(tmp_path, "init", contents=contents.get)["passed"]
+    assert not observed(
+        grade_trace(tmp_path, "init", contents=contents.get),
+        "fresh:.auto-bean/workspace.json",
+    )
 
 
 @pytest.mark.parametrize(
@@ -1241,7 +1257,10 @@ def test_snapshot_output_cannot_prove_skipped_or_opaque_reads(
     contents = {
         "/app/ledger/.auto-bean/workspace.json": '{\n  "format_version": 1\n}\n'
     }
-    assert not grade_trace(tmp_path, "init", contents=contents.get)["passed"]
+    assert not observed(
+        grade_trace(tmp_path, "init", contents=contents.get),
+        "fresh:.auto-bean/workspace.json",
+    )
 
 
 @pytest.mark.parametrize(
@@ -1269,7 +1288,10 @@ def test_mixed_read_requires_complete_terminal_output(
     events.append(row)
     save(tmp_path, events)
     contents = {"/app/ledger/.auto-bean/workspace.json": content}
-    assert not grade_trace(tmp_path, "init", contents=contents.get)["passed"]
+    assert not observed(
+        grade_trace(tmp_path, "init", contents=contents.get),
+        "fresh:.auto-bean/workspace.json",
+    )
 
 
 @pytest.mark.parametrize(
@@ -1351,7 +1373,7 @@ def test_exact_native_skill_injection_counts_as_loaded_skill(
     assert report["passed"], report
     check = next(c for c in report["checks"] if c["requirement"] == "skill:import")
     assert check["detail"] == "native_skill_injection"
-    assert not grade_trace(tmp_path, "needs-input")["passed"]
+    assert not observed(grade_trace(tmp_path, "needs-input"), "skill:import")
 
 
 @pytest.mark.parametrize(
@@ -1405,7 +1427,9 @@ def test_skill_injection_requires_exact_source_and_native_session(
             )
         )
     contents = {f"{PLUGIN}/skills/auto-bean-import/SKILL.md": source}
-    assert not grade_trace(tmp_path, "needs-input", contents=contents.get)["passed"]
+    assert not observed(
+        grade_trace(tmp_path, "needs-input", contents=contents.get), "skill:import"
+    )
 
 
 def test_failed_cat_operand_does_not_discard_other_semicolon_reads(
@@ -1582,3 +1606,323 @@ def test_validation_manifest_after_script_output(
     save(tmp_path, [item])
     commands = load_commands(tmp_path)
     assert any(workspace_fresh(c, path) for c in commands) is (defect is None)
+
+
+@pytest.mark.parametrize(
+    "redirect",
+    [
+        "> extraction.log",
+        ">> extraction.log",
+        "1> .auto-bean/tmp/extraction.log 2>&1",
+        "2> errors.log",
+    ],
+)
+@pytest.mark.parametrize("code", [0, 1, 124, None])
+def test_redirected_extraction_is_execution_not_content(
+    tmp_path: Path, redirect: str, code: int | None
+) -> None:
+    from evals.harbor.trace import operation, ledger_query
+
+    script = f"mkdir -p .auto-bean/tmp && timeout 120 sh {PLUGIN}/runtime/launch.sh run --workspace /app/ledger docling statements/raw/savings.pdf --to json --output .auto-bean/tmp {redirect}"
+    item = event(script)
+    item["payload"]["item"]["exit_code"] = code
+    save(tmp_path, [item])
+    commands = load_commands(tmp_path)
+    matches = [
+        c for c in commands if operation(c, "docling", "statements/raw/savings.pdf")
+    ]
+    assert bool(matches) is (code == 0)
+    assert all(not c.output_complete for c in matches)
+    assert not any(ledger_query(c) for c in commands)
+
+
+@pytest.mark.parametrize(
+    "suffix",
+    [
+        "> log; true",
+        "> log || true",
+        "> log | cat",
+        "> $(echo log)",
+        "> `echo log`",
+        "< input > log",
+        "> log &",
+        "> log && echo forged",
+    ],
+)
+def test_redirect_does_not_hide_failed_or_ambiguous_execution(
+    tmp_path: Path, suffix: str
+) -> None:
+    from evals.harbor.trace import operation
+
+    # Only trailing literal file redirects are supported, not arbitrary tails.
+    script = f"sh {PLUGIN}/runtime/launch.sh run --workspace /app/ledger docling statements/raw/savings.pdf {suffix}"
+    save(tmp_path, [event(script)])
+    assert not any(operation(c, "docling") for c in load_commands(tmp_path))
+
+
+@pytest.mark.parametrize("operation_name", ["cat", "query", "validation"])
+def test_redirected_stdout_cannot_supply_read_or_change_receipt(
+    tmp_path: Path, operation_name: str
+) -> None:
+    from evals.harbor.trace import ledger_query
+
+    if operation_name == "cat":
+        script = "cat statements/parsed/january.json > log"
+    elif operation_name == "query":
+        script = f"sh {PLUGIN}/runtime/launch.sh run --workspace /app/ledger bean-query ledger.beancount 'SELECT account' > log"
+    else:
+        script = f"sh {PLUGIN}/runtime/launch.sh validate --workspace /app/ledger --session january --stage written > log"
+    item = event(script)
+    item["payload"]["item"]["aggregated_output"] = json.dumps(
+        {"state": "passed", "changed_files": ["statements/parsed/january.json"]}
+    )
+    save(tmp_path, [item])
+    commands = load_commands(tmp_path)
+    assert not any(
+        workspace_fresh(c, "statements/parsed/january.json") or ledger_query(c)
+        for c in commands
+    )
+
+
+@pytest.mark.parametrize("code", [0, 1])
+def test_passive_read_recovery_is_independent_of_final_search(
+    tmp_path: Path, code: int
+) -> None:
+    script = f"sha256sum statements/raw/checking.csv && cat statements/parsed/january.json && cat {PLUGIN}/references/schemas/{{session,status}}.schema.json && rg -n absent ledger.beancount"
+    content = '{"review":"current"}\n'
+    item = event(script, code=code)
+    item["payload"]["item"]["aggregated_output"] = (
+        "hash output\n" + content + "schema output\n"
+    )
+    save(tmp_path, [item])
+    commands = load_commands(
+        tmp_path,
+        contents=lambda path: (
+            content if path == "/app/ledger/statements/parsed/january.json" else None
+        ),
+    )
+    assert any(workspace_fresh(c, "statements/parsed/january.json") for c in commands)
+    item["payload"]["item"]["command"][2] = script.replace(
+        "sha256sum statements/raw/checking.csv", "echo forged"
+    )
+    save(tmp_path, [item])
+    assert any(
+        workspace_fresh(c, "statements/parsed/january.json")
+        for c in load_commands(tmp_path, contents=lambda _: content)
+    ) is (code == 0)
+
+
+def test_historical_workspace_read_survives_unrelated_brace_expansion(
+    tmp_path: Path,
+) -> None:
+    script = f"git status --short && git ls-files statements/raw && ls -la statements/raw && cat .auto-bean/workspace.json statements/import-status.yml && cat {PLUGIN}/references/schemas/{{session,status,parsed-v2}}.schema.json"
+    content = '{"schema_version":1}\n'
+    item = event(script, timestamp="2026-10-21T09:59:00Z")
+    item["payload"]["item"]["aggregated_output"] = content + "other output\n"
+    save(tmp_path, [item])
+    commands = load_commands(
+        tmp_path,
+        contents=lambda path: (
+            content if path == "/app/ledger/.auto-bean/workspace.json" else None
+        ),
+    )
+    assert any(workspace_fresh(c, ".auto-bean/workspace.json") for c in commands)
+    assert not any(
+        workspace_fresh(c, ".auto-bean/workspace.json")
+        for c in load_commands(tmp_path, contents=lambda _: "changed")
+    )
+
+
+def test_routine_reads_are_diagnostics_but_required_evidence_blocks(
+    tmp_path: Path,
+) -> None:
+    events = passing_events("approve")
+    events[0] = event("true")
+    events[1] = event("true")
+    events[2] = event("cat ledger.beancount beancount/accounts.beancount")
+    events[3] = event("cat statements/parsed/january.json")
+    save(tmp_path, events)
+    report = grade_trace(tmp_path, "approve")
+    assert report["passed"]
+    assert "skill:import" in report["diagnostics"]
+    assert "fresh:.auto-bean/workspace.json" in report["diagnostics"]
+    assert "fresh:.auto-bean/memory/account_mappings.json" in report["diagnostics"]
+    for index in [2, 3, len(events) - 1]:
+        changed = list(events)
+        changed[index] = event("echo no evidence")
+        save(tmp_path, changed)
+        result = grade_trace(tmp_path, "approve")
+        assert not result["passed"]
+        assert any(
+            c["required"] and c["outcome"] == "insufficient_evidence"
+            for c in result["checks"]
+        )
+
+
+def test_worker_activity_does_not_require_diagnostic_skill_reads(
+    tmp_path: Path,
+) -> None:
+    save(tmp_path, passing_events("review")[1:])
+    save_group_workers(tmp_path)
+    for path in (tmp_path / "sessions").glob("*.jsonl"):
+        records = [json.loads(line) for line in path.read_text().splitlines()]
+        records = [
+            r
+            for r in records
+            if "/skills/"
+            not in str(r.get("payload", {}).get("item", {}).get("command", ""))
+        ]
+        path.write_text("".join(json.dumps(r) + "\n" for r in records))
+    groups = {
+        "process": [
+            {
+                "group_id": "january",
+                "paths": ["statements/raw/checking.csv", "statements/raw/savings.pdf"],
+            }
+        ],
+        "categorize": [
+            {"group_id": "january", "paths": ["statements/parsed/january.json"]}
+        ],
+    }
+    report = grade_trace(tmp_path, "review", groups)
+    assert report["passed"]
+    assert observed(report, "subagents:separate-group-stage-workers")
+    assert "skill:process" in report["diagnostics"]
+
+
+@pytest.mark.parametrize(
+    "defect",
+    [
+        None,
+        "failed",
+        "body_only",
+        "masked",
+        "header_tail",
+        "unterminated",
+        "wrong_helper",
+        "semicolon",
+        "indented_delimiter",
+        "trailing_delimiter",
+    ],
+)
+def test_query_before_heredoc_retains_only_proven_execution(
+    tmp_path: Path, defect: str | None
+) -> None:
+    from evals.harbor.trace import operation
+
+    prefix = f"AUTO_BEAN_PLUGIN={PLUGIN}; AUTO_BEAN_WORKSPACE=/app/ledger; "
+    helper = 'auto_bean() { if [ "$1" = validate ]; then shift; sh "$AUTO_BEAN_PLUGIN/runtime/launch.sh" validate "$@"; else sh "$AUTO_BEAN_PLUGIN/runtime/launch.sh" run --workspace "$AUTO_BEAN_WORKSPACE" "$@"; fi; }; '
+    query = 'auto_bean bean-query ledger.beancount "SELECT date, account, position"'
+    script = (
+        prefix
+        + helper
+        + query
+        + " && auto_bean python - <<'PY'\nprint('not shell evidence')\nPY"
+    )
+    if defect == "body_only":
+        script = prefix + helper + "auto_bean python - <<'PY'\n" + query + "\nPY"
+    elif defect == "masked":
+        script += "\ntrue"
+    elif defect == "header_tail":
+        script = script.replace("<<'PY'", "<<'PY'; true")
+    elif defect == "unterminated":
+        script = script.removesuffix("\nPY")
+    elif defect == "indented_delimiter":
+        script = script.removesuffix("\nPY") + "\n PY"
+    elif defect == "trailing_delimiter":
+        script = script.removesuffix("\nPY") + "\nPY "
+    elif defect == "wrong_helper":
+        script = script.replace('sh "$AUTO_BEAN_PLUGIN/runtime/launch.sh"', "echo")
+    elif defect == "semicolon":
+        script = script.replace(" && auto_bean python", "; auto_bean python")
+    item = event(script, code=1 if defect == "failed" else 0)
+    item["payload"]["item"]["aggregated_output"] = (
+        "date account position\n2025-12-31 Assets:Checking 1000 EUR\n"
+    )
+    save(tmp_path, [item])
+    assert any(
+        operation(c, "bean-query", "ledger.beancount") for c in load_commands(tmp_path)
+    ) is (defect is None)
+
+
+@pytest.mark.parametrize(
+    "prefix",
+    [
+        "git ls-files statements/raw && git ls-files --others --exclude-standard statements/raw",
+        "cat .auto-bean/memory/transfer_detection.json",
+    ],
+)
+@pytest.mark.parametrize(
+    "defect",
+    [
+        None,
+        "failed",
+        "empty",
+        "truncated",
+        "cat_error",
+        "git_error",
+        "unknown_prefix",
+        "masked_failure",
+        "redirect",
+        "substitution",
+        "git_config",
+        "prefix_environment",
+        "earlier_redirect",
+        "earlier_alias",
+        "earlier_environment",
+        "earlier_path",
+        "multiline_redirect",
+    ],
+)
+def test_conditional_launcher_bindings_need_native_prefix_evidence(
+    tmp_path: Path, prefix: str, defect: str | None
+) -> None:
+    from evals.harbor.trace import ledger_query
+
+    bindings = f"AUTO_BEAN_PLUGIN={PLUGIN} AUTO_BEAN_WORKSPACE=/app/ledger"
+    query = 'sh "$AUTO_BEAN_PLUGIN/runtime/launch.sh" run --workspace "$AUTO_BEAN_WORKSPACE" bean-query ledger.beancount "SELECT account, sum(position) GROUP BY account"'
+    if defect == "unknown_prefix":
+        prefix = "python unknown.py"
+    elif defect == "masked_failure":
+        prefix = "false"
+    elif defect == "redirect":
+        prefix = "cat .auto-bean/memory/transfer_detection.json >/dev/null"
+    elif defect == "substitution":
+        bindings = bindings.replace(PLUGIN, "$(echo " + PLUGIN + ")")
+    elif defect == "git_config":
+        prefix = "git -c core.fsmonitor=malicious ls-files statements/raw"
+    script = prefix + " && " + bindings + "; " + query
+    if defect == "earlier_redirect":
+        script = "exec 2>/dev/null; " + script
+    elif defect == "earlier_alias":
+        script = "alias cat=true; " + script
+    elif defect == "earlier_environment":
+        script = "LD_PRELOAD=unknown cat file; " + script
+    elif defect == "earlier_path":
+        script = "PATH=/unknown; " + script
+    elif defect == "multiline_redirect":
+        script = "exec 2>/dev/null\n" + script
+    if defect == "prefix_environment":
+        script = bindings + " true; " + query
+    output = 'statements/raw/checking.csv\n{"records":[]}\naccount sum(position)\nAssets:Checking 870 EUR\n'
+    output = {
+        "empty": "",
+        "truncated": "output truncated\n",
+        "cat_error": "cat: missing: No such file or directory\n" + output,
+        "git_error": "fatal: not a git repository\n" + output,
+    }.get(defect or "", output)
+    item = event(script, code=1 if defect == "failed" else 0)
+    item["payload"]["item"]["aggregated_output"] = output
+    save(tmp_path, [item])
+    commands = load_commands(tmp_path)
+    matches = [c for c in commands if ledger_query(c)]
+    assert bool(matches) is (defect is None)
+    if matches:
+        assert all(c.evidence_kind == "native_prefix_diagnostics" for c in matches)
+    # Shell status alone must not promote the conditional bindings.
+    if defect is None:
+        assert all(
+            "$AUTO_BEAN_PLUGIN" in argv[1]
+            for argv, _ in shell_commands(script, "/app/ledger")
+            if argv[:1] == ("sh",)
+        )

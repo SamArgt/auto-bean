@@ -1349,3 +1349,113 @@ def test_group_file_must_match_session_and_status(
     save(store, PARSED, group)
     with pytest.raises(WorkflowError):
         store.statement(peer)
+
+
+def test_batch_saves_are_durable_and_gate_all_required_inputs(
+    review_store: ReviewFiles,
+) -> None:
+    store = review_store
+    doc = complete(store)
+    doc["review"]["processing"]["needs_input"] = True
+    doc["statement_metadata"]["accounts"][0]["review"]["state"] = "needs_input"
+    doc["extracted_records"][0]["review"]["state"] = "needs_input"
+    save(store, PARSED, doc)
+    assert len(store.review_batch()["blockers"]) == 3
+    for kind, subject, value in [
+        ("statement", "statement", "Use the unlocked source"),
+        ("account", "checking", "This is my checking account"),
+        ("transaction", "row-1", "Groceries"),
+    ]:
+        store.submit(
+            SOURCE,
+            {
+                "kind": "answer",
+                "subject_kind": kind,
+                "subject_id": subject,
+                "value": value,
+                "expected_etag": etag(store.statement(SOURCE)),
+            },
+        )
+    reopened = ReviewFiles(store.root, store.session_id)
+    batch = reopened.review_batch()
+    assert batch["ready"] and batch["pending_count"] == 3
+    assert (
+        reopened.statement(SOURCE)["extracted_records"][0]["review"]["answer"]
+        == "Groceries"
+    )
+    assert (
+        reopened.statement(SOURCE)["extracted_records"][0]["review"]["state"]
+        == "needs_input"
+    )
+    assert reopened.prepare_batch(batch["token"])["subjects"] == [SOURCE]
+    reopened.acknowledge_batch(batch["pending_token"])
+    assert reopened.review_batch()["pending_count"] == 0
+    assert reopened.review_batch()["blockers"] == []
+
+
+def test_batch_rechecks_changed_questions_and_does_not_clear_new_saves(
+    review_store: ReviewFiles,
+) -> None:
+    store = review_store
+    complete(store)
+
+    def respond(value: str) -> None:
+        store.submit(
+            SOURCE,
+            {
+                "kind": "answer",
+                "subject_kind": "transaction",
+                "subject_id": "row-1",
+                "value": value,
+                "expected_etag": etag(store.statement(SOURCE)),
+            },
+        )
+
+    respond("Groceries")
+    first = store.review_batch()
+    doc = store.statement(SOURCE)
+    doc["extracted_records"][0]["review"]["rationale"] = (
+        "New evidence: please review again"
+    )
+    save(store, PARSED, doc)
+    assert not store.review_batch()["ready"]
+    with pytest.raises(WorkflowError, match="changed or remain unanswered"):
+        store.prepare_batch(first["token"])
+    respond("Confirmed with new evidence")
+    store.acknowledge_batch(first["pending_token"])
+    assert store.review_batch()["pending_count"] == 1
+
+
+def test_batch_requires_current_final_review_approval(
+    review_store: ReviewFiles,
+) -> None:
+    store = review_store
+    complete(store)
+    final_review(store)
+    assert any("approval" in b for b in store.review_batch()["blockers"])
+    approve(store)
+    assert store.review_batch()["ready"]
+    # Editing a previously approved row reopens its decision and invalidates approval.
+    doc = store.statement(SOURCE)
+    store.submit(
+        SOURCE,
+        {
+            "kind": "postings",
+            "subject_id": "row-1",
+            "value": doc["extracted_records"][0]["review"]["postings"],
+            "expected_etag": etag(doc),
+        },
+    )
+    assert store.review_batch()["ready"]
+    assert "approval" not in store.statement(SOURCE)["review"]
+
+
+def test_batch_does_not_require_unavailable_raw_stage_inputs(
+    review_store: ReviewFiles,
+) -> None:
+    store = review_store
+    status = yaml.safe_load((store.root / "statements/import-status.yml").read_text())
+    status["groups"]["review"]["current_status"] = "raw_ready"
+    (store.root / "statements/import-status.yml").write_text(yaml.safe_dump(status))
+    (store.root / PARSED).unlink(missing_ok=True)
+    assert store.review_batch()["blockers"] == []

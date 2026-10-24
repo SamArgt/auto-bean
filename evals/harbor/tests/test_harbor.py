@@ -1220,6 +1220,7 @@ def test_revision_bookkeeping_is_not_part_of_agent_artifacts(
         ("state-only", False, 0),
     ],
 )
+@pytest.mark.parametrize("diagnostic_reads", [True, False])
 def test_trace_and_state_joint_reward(
     reviewed: tuple[Path, Path, dict[str, Any]],
     tmp_path: Path,
@@ -1227,6 +1228,7 @@ def test_trace_and_state_joint_reward(
     policy: str,
     has_trace: bool,
     wanted: int,
+    diagnostic_reads: bool,
 ) -> None:
     from evals.harbor.verify import main
     from evals.harbor.tests.test_trace import passing_events, save, save_group_workers
@@ -1236,7 +1238,11 @@ def test_trace_and_state_joint_reward(
     baseline = tmp_path / "expected.json"
     write_json(baseline, expected)
     if has_trace:
-        save(agent_logs, passing_events("review"))
+        events = passing_events("review")
+        if not diagnostic_reads:
+            # Keep required ledger reads and commands; omit routine references.
+            events = events[2:]
+        save(agent_logs, events)
         save_group_workers(agent_logs)
     monkeypatch.setattr(
         "sys.argv",
@@ -1272,11 +1278,15 @@ def test_trace_and_state_joint_reward(
     assert MultiStepTrial._min_reward_failure(rewards, {"state": 1.0}) is None
     assert (logs / "trace-report.json").is_file()
     assert (logs / "report.md").is_file()
-    assert report["schema_version"] == 2
+    assert report["schema_version"] == 3
     assert report["check_summary"]["state"]["passed"] > 0
     assert report["check_summary"]["state"]["failed"] == 0
     assert report["check_summary"]["state"]["error"] == 0
     assert report["check_summary"]["trace"]["error"] == (0 if has_trace else 1)
+    if has_trace and not diagnostic_reads:
+        assert report["check_summary"]["trace"]["diagnostic"] > 0
+        assert report["check_summary"]["trace"]["failed"] == 0
+        assert "Diagnostic" in (logs / "report.md").read_text()
 
 
 @pytest.mark.parametrize("error", [False, True])

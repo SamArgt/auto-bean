@@ -42,7 +42,9 @@ test("refresh preserves an unsaved edit and reports its original etag", async ()
   fireEvent.click(screen.getByText("Save correction"));
   await waitFor(() => expect(save).toHaveBeenCalledWith("Assets:Chosen", "1"));
 });
-test("save precedes continuation and failed continuation retries the same saved etag", async () => {
+test("saves stay silent until explicit batch send; notification retry does not save again", async () => {
+  let changed=false;
+  const batch={pending_count:1,pending_token:"pending",token:"snapshot",blockers:[],ready:true,subjects:["statements/raw/a.csv"]};
   const saved = {
     source_file: "statements/raw/a.csv",
     etag: "4",
@@ -52,6 +54,7 @@ test("save precedes continuation and failed continuation retries the same saved 
     if (name === "read_import_session")
       return {
         workspace: "/ledger",
+        review_batch: {...batch, ready:changed, pending_count:changed?1:0},
         session_id: "session",
         etag: "0",
         groups: [
@@ -93,7 +96,9 @@ test("save precedes continuation and failed continuation retries the same saved 
       expect(args).not.toHaveProperty("account_id");
       return { etag: "3", total: 0, offset: 0, rows: [] };
     }
-    if (name === "update_import_review") return saved;
+    if (name === "update_import_review") {changed=true;return saved;}
+    if (name === "prepare_import_review_batch") return batch;
+    if (name === "acknowledge_import_review_batch") {changed=false;return {...batch,ready:false,pending_count:0};}
     throw Error(name);
   });
   const resume = vi
@@ -111,11 +116,15 @@ test("save precedes continuation and failed continuation retries the same saved 
     target: { value: "Checking" },
   });
   fireEvent.click(screen.getByText("Save answer"));
-  fireEvent.click(await screen.findByText("Retry continuation"));
+  await waitFor(() => expect((screen.getByText("Send saved changes") as HTMLButtonElement).disabled).toBe(false));
+  expect(resume).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByText("Send saved changes"));
+  await screen.findByText(/Send failed/);
+  fireEvent.click(screen.getByText("Send saved changes"));
   await waitFor(() => expect(resume).toHaveBeenCalledTimes(2));
   expect(resume.mock.calls).toEqual([
-    ["session", "statements/raw/a.csv"],
-    ["session", "statements/raw/a.csv"],
+    ["session", ["statements/raw/a.csv"]],
+    ["session", ["statements/raw/a.csv"]],
   ]);
   expect(
     call.mock.calls.filter(([name]) => name === "update_import_review"),
@@ -212,7 +221,8 @@ test("an uncertain save is retried against the original etag without continuatio
   await screen.findByText("Error: response disconnected");
   expect(resume).not.toHaveBeenCalled();
   fireEvent.click(screen.getByText("Save answer"));
-  await waitFor(() => expect(resume).toHaveBeenCalledTimes(1));
+  await waitFor(() => expect(actions).toHaveLength(2));
+  expect(resume).not.toHaveBeenCalled();
   expect(actions).toHaveLength(2);
   expect(actions[0]).toEqual(actions[1]);
   expect(actions[0]).not.toHaveProperty("action_id");
@@ -432,9 +442,8 @@ test("approval binds the currently displayed statement etag and digest", async (
   );
   fireEvent.click(await screen.findByText("a.csv"));
   fireEvent.click(await screen.findByText("Approve reviewed transactions"));
-  await waitFor(() =>
-    expect(resume).toHaveBeenCalledWith("session", "statements/raw/a.csv"),
-  );
+  await screen.findByText(/Saved to JSON/);
+  expect(resume).not.toHaveBeenCalled();
   expect(call).toHaveBeenCalledWith("update_import_review", {
     ...binding,
     source_file: "statements/raw/a.csv",
@@ -615,9 +624,8 @@ test("price approval saves the current run before continuing without a statement
     />,
   );
   fireEvent.click(await screen.findByText("Approve price directives"));
-  await waitFor(() =>
-    expect(resume).toHaveBeenCalledWith("session", "price run prices"),
-  );
+  await screen.findByText(/Price approval saved to JSON/);
+  expect(resume).not.toHaveBeenCalled();
   expect(call).toHaveBeenCalledWith("approve_import_prices", {
     ...binding,
     run_id: "prices",
@@ -627,4 +635,39 @@ test("price approval saves the current run before continuing without a statement
   expect(
     call.mock.calls.some(([name]) => name === "update_import_review"),
   ).toBe(false);
+});
+
+test("batch send is blocked by required inputs and unsaved drafts", async () => {
+  let ready=false;
+  const batch={pending_count:1,pending_token:"pending",token:"snapshot",blockers:["Other account needs input"],ready:false,subjects:["a.csv"]};
+  const call=vi.fn(async(name:string)=>name==='read_import_session'?{...summary,review_batch:{...batch,ready,blockers:ready?[]:batch.blockers}}:fixtureCall(name));
+  const resume=vi.fn();
+  render(<Review initialBinding={binding} bridge={{call,continue:resume} as Bridge}/>);
+  const send=await screen.findByText('Send saved changes') as HTMLButtonElement;
+  expect(send.disabled).toBe(true);
+  ready=true;fireEvent.click(screen.getByText('Refresh'));
+  await waitFor(()=>expect(send.disabled).toBe(false));
+  fireEvent.click(screen.getByText('a.csv'));
+  fireEvent.change(await screen.findByLabelText('Processing answer'),{target:{value:'Unsaved answer'}});
+  await waitFor(()=>expect(send.disabled).toBe(true));
+  expect(resume).not.toHaveBeenCalled();
+});
+
+test("acknowledgement retry does not notify the agent twice", async () => {
+  const batch={pending_count:1,pending_token:"pending",token:"snapshot",blockers:[],ready:true,subjects:["a.csv"]};
+  let attempts=0;
+  const call=vi.fn(async(name:string)=>{
+    if(name==='read_import_session')return {...summary,review_batch:batch};
+    if(name==='prepare_import_review_batch')return batch;
+    if(name==='acknowledge_import_review_batch'){if(++attempts===1)throw Error('Temporary acknowledgement failure');return batch;}
+    return fixtureCall(name);
+  });
+  const resume=vi.fn().mockResolvedValue(undefined);
+  render(<Review initialBinding={binding} bridge={{call,continue:resume} as Bridge}/>);
+  fireEvent.click(await screen.findByText('Send saved changes'));
+  const retry=await screen.findByText('Finish sent batch') as HTMLButtonElement;
+  await waitFor(()=>expect(retry.disabled).toBe(false));
+  fireEvent.click(retry);
+  await screen.findByText(/Saved changes sent/);
+  expect(attempts).toBe(2);expect(resume).toHaveBeenCalledTimes(1);
 });
