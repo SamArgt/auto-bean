@@ -1715,7 +1715,7 @@ def test_passive_read_recovery_is_independent_of_final_search(
 def test_historical_workspace_read_survives_unrelated_brace_expansion(
     tmp_path: Path,
 ) -> None:
-    script = f"git status --short && git ls-files statements/raw && ls -la statements/raw && cat .auto-bean/workspace.json statements/import-status.yml && cat {PLUGIN}/references/schemas/{{session,status,parsed-v2}}.schema.json"
+    script = f"git status --short && git ls-files statements/raw && ls -la statements/raw && cat .auto-bean/workspace.json statements/import-status.yml && cat {PLUGIN}/references/schemas/{{session,status,parsed-statement}}.schema.json"
     content = '{"schema_version":1}\n'
     item = event(script, timestamp="2026-10-21T09:59:00Z")
     item["payload"]["item"]["aggregated_output"] = content + "other output\n"

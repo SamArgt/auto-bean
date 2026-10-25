@@ -21,7 +21,7 @@ Prefer separate processing and categorization workers for substantial work. Othe
 
 ## Accounts and balances
 
-Use `$auto-bean:auto-bean-query` to classify accounts as mapped, first-seen or blocked. Publish mappings, rationale and required proposed directives in account review per the [parsed schema](../../references/schemas/parsed-v2.schema.json). Preserve extracted names/balances. Unresolved identity, currency, dates or mapping needs `state: needs_input` and supported suggestions.
+Use `$auto-bean:auto-bean-query` to classify accounts as mapped, first-seen or blocked. Save mappings, rationale and proposed directives in account review per the [statement schema](../../references/schemas/parsed-statement.schema.json). Preserve extracted names/balances. Unresolved identity, currency, dates or mapping needs `state: needs_input` and supported suggestions.
 
 Compare beginning-of-day openings with ledger evidence. A first-seen account may need a minimal opening directive and source-supported opening transaction; include them in the transaction review. Unexplained differences block progress; never invent adjustments.
 

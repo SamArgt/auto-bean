@@ -1625,7 +1625,7 @@ def grade_trace(
     if phase != "init":
         references += [
             "import-review.md",
-            "schemas/parsed-v2.schema.json",
+            "schemas/parsed-statement.schema.json",
             "schemas/parsed-group.schema.json",
             "schemas/session.schema.json",
             "schemas/status.schema.json",

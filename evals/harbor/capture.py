@@ -30,7 +30,8 @@ def metadata(plugin: Path, evidence: Path) -> None:
             "plugin_tree_sha256": digest.hexdigest(),
             "runtime_lock_sha256": sha256(lock),
             "supported_schema_versions": {
-                "parsed": [1, 2],
+                "parsed": [2],
+                "parsed-group": [2],
                 "session": [1],
                 "status": [1],
             },

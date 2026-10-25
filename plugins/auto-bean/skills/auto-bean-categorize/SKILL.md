@@ -3,7 +3,7 @@ name: auto-bean-categorize
 description: Categorize parsed statements in a group assigned by auto-bean-import. Suggest categories and explicit postings from evidence, advisory memory and merchant research; return per-statement reconciliation findings and required input for import review.
 ---
 
-Read [common guidance](../../references/common.md) and the import contract's [state](../../references/import-review.md#state-and-validation). Use [bounded inspection](../../references/import-review.md#reading-evidence) for large documents and the [parsed example](../../references/parsed-statement-output.example.json) when fields are unclear.
+Read [common guidance](../../references/common.md) and the import contract's [state](../../references/import-review.md#state-and-validation). Use [bounded inspection](../../references/import-review.md#reading-evidence) for large documents and the [parsed example](../../references/parsed-group.example.json) when fields are unclear.
 
 ## Scope and proposals
 
@@ -11,7 +11,7 @@ Work on the group assigned by Import, as a worker or serial stage. Read its JSON
 
 Use `$auto-bean:auto-bean-query` for ledger accounts, constraints, registers, balances and transaction/duplicate checks. Source account names/owner evidence do not establish ledger mapping without a current check or approved mapping.
 
-Within the relevant `statements[]` source section, edit each `extracted_records[].review` directly according to the [parsed schema](../../references/schemas/parsed-v2.schema.json). Persist explicit split postings, rationale, findings, disposition and source links; preserve answers and extracted facts. Ambiguity uses `state: needs_input`, rationale and optional suggestions beside the record. When a memory hint materially influenced a decision, identify it with the supporting or contradicting evidence in that decision’s rationale.
+Within the relevant `statements[]` source section, edit each `extracted_records[].review` directly according to the [statement schema](../../references/schemas/parsed-statement.schema.json). Persist explicit split postings, rationale, findings, disposition and source links; preserve answers and extracted facts. Ambiguity uses `state: needs_input`, rationale and optional suggestions beside the record. When a memory hint materially influenced a decision, identify it with the supporting or contradicting evidence in that decision’s rationale.
 
 ## Categorization
 

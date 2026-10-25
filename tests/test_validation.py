@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import importlib.util
 import json
 import re
 from pathlib import Path
@@ -17,7 +18,7 @@ from auto_bean.validation import load_state, validate_state
 def parsed() -> dict[str, Any]:
     return dict(
         json.loads(
-            (Path(__file__).parent / "fixtures/parsed-statement-v1.json").read_text()
+            (Path(__file__).parent / "fixtures/parsed-statement.json").read_text()
         )
     )
 
@@ -59,6 +60,37 @@ def test_multi_account_evidence_is_valid(current: Path, parsed: dict[str, Any]) 
     validate_state("parsed", current, parsed)
 
 
+def test_generated_schemas_match_the_current_contract() -> None:
+    spec = importlib.util.spec_from_file_location(
+        "build_review_schemas",
+        Path(__file__).resolve().parents[1] / "scripts/build_review_schemas.py",
+    )
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    for name, expected in module.schemas().items():
+        path = PLUGIN / f"references/schemas/{name}.schema.json"
+        assert json.loads(path.read_text()) == expected
+
+
+@pytest.mark.parametrize("grouped", [False, True])
+@pytest.mark.parametrize("version", [None, 1, 99])
+def test_unsupported_statement_versions_are_rejected(
+    current: Path, parsed: dict[str, Any], grouped: bool, version: int | None
+) -> None:
+    if version is None:
+        parsed.pop("schema_version")
+    else:
+        parsed["schema_version"] = version
+    data = (
+        {"schema_version": 2, "group_id": "test", "statements": [parsed]}
+        if grouped
+        else parsed
+    )
+    with pytest.raises(WorkflowError, match="Schema violation"):
+        validate_state("parsed-group" if grouped else "parsed", current, data)
+
+
 @pytest.mark.parametrize(
     "failure",
     [
@@ -70,7 +102,7 @@ def test_multi_account_evidence_is_valid(current: Path, parsed: dict[str, Any]) 
         "invalid_timestamp",
         "period_order",
         "escaping_source",
-        "escaping_artifact",
+        "legacy_artifact",
         "unknown_version",
     ],
 )
@@ -94,7 +126,7 @@ def test_invalid_parsed_evidence_is_rejected(
         parsed["statement_metadata"]["statement_period"]["start_date"] = "2026-02-01"
     elif failure == "escaping_source":
         parsed["source_file"] = "statements/raw/../../private.csv"
-    elif failure == "escaping_artifact":
+    elif failure == "legacy_artifact":
         parsed["process_artifact"] = "/tmp/private.md"
     else:
         parsed["schema_version"] = 99
@@ -277,7 +309,7 @@ def test_group_examples_agree_on_identity_and_membership(current: Path) -> None:
 
     session = load_state(PLUGIN / "references/import-session.example.json")
     status = load_state(PLUGIN / "references/import-status.example.yml")
-    parsed = load_state(PLUGIN / "references/parsed-statement-output.example.json")
+    parsed = load_state(PLUGIN / "references/parsed-group.example.json")
     validate_state("session", current, session)
     validate_state("status", current, status)
     validate_state("parsed-group", current, parsed)
