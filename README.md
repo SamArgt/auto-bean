@@ -76,6 +76,19 @@ uv run python scripts/smoke_plugin.py   # Runtime smoke check; may download depe
 uv run python scripts/package_plugin.py # Create the archive in dist/
 ```
 
+### Parsed schemas
+
+Each import group has one saved JSON file. Its `statements[]` entries hold the source facts and inline review.
+
+| Schema | Role |
+| --- | --- |
+| `plugins/auto-bean/references/schemas/parsed-group.schema.json` | Validates the saved group and its statement entries. |
+| `plugins/auto-bean/references/schemas/parsed-statement.schema.json` | Defines one statement entry. Edit this source contract directly. |
+
+After editing the statement contract, run `uv run python scripts/build_review_schemas.py`. This regenerates the group, session and status schemas. The group embeds the statement contract for offline validation. Session price runs reuse its approval and validation fields. Tests check that generated schemas match their sources.
+
+Parsed documents still use `schema_version: 2`. The plugin no longer accepts the old v1 parsed format. This cleanup does not migrate saved workspace files.
+
 ### Harbor evaluations
 
 Run evaluations only when explicitly requested. The configured suite uses the current checkout and existing Codex sign-in. Use one concurrent trial when Docker has only 8 GiB of memory.

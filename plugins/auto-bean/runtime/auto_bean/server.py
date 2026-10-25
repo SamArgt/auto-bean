@@ -69,7 +69,9 @@ def nullable(item: dict[str, Any]) -> dict[str, Any]:
     return {"anyOf": [item, {"type": "null"}]}
 
 
-PARSED = json.loads((PLUGIN / "references/schemas/parsed-v2.schema.json").read_text())
+PARSED = json.loads(
+    (PLUGIN / "references/schemas/parsed-statement.schema.json").read_text()
+)
 SESSION = json.loads((PLUGIN / "references/schemas/session.schema.json").read_text())
 R = PARSED["properties"]["review"]["properties"]
 NONEMPTY = {"type": "string", "minLength": 1, "pattern": r"\S"}

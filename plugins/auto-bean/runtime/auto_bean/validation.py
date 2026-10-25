@@ -101,8 +101,6 @@ def unique_ids(records: list[dict[str, Any]], field: str) -> None:
 
 def validate_parsed(root: Path, data: dict[str, Any]) -> None:
     bounded_path(root, data["source_file"], "statements/raw")
-    if data.get("schema_version", 1) == 1:
-        bounded_path(root, data["process_artifact"], ".auto-bean/artifacts/process")
     metadata = data["statement_metadata"]
     accounts = metadata["accounts"]
     records = data["extracted_records"]
@@ -114,8 +112,7 @@ def validate_parsed(root: Path, data: dict[str, Any]) -> None:
     period = metadata.get("statement_period")
     if period and period["start_date"] > period["end_date"]:
         invalid("Statement period ends before it starts.")
-    if data.get("schema_version") == 2:
-        validate_review(root, data, ids, {r["record_id"] for r in records})
+    validate_review(root, data, ids, {r["record_id"] for r in records})
 
 
 def validate_review(
@@ -307,9 +304,7 @@ def validate_memory(root: Path, data: dict[str, Any]) -> None:
 
 
 def validate_state(kind: str, root: Path, data: dict[str, Any]) -> None:
-    schema_kind = (
-        "parsed-v2" if kind == "parsed" and data.get("schema_version") == 2 else kind
-    )
+    schema_kind = "parsed-statement" if kind == "parsed" else kind
     schema = json.loads(
         (PLUGIN / f"references/schemas/{schema_kind}.schema.json").read_text()
     )

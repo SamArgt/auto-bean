@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "document_kind": "statement",
   "parse_run_id": "20260411T090000Z-checking-jan-2026",
   "source_file": "statements/raw/checking/jan-2026.pdf",
@@ -10,12 +10,6 @@
     "mode": "cli"
   },
   "parsed_at": "2026-04-11T09:00:00Z",
-  "process_artifact": ".auto-bean/artifacts/process/checking-jan-2026--process.md",
-  "account_owner": "Sam Example",
-  "account_names": [
-    "Everyday Checking",
-    "Example Bank Everyday Checking"
-  ],
   "statement_metadata": {
     "institution_name": "Example Bank",
     "statement_name": "January 2026 Account Statement",
@@ -84,5 +78,14 @@
         "credit": ""
       }
     }
-  ]
+  ],
+  "extraction_state": "complete",
+  "review": {
+    "processing": {
+      "attempts": 1,
+      "outcome": "complete",
+      "warnings": [],
+      "evidence": []
+    }
+  }
 }
