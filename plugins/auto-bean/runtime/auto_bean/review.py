@@ -124,6 +124,20 @@ class ReviewFiles:
         self.session_id = identifier(session_id)
         self.session_path = f".auto-bean/import-sessions/{session_id}.json"
 
+    def review_session(self) -> dict[str, Any]:
+        session = self.read(self.session_path)
+        status = load_state(checked_path(self.root, "statements/import-status.yml"))
+        validate_state("status", self.root, status)
+        session_status(session, status)
+        return {
+            **session,
+            "groups": [
+                g
+                for g in session["groups"]
+                if not status["groups"][g["group_id"]].get("legacy", False)
+            ],
+        }
+
     def read(self, path: str) -> dict[str, Any]:
         kind = "session" if path == self.session_path else "parsed-group"
         bounded_path(
@@ -131,7 +145,21 @@ class ReviewFiles:
             path,
             ".auto-bean/import-sessions" if kind == "session" else "statements/parsed",
         )
+        if kind == "parsed-group":
+            session = self.read(self.session_path)
+            for group in session["groups"]:
+                if group["parsed_group"] == path:
+                    entry = self.status_entry(group["source_files"][0], path)
+                    if entry.get("legacy", False):
+                        raise WorkflowError(
+                            "legacy_excluded",
+                            "Historical legacy import is excluded from review.",
+                        )
         data = load_state(checked_path(self.root, path))
+        if kind == "parsed-group" and "statements" not in data:
+            invalid(
+                f"{path}: incompatible parsed evidence; run migration checks before review."
+            )
         validate_state(kind, self.root, data)
         if kind == "session":
             if data["session_id"] != self.session_id:
@@ -319,7 +347,15 @@ class ReviewFiles:
                 j.get("outcome") == "emitted" for j in run.get("jobs", [])
             ) and run.get("approval", {}).get("digest") != price_material(run):
                 blockers.append("Price run " + run["run_id"] + ": approval")
-        pending = list(batch["pending"].values())
+        active_sources = {
+            m["source_file"] for m in session_members(self.review_session())
+        }
+        active_sources.update(
+            "price run " + run["run_id"] for run in session["price_runs"]
+        )
+        pending = [
+            p for p in batch["pending"].values() if p["source"] in active_sources
+        ]
         return {
             "pending_count": len(pending),
             "pending_token": etag(batch),
@@ -357,7 +393,7 @@ class ReviewFiles:
             return self.review_batch()
 
     def check_links(self, sources: list[str] | None = None) -> None:
-        session = self.read(self.session_path)
+        session = self.review_session()
         paths = {i["source_file"]: i["parsed_group"] for i in session_members(session)}
         selected = sources if sources is not None else list(paths)
         documents = {source: self.statement(source) for source in selected}

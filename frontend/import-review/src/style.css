@@ -96,7 +96,7 @@ label {
   letter-spacing: -0.3px;
 }
 .app-header .eyebrow {
-  color: var(--surface);
+  color: #fff;
   background: #263857;
   border-radius: 8px;
   padding: 5px 10px;

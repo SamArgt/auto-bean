@@ -250,3 +250,36 @@ def test_runtime_routes_model_preparation_and_extraction_to_same_environment(
         runtime.run_tool(current, tool, ["--help"])
     assert result.value.code == 0
     assert selected == [tool in {"docling", "docling-tools"}]
+
+
+def test_bootstrap_help_has_no_third_party_dependencies() -> None:
+    import subprocess
+    import sys
+
+    result = subprocess.run(
+        [sys.executable, "-S", str(common.PLUGIN / "runtime/bootstrap.py"), "--help"],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "migrate" in result.stdout
+
+
+def test_migration_bootstraps_locked_runtime(
+    legacy: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from auto_bean import __main__ as launcher
+    import importlib.util
+
+    calls: list[tuple[Path, str, list[str]]] = []
+    monkeypatch.setattr(importlib.util, "find_spec", lambda name: None)
+
+    def run(root: Path, tool: str, args: list[str]) -> int:
+        calls.append((root, tool, args))
+        return 0
+
+    monkeypatch.setattr(launcher, "run_tool", run)
+    assert launcher.main(["migrate", "--workspace", str(legacy)]) == 0
+    assert calls == [
+        (legacy, "python", ["-m", "auto_bean", "migrate", "--workspace", str(legacy)])
+    ]

@@ -106,11 +106,12 @@ wheels = [
 
 [[package]]
 name = "auto-bean-dev"
-version = "0.2.0"
+version = "0.2.1"
 source = { virtual = "." }
 
 [package.dev-dependencies]
 dev = [
+    { name = "beancount" },
     { name = "jsonschema" },
     { name = "mcp" },
     { name = "mypy" },
@@ -130,6 +131,7 @@ eval = [
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "beancount", specifier = ">=3.2.3" },
     { name = "jsonschema", specifier = ">=4,<5" },
     { name = "mcp", specifier = ">=1.30,<2" },
     { name = "mypy", specifier = ">=1.18.2,<2" },

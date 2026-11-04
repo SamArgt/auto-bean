@@ -7,7 +7,7 @@ Import owns orchestration/status; parsed decisions drive writes. Read [guidance]
 
 ## Select and process
 
-Use fresh scoped queries or ledger ranges on each pass, including resume. Filter by account, date or source ID; avoid full dumps. Reuse unchanged configuration/includes. Hashes detect changes but do not replace inspected content. Query supplies balances/history.
+On each pass, including resume, use Query for balances/history scoped by account, date or source ID. Avoid full dumps; reuse unchanged configuration/includes. Hashes do not replace content inspection.
 
 1. Inspect `statements/import-status.yml` and its saved sessions. Resume unfinished groups and unresolved price runs, approvals or follow-ups, even when all groups are `done`. Keep session/group IDs, parsed files, decisions, answers and completed evidence. Reopen done groups only for explicit rework. Route structural status migration to `$auto-bean:auto-bean-migrate`.
 2. On every pass, scan `statements/raw/` with Git status and tracked/untracked listings for new PDF/CSV/XLSX/XLS sources. Exclude sources already assigned in saved status. New evidence may resolve a blocked group; unrelated sources may progress independently. Report no changes only when neither new sources nor unfinished session work remain; create no empty session.
@@ -15,9 +15,9 @@ Use fresh scoped queries or ledger ranges on each pass, including resume. Filter
 4. Save membership using the [session](../../references/schemas/session.schema.json) and [status](../../references/schemas/status.schema.json) schemas: one workspace-unique group ID, parsed path and YAML lifecycle entry per group; each source belongs to one group. Keep per-source fingerprints and retry counts. Check session/status membership and open the review panel, including on resume. If unavailable, report it and review in conversation.
 5. Assign extraction to `$auto-bean:auto-bean-process`. Supply members, session, fingerprints, parsed target, retry state, matching source hints and [ownership](../../references/common.md#ownership). Process creates group JSON before extraction and returns per-source outcomes and a group status proposal. Release only complete, trustworthy sources downstream.
 
-Only Import edits lifecycle YAML. Store facts/decisions in parsed `statements`, membership/groups/prices in the session, and pointers/flags in YAML. No per-source lifecycle entries, stage documents or session transaction copies.
+Import owns lifecycle YAML; migration may add reviewed `legacy: true` to completed groups. Keep marked sources registered, skip review and report validation exclusions. Never reopen/reimport automatically. Store facts/decisions in parsed `statements`, membership/groups/prices in the session, and pointers/flags in YAML. No per-source lifecycle entries, stage documents or session transaction copies.
 
-Prefer separate processing and categorization workers for substantial work. Otherwise run their skills serially with the same stage boundaries. Parallel workers use distinct group files; reuse them for follow-ups. Never run two stages on one parsed file at once. Broker input while independent work continues; hold affected members and linked transfers. Check saved answers. Clarification is not approval and needs no separate stage approval.
+For substantial work, prefer separate processing and categorization workers; otherwise run their skills serially. Preserve stage boundaries. Parallel workers use distinct group files; reuse them for follow-ups. Never run two stages on one parsed file at once. Broker input while independent work continues; hold affected members and linked transfers. Check saved answers. Clarification is not approval and needs no stage approval.
 
 ## Accounts and balances
 
@@ -43,7 +43,7 @@ Pause edits across the session and run shared validation with `--session <id> --
 
 After approval, invoke `$auto-bean:auto-bean-write` to write directly from parsed decisions. Write checks existing source IDs before appending and returns changed files or blockers. A shared transfer needs all affected statement approvals and is written once.
 
-Keep partial/interrupted writes at `final_review` or `write_blocked`. Preserve completed evidence and inspect provenance before resuming; approved entries may exist. Mark a group `done` only when every member has current passed `written` validation and no unresolved group flags. Revalidate when source evidence, decisions or ledger files change. Follow [per-result validation rules](../../references/common.md#validation) when other members remain pending. Interrupted writes and affected validation failures remain incomplete.
+Keep partial/interrupted writes at `final_review` or `write_blocked`. Preserve completed evidence and inspect provenance before resuming; approved entries may exist. Mark a group `done` only when every member has current passed `written` validation and no unresolved group flags. Revalidate when source evidence, decisions or ledger files change. Interrupted writes and affected validation failures remain incomplete.
 
 ## Prices and Memory
 

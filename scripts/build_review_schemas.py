@@ -151,6 +151,7 @@ def schemas() -> dict[str, Any]:
                 obj(
                     {
                         "session_id": ID,
+                        "legacy": {"type": "boolean", "default": False},
                         "current_status": enum(
                             "raw_ready",
                             "process_blocked",
@@ -194,6 +195,12 @@ def schemas() -> dict[str, Any]:
             ),
         }
     )
+    status["properties"]["groups"]["additionalProperties"]["allOf"] = [
+        {
+            "if": {"properties": {"legacy": {"const": True}}, "required": ["legacy"]},
+            "then": {"properties": {"current_status": {"const": "done"}}},
+        }
+    ]
     status.update(
         {
             "$schema": parsed["$schema"],

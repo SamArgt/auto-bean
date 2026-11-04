@@ -26,7 +26,7 @@ export function SessionOverview({
   return (
     <section aria-label="Statement groups">
       {overview.groups.length === 0 && (
-        <p className="empty">No statement groups are available yet.</p>
+        <p className="empty">No imports available for review.</p>
       )}
       {overview.groups.map((group) => (
         <details className="group" key={group.group_id} open>

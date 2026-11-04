@@ -17,6 +17,10 @@
             "type": "string",
             "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
           },
+          "legacy": {
+            "type": "boolean",
+            "default": false
+          },
           "current_status": {
             "enum": [
               "raw_ready",
@@ -82,7 +86,28 @@
           "parsed_group",
           "sources"
         ],
-        "additionalProperties": false
+        "additionalProperties": false,
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "legacy": {
+                  "const": true
+                }
+              },
+              "required": [
+                "legacy"
+              ]
+            },
+            "then": {
+              "properties": {
+                "current_status": {
+                  "const": "done"
+                }
+              }
+            }
+          }
+        ]
       }
     }
   },
