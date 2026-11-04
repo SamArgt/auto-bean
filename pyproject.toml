@@ -10,6 +10,7 @@ package = false
 
 [dependency-groups]
 dev = [
+    "beancount>=3.2.3",
     "mypy>=1.18.2,<2",
     "pytest>=7.4,<9",
     "ruff>=0.15.2,<0.16",
