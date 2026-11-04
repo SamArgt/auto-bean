@@ -49,7 +49,7 @@ def test_marketplace_points_to_canonical_plugin_directory() -> None:
 
 
 def test_manifest_and_packaged_references_are_valid() -> None:
-    assert packaging().validate_plugin() == "0.2.0"
+    assert packaging().validate_plugin() == "0.2.1"
 
 
 @pytest.mark.parametrize("change", ["new_source", "edited_source", "bundle"])

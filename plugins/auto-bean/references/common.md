@@ -40,7 +40,7 @@ Agents edit their assigned files directly with ordinary file tools; no runtime p
 | Parsed account mappings, reconciliation and proposed directives | Import |
 | Parsed transaction postings, dispositions, rationale and links | Categorize; Import coordinates shared decisions. |
 | Inline user answers and corrections | Owning agent follows the explicit user instruction; panel submissions save the same fields. |
-| `statements/import-status.yml`, session membership and groups | Import |
+| `statements/import-status.yml`, session membership and groups | Import; migration may add reviewed legacy markers to completed groups |
 | Session `price_runs` | Prices |
 | Canonical transactions and minimal supporting directives | Write |
 | Canonical price directives | Prices |
@@ -85,7 +85,9 @@ For a price outcome, use `--price-run <run-id>` with its session. This validates
 
 For imports, Import owns review validation, Write owns validation after transaction writes, and Prices owns validation after its outcome. Import must pause session/status, parsed and price-run edits plus ledger writes before any session validation, including worker-initiated checks. Resume edits after terminal completion. The command writes generated reports across the session; its locks do not serialize ordinary file edits or panel activity. A concurrent-change error requires a fresh check against stable files.
 
-Review requests still run written checks for `done` groups and previously passed written reports whose reviewed content is unchanged. This preserves completion evidence without trusting stale ledger hashes. Changed decisions in reopened groups receive review checks. Read each returned report's stage; the requested stage alone does not describe every result.
+Groups marked `legacy: true` must be `done`; review excludes them and session validation reports them as historical exclusions without reading modern parsed evidence. Source mappings remain registered for duplicate prevention. Unmarked incompatible evidence requires migration checks.
+
+Review requests still run written checks for unmarked `done` groups and previously passed written reports whose reviewed content is unchanged. This preserves completion evidence without trusting stale ledger hashes. Changed decisions in reopened groups receive review checks. Read each returned report's stage; the requested stage alone does not describe every result.
 
 Assess per-group, per-source and price-run reports. Overall failure can include unrelated pending work; every member must pass written validation before its group is done. Shared ledger errors, changed inputs, invalid membership and linked-transfer failures block dependent completion. Reuse current reports at handoff, rerun after relevant changes, and never dismiss an unexplained error as unrelated.
 

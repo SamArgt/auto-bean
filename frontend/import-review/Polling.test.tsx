@@ -38,6 +38,8 @@ test("polling pauses while hidden and does not overlap a slow read", async () =>
     await response;
   });
   expect(screen.getByText("0 statements · 0 outstanding inputs")).toBeTruthy();
+  expect(screen.getByText("No imports available for review.")).toBeTruthy();
+  expect(call.mock.calls.every(([name]) => name === "read_import_session")).toBe(true);
   hidden.mockReturnValue(true);
   await act(async () => {
     await vi.advanceTimersByTimeAsync(6000);

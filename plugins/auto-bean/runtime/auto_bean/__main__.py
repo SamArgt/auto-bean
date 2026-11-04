@@ -8,7 +8,6 @@ from collections.abc import Sequence
 
 from auto_bean.common import WorkflowError, workspace
 from auto_bean.init import initialize
-from auto_bean.migrate import apply_migration, plan_migration
 from auto_bean.runtime import TOOLS, ensure_runtime, run_tool
 
 
@@ -43,6 +42,17 @@ def main(argv: Sequence[str] | None = None) -> int:
         if arguments.action == "init":
             result = initialize(arguments.workspace, currency=arguments.currency)
         elif arguments.action == "migrate":
+            # Bootstrap is stdlib-only. Evidence checks need the locked runtime.
+            from importlib.util import find_spec
+
+            if find_spec("yaml") is None or find_spec("jsonschema") is None:
+                root = workspace(arguments.workspace, legacy=True)
+                args = ["-m", "auto_bean", "migrate", "--workspace", str(root)]
+                if arguments.apply:
+                    args.extend(["--apply", arguments.apply])
+                return run_tool(root, "python", args)
+            from auto_bean.migrate import apply_migration, plan_migration
+
             result = (
                 apply_migration(arguments.workspace, arguments.apply)
                 if arguments.apply

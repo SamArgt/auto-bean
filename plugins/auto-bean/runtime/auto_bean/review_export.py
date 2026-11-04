@@ -110,7 +110,7 @@ def validation_current(
 
 def _snapshot(store: ReviewFiles, exported_at: str) -> dict[str, Any]:
     """Caller holds the shared writer lock while reading all selected documents."""
-    session = store.read(store.session_path)
+    session = store.review_session()
     status = load_state(checked_path(store.root, "statements/import-status.yml"))
     validate_state("status", store.root, status)
     documents = {
@@ -120,7 +120,7 @@ def _snapshot(store: ReviewFiles, exported_at: str) -> dict[str, Any]:
     store.check_links()
     # Ordinary file edits do not acquire the panel lock. Reject a mixed snapshot.
     if (
-        etag(store.read(store.session_path)) != etag(session)
+        etag(store.review_session()) != etag(session)
         or load_state(checked_path(store.root, "statements/import-status.yml"))
         != status
         or any(

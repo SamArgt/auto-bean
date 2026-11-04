@@ -281,6 +281,7 @@ def dispatch(name: str, args: dict[str, Any]) -> dict[str, Any]:
         status = load_state(checked_path(store.root, "statements/import-status.yml"))
         validate_state("status", store.root, status)
         session_status(session, status)
+        session = store.review_session()
         statements = []
         for item in session_members(session):
             entry = status_members(status).get(item["source_file"], {})

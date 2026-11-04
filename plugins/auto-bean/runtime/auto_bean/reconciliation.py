@@ -638,7 +638,7 @@ def _check_proposals(
 
     account_entries = list(entries)
     # Shared transfers can use an account whose opening belongs to another member.
-    for member in session_members(store.read(store.session_path)):
+    for member in session_members(store.review_session()):
         other = store.statement(member["source_file"])
         for account in other["statement_metadata"]["accounts"]:
             for text in account.get("review", {}).get("proposed_directives", []):
@@ -768,6 +768,7 @@ def validate_import(
         "statements": {},
         "prices": {},
         "groups": {},
+        "historical_exclusions": [],
         "errors": [],
     }
     try:
@@ -792,6 +793,9 @@ def validate_import(
             files = ReviewFiles(root, session_id)
             session = files.read(files.session_path)
             session_status(session, status)
+            _, ledger_errors, ledger_hashes = _load(root)
+            result["errors"].extend(ledger_errors)
+            result["ledger_hashes"] = ledger_hashes
             result["session_id"] = session_id
             price_runs = session["price_runs"]
             if price_run_id is not None:
@@ -800,6 +804,8 @@ def validate_import(
                     invalid("Selected price run does not exist in the session.")
             for item in [] if price_run_id is not None else session_members(session):
                 source = item["source_file"]
+                if status["groups"][item["group_id"]].get("legacy", False):
+                    continue
                 try:
                     source_stage = (
                         "written"
@@ -815,6 +821,14 @@ def validate_import(
                 except (WorkflowError, OSError, ValueError) as error:
                     result["errors"].append(f"{source}: {error}")
             for group in [] if price_run_id is not None else session["groups"]:
+                if status["groups"][group["group_id"]].get("legacy", False):
+                    result["historical_exclusions"].append(group["group_id"])
+                    result["groups"][group["group_id"]] = {
+                        "state": "skipped",
+                        "reason": "historical_legacy",
+                        "source_files": group["source_files"],
+                    }
+                    continue
                 reports = [
                     result["statements"].get(source) for source in group["source_files"]
                 ]
