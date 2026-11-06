@@ -120,6 +120,10 @@ These illustrate structure, not instructions or approval. Never copy generated c
 
 Panel saves write corrections immediately to the parsed-group JSON. Price approvals write to the session JSON. They do not notify the agent or write ledger entries. Import status stays under agent control.
 
+Transaction suggestions contain one full category account per item, ordered from most to least likely. Questions and explanations belong in the rationale. The panel shows category type labels, inline approval and save progress. A current saved receipt changes the row to `Input received`; this does not resolve the agent's blocker. Sidebar counts distinguish outstanding and received inputs. Accounts without session transactions remain in Session and are hidden from the account sidebar.
+
+Price-run `new_commodities` lists symbols introduced by this session, based on pre-write ledger evidence. The Price tab highlights them separately from new quotes. Omit the field when novelty is unknown. An empty list means that no commodity is new. Existing ledger use counts even without an optional commodity declaration.
+
 The panel records pending subjects and response fingerprints in `.auto-bean/review-batches/<session_id>.json`. **Send saved changes** is available when every current required input has a saved response, required approvals are complete, and the panel has no drafts. The server checks all session members again before sending. A changed question requires review again.
 
 Send posts one user message to the active conversation through the MCP App bridge. The message contains the session ID and updated source/price-run identifiers. It asks the agent to read the current JSON and continue the import. It does not contain full statement data or draft text. After the host accepts the message, the panel acknowledges the batch. Failed sends keep the pending changes. Acknowledgement never clears newer saves. If acknowledgement fails after a successful message, the open panel retries acknowledgement only.

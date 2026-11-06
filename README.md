@@ -76,6 +76,22 @@ uv run python scripts/smoke_plugin.py   # Runtime smoke check; may download depe
 uv run python scripts/package_plugin.py # Create the archive in dist/
 ```
 
+### Releases
+
+Every PR must increase `plugins/auto-bean/plugin.json` above its base version.
+Use a stable `major.minor.patch` version. Update the runtime, frontend,
+development metadata and lockfiles together, then rebuild the UI.
+
+After a merge to `main`, both CI platforms must pass. CI then tags that tested
+commit as `v<version>` and publishes `auto-bean-<version>.zip` in a GitHub Release.
+`repository-baseline.yml` calls `publish-plugin.yml` directly after CI.
+This is the only release flow. Pushing a tag does not trigger a release.
+
+Rerun a failed release job to resume an incomplete draft. Existing published
+releases are left unchanged. A tag that points to another commit causes a failure;
+increase the version instead of moving the tag. The first automatic release runs
+after these workflows merge to `main` and that commit passes CI.
+
 ### Parsed schemas
 
 Each import group has one saved JSON file. Its `statements[]` entries hold the source facts and inline review.

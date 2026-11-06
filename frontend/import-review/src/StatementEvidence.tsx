@@ -27,7 +27,11 @@ export function StatementEvidence({
       ))}
       {detail.processing.needs_input && (
         <section className="card needs">
-          <h3>⚠ Processing needs input</h3>
+          <h3>
+            {detail.received_inputs?.includes("statement")
+              ? "✓ Input received"
+              : "⚠ Processing needs input"}
+          </h3>
           <TextEdit
             label="Processing answer"
             choices={detail.processing.suggestions}
@@ -56,13 +60,20 @@ export function StatementEvidence({
       ) : (
         detail.statement_metadata.accounts.map((a) => {
           const d = a.review;
+          const received = detail.received_inputs?.includes(
+            "account:" + a.account_id,
+          );
           return (
             <section
-              className={`card ${d?.state === "needs_input" ? "needs" : ""}`}
+              className={`card ${d?.state === "needs_input" && !received ? "needs" : ""}`}
               key={a.account_id}
             >
               <h4>
-                {d?.state === "needs_input" ? "⚠ Needs input · " : ""}
+                {d?.state === "needs_input"
+                  ? received
+                    ? "✓ Input received · "
+                    : "⚠ Needs input · "
+                  : ""}
                 {a.account_name ?? a.account_id}
               </h4>
               {a.account_owner && <p>{a.account_owner}</p>}

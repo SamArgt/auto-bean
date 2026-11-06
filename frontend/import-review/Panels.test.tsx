@@ -92,7 +92,7 @@ test("price execution and zero-job results are explicit", () => {
   render(
     <SessionPrices overview={overview} disabled={false} onApprove={vi.fn()} />,
   );
-  expect(screen.getByText("Zero price jobs.")).toBeTruthy();
+  expect(screen.getByText("No price updates in this run.")).toBeTruthy();
   expect(screen.getByText(/Execution: complete/).textContent).toContain(
     "Exit 0",
   );
@@ -250,4 +250,119 @@ test("session shows persisted multi-statement groups", () => {
   expect(screen.getByText("User-defined")).toBeTruthy();
   expect(screen.getByText("statements/raw/checking.csv")).toBeTruthy();
   expect(screen.getByText("statements/raw/savings.pdf")).toBeTruthy();
+});
+
+test("price tab highlights explicitly new commodities, including those without jobs", () => {
+  const run: Overview["price_runs"][number] = {
+    run_id: "new-fund",
+    review_digest: "digest",
+    validation_current: null,
+    requested_date: "2026-11-04",
+    state: "partial",
+    required_commodities: ["NEW", "WAIT", "KNOWN"],
+    new_commodities: ["NEW", "WAIT"],
+    coverage: ["NEW", "KNOWN"],
+    preflight: "passed",
+    preflight_job_count: 2,
+    execution: {
+      state: "complete",
+      exit_code: 0,
+      duration_seconds: 0,
+      stderr_summary: "",
+    },
+    detail: "Quotes",
+    jobs: ["NEW", "KNOWN"].map((commodity) => ({
+      commodity,
+      source: "fixture",
+      requested_date: "2026-11-04",
+      outcome: "emitted",
+    })),
+  };
+  render(
+    <SessionPrices
+      overview={
+        {
+          workspace: "/ledger",
+          session_id: "s",
+          etag: "1",
+          groups: [],
+          statements: [],
+          price_runs: [run],
+        } as unknown as Overview
+      }
+      disabled={false}
+      onApprove={vi.fn()}
+      mode="price"
+    />,
+  );
+  expect(screen.getByText("WAIT · New commodity")).toBeTruthy();
+  expect(
+    screen
+      .getByText("NEW")
+      .closest(".price")
+      ?.classList.contains("new-commodity"),
+  ).toBe(true);
+  expect(
+    screen
+      .getByText("KNOWN")
+      .closest(".price")
+      ?.classList.contains("new-commodity"),
+  ).toBe(false);
+});
+
+test("price quotes are readable while failures and missing coverage remain visible", () => {
+  const run: Overview["price_runs"][number] = {
+    run_id: "p",
+    review_digest: "digest",
+    validation_current: null,
+    requested_date: "2026-11-06",
+    state: "partial",
+    required_commodities: ["VWCE", "MISSING"],
+    coverage: ["VWCE"],
+    preflight: "passed",
+    preflight_job_count: 2,
+    execution: {
+      state: "complete",
+      exit_code: 1,
+      duration_seconds: 2,
+      stderr_summary: "Provider timeout",
+    },
+    detail: "One quote failed.",
+    jobs: [
+      {
+        commodity: "VWCE",
+        source: "fixture",
+        requested_date: "2026-11-06",
+        quote_date: "2026-11-05",
+        outcome: "emitted",
+        directive: "2026-11-05 price VWCE 112.40 EUR",
+      },
+      {
+        commodity: "MISSING",
+        source: "fixture",
+        requested_date: "2026-11-06",
+        outcome: "failed",
+        detail: "Quote provider unavailable",
+      },
+    ],
+  };
+  render(
+    <SessionPrices
+      overview={{ price_runs: [run] } as Overview}
+      mode="price"
+      disabled={false}
+      onApprove={vi.fn()}
+    />,
+  );
+  expect(screen.getByText("112.40 EUR").closest("details")).toBeNull();
+  expect(
+    screen.getByText("Missing prices: MISSING").closest("details"),
+  ).toBeNull();
+  expect(
+    screen.getByText("Differs from requested date").closest("details"),
+  ).toBeNull();
+  expect(screen.getByText("Fetch failed").closest("details")).toBeNull();
+  expect(screen.getByText("Provider timeout").closest("details")?.open).toBe(
+    false,
+  );
 });

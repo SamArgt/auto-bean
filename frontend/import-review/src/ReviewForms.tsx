@@ -1,4 +1,11 @@
-import { createContext, useContext, useEffect, useId, useState } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+} from "react";
 
 export const DraftContext = createContext<(id: string, dirty: boolean) => void>(
   () => {},
@@ -11,9 +18,23 @@ function useDraft(dirty: boolean) {
     return () => report(id, false);
   }, [id, dirty, report]);
 }
+import {
+  categoryLabel,
+  categorySuggestions,
+  transactionStatus,
+  transactionCategories,
+} from "./suggestions";
 import type { Posting, Transaction } from "./types";
 const readable = (s: string) => s.replaceAll("_", " ");
 const filename = (s: string) => s.split("/").at(-1) ?? s;
+export function SavingIndicator() {
+  return (
+    <span className="saving" role="status">
+      <span className="spinner" aria-hidden="true" />
+      Applying changes…
+    </span>
+  );
+}
 export function TextEdit({
   label,
   value,
@@ -22,6 +43,7 @@ export function TextEdit({
   choices = [],
   disabled,
   allowConfirm = false,
+  categoryChoices = false,
   saveLabel = "Save correction",
   onSave,
   onSearch,
@@ -33,6 +55,7 @@ export function TextEdit({
   choices?: string[];
   disabled: boolean;
   allowConfirm?: boolean;
+  categoryChoices?: boolean;
   saveLabel?: string;
   onSave: (value: string, etag: string) => Promise<boolean>;
   onSearch?: (value: string) => void;
@@ -40,6 +63,9 @@ export function TextEdit({
   const [edit, setEdit] = useState<string | null>(null),
     [base, setBase] = useState(etag);
   const [custom, setCustom] = useState(false);
+  const [pending, setPending] = useState(false);
+  const submitting = useRef(false);
+  disabled = disabled || pending;
   const dirty = edit !== null;
   useDraft(dirty);
   return (
@@ -47,12 +73,59 @@ export function TextEdit({
       className={choices.length ? "choice-form" : undefined}
       onSubmit={async (e) => {
         e.preventDefault();
+        if (submitting.current) return;
+        submitting.current = true;
+        setPending(true);
         const submitted = edit ?? value;
-        if (await onSave(submitted, dirty ? base : etag))
-          setEdit((current) => (current === submitted ? null : current));
+        try {
+          if (await onSave(submitted, dirty ? base : etag))
+            setEdit((current) => (current === submitted ? null : current));
+        } finally {
+          submitting.current = false;
+          setPending(false);
+        }
       }}
     >
-      {choices.length > 0 && (
+      {categoryChoices && choices.length > 0 && (
+        <fieldset className="category-options">
+          <legend>Suggested categories</legend>
+          {choices.map((choice, index) => (
+            <label key={choice}>
+              <input
+                type="radio"
+                name={label}
+                value={choice}
+                checked={edit === choice}
+                disabled={disabled}
+                onChange={() => {
+                  if (!dirty) setBase(etag);
+                  setCustom(false);
+                  setEdit(choice);
+                }}
+              />
+              <span>
+                {categoryLabel(choice)}
+                {index === 0 && <small>Most likely</small>}
+              </span>
+            </label>
+          ))}
+          <label>
+            <input
+              type="radio"
+              name={label}
+              checked={custom}
+              disabled={disabled}
+              onChange={() => {
+                if (!dirty) setBase(etag);
+                setCustom(true);
+                setEdit("");
+              }}
+            />
+            Something else
+          </label>
+        </fieldset>
+      )}
+      {!categoryChoices && choices.length > 0 && (
         <label className="choice-options">
           {label} suggestions
           <select
@@ -142,17 +215,20 @@ export function TextEdit({
           }
           type="submit"
         >
-          {allowConfirm && !dirty
-            ? "Confirm mapping"
-            : choices.length &&
-                !custom &&
-                (edit === null || choices.includes(edit))
-              ? "Save choice"
-              : saveLabel}
+          {pending
+            ? "Saving…"
+            : allowConfirm && !dirty
+              ? "Confirm mapping"
+              : choices.length &&
+                  !custom &&
+                  (edit === null || choices.includes(edit))
+                ? "Save choice"
+                : saveLabel}
         </button>
         {dirty && (
           <button
             type="button"
+            disabled={pending}
             onClick={() => {
               setEdit(null);
               setCustom(false);
@@ -162,6 +238,7 @@ export function TextEdit({
           </button>
         )}
       </div>
+      {pending && !categoryChoices && <SavingIndicator />}
       {choices.length > 0 && value && edit === null && (
         <p className="saved-answer">Saved answer: {value}</p>
       )}
@@ -176,8 +253,10 @@ export function TransactionCard({
   onAnswer,
   onLink,
   navigationDisabled = false,
+  received = false,
 }: {
   row: Transaction;
+  received?: boolean;
   onLink?: (source: string, account: string, record: string) => void;
   navigationDisabled?: boolean;
   etag: string;
@@ -185,45 +264,103 @@ export function TransactionCard({
   onSave: (p: Posting[], r: string) => Promise<boolean>;
   onAnswer: (value: string, etag: string) => Promise<boolean>;
 }) {
+  const [editingAnswer, setEditingAnswer] = useState(false);
   const [edit, setEdit] = useState<Posting[] | null>(null),
     [base, setBase] = useState(etag);
   useDraft(edit !== null);
   const r = row,
     d = row.review,
     needs = d?.state === "needs_input" || d?.disposition === "hold";
+  const choices = categorySuggestions(d?.suggestions);
   return (
-    <section className={`card ${needs ? "needs" : ""}`}>
-      <h4>
-        {needs ? "⚠ Needs input · " : ""}
-        {r.description}
-      </h4>
-      <p>
-        {r.transaction_date} ·{" "}
+    <section className={`card ${needs && !received ? "needs" : ""}`}>
+      <div className="transaction-heading">
+        <h2>{r.description}</h2>
+        <span
+          className={`badge ${needs ? (received ? "received" : "warn") : ""}`}
+        >
+          {transactionStatus(row, received)}
+        </span>
+      </div>
+      <p className="transaction-meta">
+        <span>{r.transaction_date}</span>
         <strong>
           {r.amount} {r.currency}
-        </strong>{" "}
-        · {r.account_id}
+        </strong>
       </p>
-      <p className="rationale">
-        {d?.rationale ?? "Rationale is not available yet."}
-      </p>
-      <p>{d ? readable(d.disposition) : "Categorization pending"}</p>
-      {d?.postings.map((p, i) => (
-        <p key={i}>
-          {p.account}{" "}
-          <strong>
-            {p.amount} {p.currency}
-          </strong>
-          {p.cost ? ` ${p.cost}` : ""}
-          {p.price ? ` ${p.price}` : ""}
+      {received && needs ? (
+        <p className="received-note">
+          Your answer is saved. The agent will review it next.
         </p>
-      ))}
+      ) : null}
+      {d?.rationale && <p className="rationale">{d.rationale}</p>}
+      {!needs && transactionCategories(r) && (
+        <p className="category-summary">{transactionCategories(r)}</p>
+      )}
+      {needs && d && received && !editingAnswer ? (
+        <div className="saved-category">
+          <div>
+            <small>Saved response</small>
+            <strong>
+              {d.answer ? categoryLabel(d.answer) : "Entry changes saved"}
+            </strong>
+          </div>
+          <button disabled={disabled} onClick={() => setEditingAnswer(true)}>
+            Change answer
+          </button>
+        </div>
+      ) : needs && d ? (
+        <TextEdit
+          label="Transaction answer"
+          choices={choices}
+          categoryChoices
+          value={d.answer ?? ""}
+          etag={etag}
+          disabled={disabled}
+          saveLabel="Save answer"
+          onSave={async (value, etag) => {
+            const saved = await onAnswer(value, etag);
+            if (saved) setEditingAnswer(false);
+            return saved;
+          }}
+        />
+      ) : null}
+      {!needs && d?.answer && <p>Saved answer: {d.answer}</p>}
       <details>
-        <summary>Evidence & rationale</summary>
+        <summary>Entry details & evidence</summary>
+        {d?.postings.length ? (
+          <table className="posting-summary">
+            <caption>Proposed entry</caption>
+            <thead>
+              <tr>
+                <th>Account</th>
+                <th className="amount">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              {d.postings.map((p, i) => (
+                <tr key={i}>
+                  <td>
+                    {p.account}
+                    {p.cost && <small>Cost: {p.cost}</small>}
+                    {p.price && <small>Price: {p.price}</small>}
+                  </td>
+                  <td className="amount">
+                    {p.amount} {p.currency}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : null}
         <p>
           {r.source_reference} · {r.record_id}
         </p>
+        {d?.posting_owner && <p>Posting owner: {d.posting_owner}</p>}
 
+        {d?.suggestions?.some((s) => !choices.includes(s)) && (
+          <p>{d.suggestions.filter((s) => !choices.includes(s)).join(" · ")}</p>
+        )}
         <p>{d?.findings?.map(readable).join(", ")}</p>
         {d?.existing_transaction && (
           <div>
@@ -249,23 +386,10 @@ export function TransactionCard({
           </p>
         ))}
       </details>
-      {needs && d && (
-        <TextEdit
-          label="Transaction answer"
-          choices={d.suggestions}
-          value={d.answer ?? ""}
-          etag={etag}
-          disabled={disabled}
-          saveLabel="Save answer"
-          onSave={onAnswer}
-        />
-      )}
-      {!needs && d?.answer && <p>Saved answer: {d.answer}</p>}
       {d?.disposition === "paired_transfer" && (
         <p className="notice">
-          Shared transfer postings are read-only. Posting owner:{" "}
-          {d.posting_owner ?? "unavailable"}. Ask the agent to review a
-          correction.
+          This transfer links two statement entries. Ask the agent to change its
+          accounts or amounts.
         </p>
       )}
       {d && d.disposition !== "paired_transfer" && !edit && (

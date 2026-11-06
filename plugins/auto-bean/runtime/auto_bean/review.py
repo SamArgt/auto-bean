@@ -282,6 +282,24 @@ class ReviewFiles:
         self.batch_path.parent.mkdir(parents=True, exist_ok=True)
         atomic_write(self.batch_path, json_bytes(batch))
 
+    def received_inputs(self, doc: dict[str, Any]) -> list[str]:
+        """Identify saved responses that still match the current evidence."""
+        receipts = self.batch_receipts()["receipts"]
+        source = doc["source_file"]
+        subjects = {"statement": doc["review"]["processing"]}
+        subjects.update(
+            ("account:" + a["account_id"], a)
+            for a in doc["statement_metadata"]["accounts"]
+        )
+        subjects.update(
+            ("transaction:" + r["record_id"], r) for r in doc["extracted_records"]
+        )
+        return [
+            subject
+            for subject, value in subjects.items()
+            if receipts.get(source + "#" + subject) == etag({"value": value})
+        ]
+
     def review_batch(self) -> dict[str, Any]:
         batch = self.batch_receipts()
         receipts = batch["receipts"]

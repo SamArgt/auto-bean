@@ -73,3 +73,33 @@ test("structured tool errors remain visible to the calling form", async () => {
     "edit_conflict",
   );
 });
+test("continuation capability follows the negotiated host capabilities", () => {
+  let message: OpenAIExtensions["message"];
+  const bridge = createBridge(
+    { callServerTool: vi.fn() },
+    {
+      get message() {
+        return message;
+      },
+    },
+  );
+  expect(bridge.canContinue).toBe(false);
+  message = { send: vi.fn() } as unknown as NonNullable<typeof message>;
+  expect(bridge.canContinue).toBe(true);
+});
+test("an incomplete success envelope cannot masquerade as saved data", async () => {
+  const bridge = createBridge(
+    {
+      callServerTool: vi
+        .fn()
+        .mockResolvedValue({
+          structuredContent: { status: "ok" },
+          content: [],
+        }),
+    },
+    { message: undefined },
+  );
+  await expect(bridge.call("update_import_review", {})).rejects.toThrow(
+    "No structured result",
+  );
+});

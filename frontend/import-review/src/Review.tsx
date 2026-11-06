@@ -18,7 +18,6 @@ import type {
   Page,
 } from "./types";
 
-const readable = (s: string) => s.replaceAll("_", " ");
 const filename = (s: string) => s.split("/").at(-1) ?? s;
 export function Review({
   bridge,
@@ -56,7 +55,7 @@ function ReviewSession({
   const [view, setView] = useState<"session" | "account" | "price">("session");
   const [catalog, setCatalog] = useState<Record<string, Detail>>({});
   const [accountNeeds, setAccountNeeds] = useState<
-    Record<string, number | null>
+    Record<string, { total: number; needed: number; received: number } | null>
   >({});
   const [catalogErrors, setCatalogErrors] = useState<Record<string, string>>(
     {},
@@ -92,91 +91,101 @@ function ReviewSession({
   const activeRequest = useRef<string | null>(null);
   const activeSubmission = useRef(false);
   const searchRequest = useRef(0);
+  const accountCountsFailed = useRef(false);
   const queryKey = JSON.stringify([binding, source, offset, account, needs]);
   const latestQuery = useRef(queryKey);
   latestQuery.current = queryKey;
-  const refresh = useCallback(async () => {
-    if (!binding || activeRequest.current === queryKey) return;
-    const id = ++request.current;
-    activeRequest.current = queryKey;
-    const current = () =>
-      id === request.current && latestQuery.current === queryKey;
-    try {
-      const summaryPromise = bridge.call<Overview>(
-        "read_import_session",
-        binding,
-      );
-      const detailPromise = source
-        ? bridge.call<Detail>("read_import_statement", {
-            ...binding,
-            source_file: source,
-          })
-        : Promise.resolve(null);
-      const pagePromise = source
-        ? bridge.call<Page>("list_import_transactions", {
-            ...binding,
-            source_file: source,
-            offset,
-            limit: 100,
-            ...(account ? { account_id: account } : {}),
-            needs_input: needs,
-          })
-        : Promise.resolve(null);
-      const [summary, d, p] = await Promise.allSettled([
-        summaryPromise,
-        detailPromise,
-        pagePromise,
-      ]);
-      if (!current()) return;
-      if (summary.status === "fulfilled") {
-        setOverview(summary.value);
-        const sources = summary.value.statements.map((s) => s.source_file);
-        const details = await Promise.allSettled(
-          sources.map((file) =>
-            file === source && d.status === "fulfilled" && d.value
-              ? Promise.resolve(d.value)
-              : bridge.call<Detail>("read_import_statement", {
-                  ...binding,
-                  source_file: file,
-                }),
-          ),
+  const refresh = useCallback(
+    async (force = false) => {
+      if (!binding || (!force && activeRequest.current === queryKey)) return;
+      const id = ++request.current;
+      activeRequest.current = queryKey;
+      const current = () =>
+        id === request.current && latestQuery.current === queryKey;
+      try {
+        const summaryPromise = bridge.call<Overview>(
+          "read_import_session",
+          binding,
         );
+        const detailPromise = source
+          ? bridge.call<Detail>("read_import_statement", {
+              ...binding,
+              source_file: source,
+            })
+          : Promise.resolve(null);
+        const pagePromise = source
+          ? bridge.call<Page>("list_import_transactions", {
+              ...binding,
+              source_file: source,
+              offset,
+              limit: 100,
+              ...(account ? { account_id: account } : {}),
+              needs_input: needs,
+            })
+          : Promise.resolve(null);
+        const [summary, d, p] = await Promise.allSettled([
+          summaryPromise,
+          detailPromise,
+          pagePromise,
+        ]);
         if (!current()) return;
-        const errors: Record<string, string> = {};
-        setCatalog((previous) => {
-          const next: Record<string, Detail> = {};
+        if (summary.status === "fulfilled") {
+          setOverview(summary.value);
+          const sources = summary.value.statements.map((s) => s.source_file);
+          const details = await Promise.allSettled(
+            sources.map((file) =>
+              file === source && d.status === "fulfilled" && d.value
+                ? Promise.resolve(d.value)
+                : bridge.call<Detail>("read_import_statement", {
+                    ...binding,
+                    source_file: file,
+                  }),
+            ),
+          );
+          if (!current()) return;
+          const errors: Record<string, string> = {};
+          setCatalog((previous) => {
+            const next: Record<string, Detail> = {};
+            sources.forEach((file, i) => {
+              const result = details[i];
+              if (result.status === "fulfilled") next[file] = result.value;
+              else {
+                if (previous[file]) next[file] = previous[file];
+              }
+            });
+            // Keep account counts when the complete evidence is unchanged.
+            // An etag alone does not cover validation and received inputs.
+            return !force &&
+              !accountCountsFailed.current &&
+              JSON.stringify(next) === JSON.stringify(previous)
+              ? previous
+              : next;
+          });
+          // Compute failures outside the state updater, which React may defer.
           sources.forEach((file, i) => {
             const result = details[i];
-            if (result.status === "fulfilled") next[file] = result.value;
-            else {
-              if (previous[file]) next[file] = previous[file];
-            }
+            if (result.status === "rejected")
+              errors[file] = String(result.reason);
           });
-          return next;
+          setCatalogErrors(errors);
+        }
+        if (d.status === "fulfilled") setDetail(d.value);
+        if (p.status === "fulfilled") setPage(p.value);
+        setInvalidReads({
+          summary: summary.status === "rejected",
+          detail: d.status === "rejected",
+          page: p.status === "rejected",
         });
-        // Compute failures outside the state updater, which React may defer.
-        sources.forEach((file, i) => {
-          const result = details[i];
-          if (result.status === "rejected")
-            errors[file] = String(result.reason);
-        });
-        setCatalogErrors(errors);
+        const failures = [summary, d, p].filter(
+          (r): r is PromiseRejectedResult => r.status === "rejected",
+        );
+        setLoadError(failures.map((f) => String(f.reason)).join(" · "));
+      } finally {
+        if (id === request.current) activeRequest.current = null;
       }
-      if (d.status === "fulfilled") setDetail(d.value);
-      if (p.status === "fulfilled") setPage(p.value);
-      setInvalidReads({
-        summary: summary.status === "rejected",
-        detail: d.status === "rejected",
-        page: p.status === "rejected",
-      });
-      const failures = [summary, d, p].filter(
-        (r): r is PromiseRejectedResult => r.status === "rejected",
-      );
-      setLoadError(failures.map((f) => String(f.reason)).join(" · "));
-    } finally {
-      if (id === request.current) activeRequest.current = null;
-    }
-  }, [bridge, binding, source, offset, account, needs, queryKey]);
+    },
+    [bridge, binding, source, offset, account, needs, queryKey],
+  );
   useEffect(() => {
     void refresh();
     const timer = setInterval(() => {
@@ -197,30 +206,60 @@ function ReviewSession({
     if (!binding) return;
     let cancelled = false;
     const accounts = Object.entries(catalog).flatMap(([file, detail]) =>
-      detail.statement_metadata.accounts.map((account) => ({ file, account })),
+      detail.statement_metadata.accounts.map((account) => ({
+        file,
+        account,
+        received:
+          detail.received_inputs?.includes("account:" + account.account_id) ??
+          false,
+      })),
     );
     void Promise.allSettled(
-      accounts.map(({ file, account }) =>
-        bridge.call<Page>("list_import_transactions", {
+      accounts.map(async ({ file, account }) => {
+        const inputs = await bridge.call<Page>("list_import_transactions", {
           ...binding,
           source_file: file,
           account_id: account.account_id,
           offset: 0,
           limit: 1,
           needs_input: true,
-        }),
-      ),
+        });
+        const all = inputs.total
+          ? inputs
+          : await bridge.call<Page>("list_import_transactions", {
+              ...binding,
+              source_file: file,
+              account_id: account.account_id,
+              offset: 0,
+              limit: 1,
+              needs_input: false,
+            });
+        return { ...inputs, transactionTotal: all.total };
+      }),
     ).then((results) => {
       if (cancelled) return;
+      accountCountsFailed.current = results.some(
+        (result) => result.status === "rejected",
+      );
       setAccountNeeds(
         Object.fromEntries(
-          accounts.map(({ file, account }, i) => {
+          accounts.map(({ file, account, received }, i) => {
             const result = results[i];
             return [
               JSON.stringify([file, account.account_id]),
               result.status === "fulfilled"
-                ? result.value.total +
-                  (account.review?.state === "needs_input" ? 1 : 0)
+                ? {
+                    total: result.value.transactionTotal,
+                    needed:
+                      result.value.total -
+                      (result.value.received_inputs?.length ?? 0) +
+                      (account.review?.state === "needs_input" && !received
+                        ? 1
+                        : 0),
+                    received:
+                      (result.value.received_inputs?.length ?? 0) +
+                      (received ? 1 : 0),
+                  }
                 : null,
             ];
           }),
@@ -235,6 +274,7 @@ function ReviewSession({
     if (
       !binding ||
       !overview ||
+      bridge.canContinue === false ||
       activeSubmission.current ||
       drafts.size ||
       loadError ||
@@ -284,10 +324,8 @@ function ReviewSession({
         source_file: source,
         update,
       });
-      setNotice(
-        "Saved to JSON. Send saved changes when the current review is complete.",
-      );
-      await refresh();
+      setNotice("Changes saved.");
+      await refresh(true);
       return true;
     } catch (e) {
       setError(String(e));
@@ -309,7 +347,7 @@ function ReviewSession({
         expected_etag: overview.etag,
         review_digest: digest,
       });
-      setNotice("Price approval saved to JSON. Agent not notified.");
+      setNotice("Price approval saved.");
       await refresh();
     } catch (error) {
       setError(String(error));
@@ -335,6 +373,9 @@ function ReviewSession({
     }
   }
   const selected = overview?.statements.find((s) => s.source_file === source);
+  const newCommodityCount = new Set(
+    overview?.price_runs.flatMap((run) => run.new_commodities ?? []),
+  ).size;
   const done = selected?.status === "done";
   const unavailable = Boolean(
     !selected || invalidReads.summary || invalidReads.detail || selected?.error,
@@ -404,19 +445,7 @@ function ReviewSession({
   }
   const statementContent = source ? (
     <section key={source} className="statement-detail">
-      <h2>
-        {view === "account"
-          ? (detail?.statement_metadata.accounts.find(
-              (a) => a.account_id === account,
-            )?.account_name ?? "Transactions")
-          : filename(source)}
-      </h2>
-      <p className="context">
-        Group status: {readable(selected?.status ?? "unavailable")} ·{" "}
-        {selected?.updated_at
-          ? `Updated ${selected.updated_at}`
-          : "Update time unavailable"}
-      </p>
+      {view === "session" && <h2>{filename(source)}</h2>}
       {selected?.error && (
         <div className="error" role="alert">
           {selected.error}
@@ -441,41 +470,45 @@ function ReviewSession({
           )}
           {view === "account" && (
             <>
-              <div className="filters">
-                <label>
-                  Account
-                  <select
-                    aria-label="Account"
-                    value={account}
-                    disabled={!!drafts.size}
-                    onChange={(e) =>
-                      navigate("account", source, e.target.value)
-                    }
-                  >
-                    <option value="">All accounts</option>
-                    {detail.statement_metadata.accounts.map((a) => (
-                      <option key={a.account_id} value={a.account_id}>
-                        {a.account_name ?? a.account_id}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="checkbox">
-                  <input
-                    type="checkbox"
-                    checked={needs}
-                    disabled={!!drafts.size}
-                    onChange={(e) => {
-                      setNeeds(e.target.checked);
-                      setOffset(0);
-                    }}
-                  />
-                  Needs input
-                </label>
-              </div>
               {page && (
                 <TransactionTable
                   key={`${source}:${account}:${needs}:${offset}`}
+                  filters={
+                    <>
+                      {detail.statement_metadata.accounts.length > 1 && (
+                        <label>
+                          Account
+                          <select
+                            aria-label="Account"
+                            value={account}
+                            disabled={!!drafts.size || busy}
+                            onChange={(e) =>
+                              navigate("account", source, e.target.value)
+                            }
+                          >
+                            <option value="">All accounts</option>
+                            {detail.statement_metadata.accounts.map((a) => (
+                              <option key={a.account_id} value={a.account_id}>
+                                {a.account_name ?? a.account_id}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      )}
+                      <label className="checkbox">
+                        <input
+                          type="checkbox"
+                          checked={needs}
+                          disabled={!!drafts.size || busy}
+                          onChange={(e) => {
+                            setNeeds(e.target.checked);
+                            setOffset(0);
+                          }}
+                        />
+                        Needs input
+                      </label>
+                    </>
+                  }
                   page={page}
                   source={source}
                   focusRecord={focusRecord}
@@ -510,23 +543,27 @@ function ReviewSession({
                       ? "No matching transactions."
                       : `${offset + 1}–${Math.min(offset + 100, page.total)} of ${page.total}`}
                   </span>
-                  <button
-                    disabled={offset === 0 || !!drafts.size || busy}
-                    onClick={() => setOffset(Math.max(0, offset - 100))}
-                  >
-                    Previous
-                  </button>
-                  <button
-                    disabled={
-                      !page ||
-                      offset + 100 >= page.total ||
-                      !!drafts.size ||
-                      busy
-                    }
-                    onClick={() => setOffset(offset + 100)}
-                  >
-                    Next
-                  </button>
+                  {(page.total > 100 || offset > 0) && (
+                    <>
+                      <button
+                        disabled={offset === 0 || !!drafts.size || busy}
+                        onClick={() => setOffset(Math.max(0, offset - 100))}
+                      >
+                        Previous
+                      </button>
+                      <button
+                        disabled={
+                          !page ||
+                          offset + 100 >= page.total ||
+                          !!drafts.size ||
+                          busy
+                        }
+                        onClick={() => setOffset(offset + 100)}
+                      >
+                        Next
+                      </button>
+                    </>
+                  )}
                 </div>
               )}
             </>
@@ -580,7 +617,7 @@ function ReviewSession({
             <span className="eyebrow">AUTO BEAN</span>
             <h1>Import review</h1>
           </div>
-          <button onClick={() => void refresh()} disabled={!binding}>
+          <button onClick={() => void refresh(true)} disabled={!binding}>
             Refresh
           </button>
         </header>
@@ -610,53 +647,66 @@ function ReviewSession({
                 </button>
                 <div className="account-nav">
                   {overview.statements.flatMap((s) =>
-                    (
-                      catalog[s.source_file]?.statement_metadata.accounts ?? []
-                    ).map((a) => (
-                      <button
-                        className="sidebar-account"
-                        key={`${s.source_file}:${a.account_id}`}
-                        aria-current={
-                          view === "account" &&
-                          source === s.source_file &&
-                          account === a.account_id
-                            ? "page"
-                            : undefined
-                        }
-                        disabled={!!drafts.size || busy}
-                        onClick={() =>
-                          navigate("account", s.source_file, a.account_id)
-                        }
-                      >
-                        <span>
-                          <strong>{a.account_name ?? a.account_id}</strong>
-                          <small>{filename(s.source_file)}</small>
-                        </span>
-                        {accountNeeds[
-                          JSON.stringify([s.source_file, a.account_id])
-                        ] ? (
-                          <span
-                            className="badge warn"
-                            title="Outstanding account and transaction inputs"
-                          >
-                            {
-                              accountNeeds[
-                                JSON.stringify([s.source_file, a.account_id])
-                              ]
-                            }
-                          </span>
-                        ) : accountNeeds[
+                    (catalog[s.source_file]?.statement_metadata.accounts ?? [])
+                      .filter(
+                        (a) =>
+                          accountNeeds[
                             JSON.stringify([s.source_file, a.account_id])
-                          ] === null ? (
-                          <span
-                            className="badge"
-                            title="Input count unavailable"
-                          >
-                            ?
+                          ]?.total !== 0,
+                      )
+                      .map((a) => (
+                        <button
+                          className="sidebar-account"
+                          key={`${s.source_file}:${a.account_id}`}
+                          aria-current={
+                            view === "account" &&
+                            source === s.source_file &&
+                            account === a.account_id
+                              ? "page"
+                              : undefined
+                          }
+                          disabled={!!drafts.size || busy}
+                          onClick={() =>
+                            navigate("account", s.source_file, a.account_id)
+                          }
+                        >
+                          <span>
+                            <strong>{a.account_name ?? a.account_id}</strong>
+                            <small>{filename(s.source_file)}</small>
                           </span>
-                        ) : null}
-                      </button>
-                    )),
+                          <span className="account-input-status">
+                            {(() => {
+                              const count =
+                                accountNeeds[
+                                  JSON.stringify([s.source_file, a.account_id])
+                                ];
+                              if (!count)
+                                return (
+                                  <span
+                                    className="badge"
+                                    title="Input count unavailable"
+                                  >
+                                    ?
+                                  </span>
+                                );
+                              return (
+                                <>
+                                  {count.needed > 0 && (
+                                    <span className="badge warn">
+                                      {count.needed} need input
+                                    </span>
+                                  )}
+                                  {count.received > 0 && (
+                                    <span className="badge received">
+                                      {count.received} received
+                                    </span>
+                                  )}
+                                </>
+                              );
+                            })()}
+                          </span>
+                        </button>
+                      )),
                   )}
                   {!Object.keys(catalog).length && (
                     <p className="muted">
@@ -670,21 +720,16 @@ function ReviewSession({
                   onClick={() => navigate("price")}
                 >
                   Price
+                  {newCommodityCount > 0 && (
+                    <span className="badge warn price-nav-badge">
+                      {newCommodityCount} new
+                    </span>
+                  )}
                 </button>
               </nav>
             </aside>
           )}
           <main>
-            {binding && (
-              <details className="export-panel">
-                <summary>Export saved review</summary>
-                <ReviewExport
-                  key={`${binding.workspace}:${binding.session_id}`}
-                  bridge={bridge}
-                  binding={binding}
-                />
-              </details>
-            )}
             {!binding ? (
               <form
                 onSubmit={(e) => {
@@ -712,31 +757,39 @@ function ReviewSession({
                 <button type="submit">Open session</button>
               </form>
             ) : (
-              <div className="context" title={binding.workspace}>
-                {binding.workspace}
-                <br />
-                Session {binding.session_id}
-                {!initialBinding && (
-                  <button
-                    disabled={!!drafts.size || busy}
-                    onClick={() => {
-                      setNotified(null);
-                      setBinding(null);
-                      setOverview(null);
-                      setCatalog({});
-                      setCatalogErrors({});
-                      setView("session");
-                      setSource(null);
-                      setDetail(null);
-                      setPage(null);
-                      setError("");
-                      setLoadError("");
-                    }}
-                  >
-                    Change session
-                  </button>
-                )}
-              </div>
+              <details className="session-details">
+                <summary>Session details & export</summary>
+                <div className="context" title={binding.workspace}>
+                  {binding.workspace}
+                  <br />
+                  Session {binding.session_id}
+                  {!initialBinding && (
+                    <button
+                      disabled={!!drafts.size || busy}
+                      onClick={() => {
+                        setNotified(null);
+                        setBinding(null);
+                        setOverview(null);
+                        setCatalog({});
+                        setCatalogErrors({});
+                        setView("session");
+                        setSource(null);
+                        setDetail(null);
+                        setPage(null);
+                        setError("");
+                        setLoadError("");
+                      }}
+                    >
+                      Change session
+                    </button>
+                  )}
+                </div>
+                <ReviewExport
+                  key={`${binding.workspace}:${binding.session_id}`}
+                  bridge={bridge}
+                  binding={binding}
+                />
+              </details>
             )}
             {loadError && (
               <div role="alert" className="error">
@@ -756,32 +809,30 @@ function ReviewSession({
                 </p>
               </div>
             )}
-            {notice && (
-              <div role="status" className="notice">
-                {notice}
-              </div>
-            )}
             {overview && (
               <>
                 <div className="title">
                   <div>
-                    <p className="eyebrow">IMPORT REVIEW</p>
                     <h1>
                       {view === "session"
                         ? "Session"
                         : view === "price"
                           ? "Price"
-                          : "Account"}
+                          : (detail?.statement_metadata.accounts.find(
+                              (a) => a.account_id === account,
+                            )?.account_name ?? "Transactions")}
                     </h1>
                   </div>
-                  <span className="badge">
-                    {overview.statements.length} statements ·{" "}
-                    {overview.statements.reduce(
-                      (sum, item) => sum + item.needs_input,
-                      0,
-                    )}{" "}
-                    outstanding inputs
-                  </span>
+                  {view === "session" && (
+                    <span className="badge">
+                      {overview.statements.length} statements ·{" "}
+                      {overview.statements.reduce(
+                        (sum, item) => sum + item.needs_input,
+                        0,
+                      )}{" "}
+                      outstanding inputs
+                    </span>
+                  )}
                 </div>
                 {view === "session" && (
                   <SessionOverview
@@ -812,29 +863,30 @@ function ReviewSession({
                 ) : null}
                 <footer className="review-footer" aria-label="Saved changes">
                   <div>
+                    {notice && (
+                      <p role="status" className="save-notice">
+                        {notice}
+                      </p>
+                    )}
                     <strong>
-                      {overview.review_batch?.pending_count ?? 0} saved changes
+                      {overview.review_batch?.pending_count ?? 0} saved{" "}
+                      {overview.review_batch?.pending_count === 1
+                        ? "change"
+                        : "changes"}
                     </strong>
                     <p>
                       {overview.review_batch?.blockers.length
-                        ? `${overview.review_batch.blockers.length} current inputs still need review.`
-                        : "All current required inputs reviewed."}
+                        ? `${overview.review_batch.blockers.length} ${overview.review_batch.blockers.length === 1 ? "item still needs" : "items still need"} review.`
+                        : overview.review_batch?.pending_count
+                          ? "Ready to send."
+                          : "No changes to send."}
                     </p>
-                    {!!overview.review_batch?.blockers.length && (
-                      <details>
-                        <summary>Remaining inputs</summary>
-                        <ul>
-                          {overview.review_batch.blockers.map((item) => (
-                            <li key={item}>{item}</li>
-                          ))}
-                        </ul>
-                      </details>
-                    )}
                   </div>
                   <button
                     className="primary"
                     disabled={
                       busy ||
+                      bridge.canContinue === false ||
                       !!drafts.size ||
                       !!loadError ||
                       (!notified && !overview.review_batch?.ready)
@@ -846,6 +898,13 @@ function ReviewSession({
                   {!!drafts.size && (
                     <p>Save or discard unsaved edits before sending.</p>
                   )}
+                  {bridge.canContinue === false && (
+                    <p>
+                      This host cannot send changes to the conversation. Your
+                      changes are saved. Ask the agent to continue the import in
+                      chat.
+                    </p>
+                  )}
                 </footer>
               </>
             )}
@@ -855,10 +914,6 @@ function ReviewSession({
                 sending.
               </p>
             )}
-            <p className="subtle">
-              Local review · Refreshes every 2 seconds while visible · Canonical
-              writes require approval
-            </p>
           </main>
         </div>
       </div>

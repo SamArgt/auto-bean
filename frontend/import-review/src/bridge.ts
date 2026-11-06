@@ -7,6 +7,9 @@ export function createBridge(
     Partial<Pick<OpenAIExtensions, "files">>,
 ): Bridge {
   return {
+    get canContinue() {
+      return extensions.message != null;
+    },
     async openFile(path: string) {
       const files = extensions.files;
       if (!files)
@@ -20,7 +23,12 @@ export function createBridge(
       const data = response.structuredContent as
         | { status: string; result: T; message?: string; error_code?: string }
         | undefined;
-      if (response.isError || !data || data.status !== "ok")
+      if (
+        response.isError ||
+        !data ||
+        data.status !== "ok" ||
+        !("result" in data)
+      )
         throw new Error(
           `${data?.error_code ?? "Tool error"}: ${
             data?.message ??
