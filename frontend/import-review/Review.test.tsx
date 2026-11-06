@@ -478,7 +478,7 @@ test("approval binds the currently displayed statement etag and digest", async (
     await screen.findByRole("button", { name: "a.csv", exact: true }),
   );
   fireEvent.click(await screen.findByText("Approve reviewed transactions"));
-  await screen.findByText(/Saved to JSON/);
+  await screen.findByText(/Changes saved/);
   expect(resume).not.toHaveBeenCalled();
   expect(call).toHaveBeenCalledWith("update_import_review", {
     ...binding,
@@ -668,8 +668,8 @@ test("price approval saves the current run before continuing without a statement
   fireEvent.click(
     await screen.findByRole("button", { name: "Price", exact: true }),
   );
-  fireEvent.click(await screen.findByText("Approve price directives"));
-  await screen.findByText(/Price approval saved to JSON/);
+  fireEvent.click(await screen.findByText("Approve prices"));
+  await screen.findByText(/Price approval saved/);
   expect(resume).not.toHaveBeenCalled();
   expect(call).toHaveBeenCalledWith("approve_import_prices", {
     ...binding,

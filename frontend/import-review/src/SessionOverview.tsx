@@ -34,11 +34,19 @@ export function SessionOverview({
             <div>
               <strong>{group.name}</strong>
               <small>
-                {group.source_files.length} statements ·{" "}
-                {group.origin === "user" ? "User-defined" : "Inferred"}
+                {group.source_files.length}{" "}
+                {group.source_files.length === 1 ? "statement" : "statements"}
               </small>
             </div>
-            <span className="badge">{readable(group.current_status)}</span>
+            <span className="badge">
+              {group.current_status === "done"
+                ? "Imported"
+                : group.current_status === "final_review"
+                  ? "Ready for approval"
+                  : group.current_status.endsWith("_blocked")
+                    ? "Review needed"
+                    : "In progress"}
+            </span>
           </summary>
           {group.source_files.map((file) => {
             const statement = overview.statements.find(
@@ -58,19 +66,27 @@ export function SessionOverview({
                     >
                       {filename(file)}
                     </button>
-                    <small>
-                      {detail
-                        ? `Extraction: ${readable(detail.extraction_state)}`
-                        : "Loading statement evidence…"}
-                    </small>
+                    {(!detail || detail.extraction_state !== "complete") && (
+                      <small>
+                        {detail
+                          ? `Extraction ${readable(detail.extraction_state)}`
+                          : "Loading statement…"}
+                      </small>
+                    )}
                   </div>
-                  <span
-                    className={`badge ${statement?.needs_input ? "warn" : ""}`}
-                  >
-                    {statement?.needs_input
-                      ? `${statement.needs_input} need input`
-                      : readable(statement?.status ?? "unavailable")}
-                  </span>
+                  {statement?.needs_input ||
+                  statement?.status === "done" ||
+                  statement?.status === "final_review" ? (
+                    <span
+                      className={`badge ${statement?.needs_input ? "warn" : ""}`}
+                    >
+                      {statement?.needs_input
+                        ? `${statement.needs_input} need input`
+                        : statement?.status === "done"
+                          ? "Imported"
+                          : "Ready for approval"}
+                    </span>
+                  ) : null}
                 </div>
                 {failure && (
                   <p className="error" role="alert">
@@ -108,7 +124,15 @@ export function SessionOverview({
                       <span
                         className={`badge ${a.review?.state === "needs_input" ? "warn" : ""}`}
                       >
-                        {readable(a.review?.state ?? "pending")}
+                        {detail.received_inputs?.includes(
+                          "account:" + a.account_id,
+                        )
+                          ? "Input received"
+                          : a.review?.state === "needs_input"
+                            ? "Needs input"
+                            : a.review?.state === "confirmed"
+                              ? "Mapped"
+                              : "Mapping pending"}
                       </span>
                     </div>
                   </div>
@@ -122,8 +146,8 @@ export function SessionOverview({
                   <span>
                     {detail?.approval?.digest === detail?.review_digest &&
                     detail?.approval
-                      ? "Panel confirmation saved"
-                      : "Review account evidence and available statement approval."}
+                      ? "Approval saved"
+                      : ""}
                   </span>
                   <button
                     disabled={disabled || !!failure}

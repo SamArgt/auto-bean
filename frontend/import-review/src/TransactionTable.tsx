@@ -1,13 +1,18 @@
-import { useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { SavingIndicator, TransactionCard } from "./ReviewForms";
-import { categoryLabel, categorySuggestions } from "./suggestions";
+import {
+  categoryLabel,
+  categorySuggestions,
+  transactionStatus,
+  transactionCategories,
+} from "./suggestions";
 import type { Page, Posting, Transaction } from "./types";
-const readable = (s: string) => s.replaceAll("_", " ");
 
 export function TransactionTable({
   page,
   source,
   focusRecord,
+  filters,
   disabled,
   navigationDisabled,
   onLink,
@@ -15,6 +20,7 @@ export function TransactionTable({
   onSave,
 }: {
   page: Page;
+  filters?: ReactNode;
   source: string;
   focusRecord?: { record_id: string } | null;
   disabled: boolean;
@@ -84,6 +90,7 @@ export function TransactionTable({
   return (
     <>
       <div className="toolbar">
+        {filters}
         <button
           aria-pressed={transfers}
           disabled={navigationDisabled}
@@ -123,13 +130,30 @@ export function TransactionTable({
               return (
                 <tr
                   key={r.record_id}
-                  className={needs && !received ? "needs" : ""}
+                  className={`transaction-row ${needs && !received ? "needs" : ""} ${navigationDisabled ? "locked" : ""}`}
+                  onClick={(e) => {
+                    if (
+                      navigationDisabled ||
+                      savingRef.current ||
+                      (e.target as HTMLElement).closest(
+                        "button, a, input, select, textarea",
+                      )
+                    )
+                      return;
+                    opener.current =
+                      e.currentTarget.querySelector<HTMLButtonElement>(
+                        ".row-button",
+                      );
+                    setSelected(r.record_id);
+                    setOpenedRow(r);
+                  }}
                   aria-busy={saving === r.record_id}
                 >
                   <td>{r.transaction_date}</td>
                   <td>
                     <button
                       className="row-button"
+                      aria-haspopup="dialog"
                       disabled={navigationDisabled}
                       onClick={(e) => {
                         opener.current = e.currentTarget;
@@ -139,27 +163,36 @@ export function TransactionTable({
                     >
                       {r.description}
                     </button>
-                    <small>{r.source_reference}</small>
                   </td>
                   <td>
-                    {saving === r.record_id && selected !== r.record_id ? (
-                      <SavingIndicator />
-                    ) : needs && received ? (
-                      <span className="badge received">Input received</span>
-                    ) : needs ? (
-                      <span className="badge warn">Needs input</span>
-                    ) : (
-                      readable(
-                        r.review?.disposition ?? "Categorization pending",
-                      )
-                    )}
-                    {needs && received && <small>Awaiting agent review</small>}
-                    {needs && !received && suggestion && (
-                      <div className="inline-suggestion">
-                        <span>
-                          {categoryLabel(suggestion)}
-                          <small>Most likely</small>
-                        </span>
+                    <div
+                      className={
+                        needs && !received && suggestion
+                          ? "inline-suggestion"
+                          : undefined
+                      }
+                    >
+                      <div>
+                        {saving === r.record_id && selected !== r.record_id ? (
+                          <SavingIndicator />
+                        ) : needs && received ? (
+                          <span className="badge received">Input received</span>
+                        ) : needs ? (
+                          <span className="badge warn">Needs input</span>
+                        ) : (
+                          transactionCategories(r) || transactionStatus(r)
+                        )}
+                        {needs && received && (
+                          <small>Awaiting agent review</small>
+                        )}
+                        {needs && !received && suggestion && (
+                          <div className="suggestion-label">
+                            {categoryLabel(suggestion)}
+                            <small>Most likely</small>
+                          </div>
+                        )}
+                      </div>
+                      {needs && !received && suggestion && (
                         <button
                           className="primary"
                           disabled={disabled || navigationDisabled || !!saving}
@@ -172,11 +205,8 @@ export function TransactionTable({
                         >
                           Approve
                         </button>
-                      </div>
-                    )}
-                    <small>
-                      {r.review?.postings.map((p) => p.account).join(" · ")}
-                    </small>
+                      )}
+                    </div>
                   </td>
                   <td className="amount">
                     {r.amount} {r.currency}

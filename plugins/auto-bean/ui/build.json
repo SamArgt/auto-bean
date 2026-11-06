@@ -5,20 +5,20 @@
     "package-lock.json": "5ce7045f4111d9227363cabb514299593a47c64a25b5da4aa0f5606556f981da",
     "tsconfig.json": "6f5cb188b6d2beec794f97b645c8f0daa7c0584b744aaf5a0c397318ee4162e1",
     "build.mjs": "771ecaa646eaaa92d87c80b51fab191afeacf5da115cef106927af821d4b0169",
-    "src/Review.tsx": "8d6aac1cb519e1993f465e0c0bbf5412048be6f8798d598021c48602f7309cc8",
+    "src/Review.tsx": "f50d82a7ed5a4d7517a14dcf321bb1dff98725c9fd30a440cee6b00bfba7f542",
     "src/ReviewExport.tsx": "ecf2cc360c8c4095e2e6816edd0b9873ef7c628e279a385d3a426087a610e358",
-    "src/ReviewForms.tsx": "418039c2b1332d101a93206b0c6641d3550bc6ebe4f76d7979d34947b9a8fece",
-    "src/ReviewPanels.tsx": "55528022f090802331982d4cd8ba0cfcb1a6f0809dfab417edf9d60251dc0dca",
-    "src/SessionOverview.tsx": "5b2981a8b841ab626b1d2e234b95241139b951272334e894f434e8685725f16c",
+    "src/ReviewForms.tsx": "bc191e3f6a49670791d0edc68677d4380104e4ccfd8c56757c619df1a2c40709",
+    "src/ReviewPanels.tsx": "0dd6abf82c27420d414bc468fea26fb5514c67f7bd43b8de2d7d1707e571bc07",
+    "src/SessionOverview.tsx": "d71e6a12eaca2d9e20d00fddb5a86eaf9504f17953ec1038e311ee4794a54515",
     "src/StatementEvidence.tsx": "16ae674542f3a5db1817e6173db067ee861eea131a1ed8d2223ee3f147c81071",
-    "src/TransactionTable.tsx": "cf57b02c02ff77877987453690f85b31a434f6663a485895418f867baaaf7947",
+    "src/TransactionTable.tsx": "955589ef3a2e8728d1e5d3cf1fcff08553d20d4cee74f0037522bc401a2d6e3e",
     "src/assets.d.ts": "35d26ea66c86da9701e4f4b467913481ffeae910761cea34c775c5dacb7f8eaa",
     "src/bridge.ts": "640baa75214ea5b39932094499f934f671fcd30622e75ff976b9c779d86386d1",
     "src/demo.tsx": "a39f14aec214b4f24ac8e45553d54fa58dc750312c636029254a27104be1ef7f",
     "src/main.tsx": "bc0c9da447bbe742b313ca20c9c3096054dee630ea2a12bc7f1408f667e06583",
-    "src/style.css": "e174faa4d54b3234a78f7b3683f351a2e30fa543f2c4396687016fe936619383",
-    "src/suggestions.ts": "727d6eb241ae72660cea6b7cfed5613270e3bf4829a37b6b7bc3da3d3cf65f68",
+    "src/style.css": "c46ee3b9bb2ebb76a5466ae08de1ca4401d2ada23bed8fc926e82b400f376b72",
+    "src/suggestions.ts": "13b4bbaa018d093c674ae4e5414fb44a6afaf00c788448c500a6aafed0e3a891",
     "src/types.ts": "b9fd38ae8c97ac355660a603bd2ee0f6e69642f9f6595b98f0a99a0f3192471a"
   },
-  "bundle_sha256": "d74bedff724768c729e64b967225de10428dc60e14934adb3ea8abfaa45e0221"
+  "bundle_sha256": "dbec89da0a4b6f5c0bba6c2e7ed3c77fadb102be5527f10fd445a33c140c8f42"
 }

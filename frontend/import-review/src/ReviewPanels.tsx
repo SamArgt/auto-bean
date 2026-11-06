@@ -1,4 +1,6 @@
-import type { Detail, Overview } from "./types";
+import { useState, useRef } from "react";
+import { SavingIndicator } from "./ReviewForms";
+import type { Detail, Overview, PriceRun } from "./types";
 const readable = (value: string) => value.replaceAll("_", " ");
 export function StatementValidation({
   detail,
@@ -149,107 +151,248 @@ export function SessionPrices({
         <p className="muted">Price results are not available yet.</p>
       ) : (
         overview.price_runs.map((run) => (
-          <section className="card" key={run.run_id}>
-            <h3>
-              {readable(run.state)} · {run.requested_date}
-            </h3>
-            <p>{run.detail}</p>
-            {!!run.new_commodities?.length && (
-              <div className="new-commodities" aria-label="New commodities">
-                <strong>New in this import</strong>
-                {run.new_commodities.map((commodity) => (
-                  <span className="badge warn" key={commodity}>
-                    {commodity} · New commodity
-                  </span>
-                ))}
-              </div>
-            )}
-            <p>
-              Required: {run.required_commodities.join(", ") || "None"} ·
-              Preflight: {run.preflight} ({run.preflight_job_count} jobs)
-            </p>
-            <p>
-              Execution: {readable(run.execution.state)} ·{" "}
-              {run.execution.duration_seconds}s · Exit{" "}
-              {run.execution.exit_code ?? "pending"}
-            </p>
-            {run.execution.stderr_summary && (
-              <details>
-                <summary>Execution details</summary>
-                <pre>{run.execution.stderr_summary}</pre>
-              </details>
-            )}
-            <p>
-              Coverage:{" "}
-              {run.coverage.join(", ") ||
-                (run.required_commodities.length
-                  ? "Unavailable"
-                  : "None required")}
-            </p>
-            <p>
-              {["emitted", "redundant", "skipped", "failed", "unaccounted"]
-                .map(
-                  (outcome) =>
-                    `${outcome}: ${run.jobs.filter((job) => job.outcome === outcome).length}`,
-                )
-                .join(" · ")}
-            </p>
-            {run.jobs.length === 0 && <p>Zero price jobs.</p>}
-            {run.approval?.digest === run.review_digest ? (
-              <p>Price panel confirmation saved {run.approval?.approved_at}.</p>
-            ) : (
-              <p className="muted">
-                No panel confirmation. Approval can also be given in
-                conversation.
-              </p>
-            )}
-            {run.jobs.some((job) => job.outcome === "emitted") && (
-              <button
-                disabled={
-                  disabled ||
-                  !["complete", "partial"].includes(run.state) ||
-                  run.approval?.digest === run.review_digest
-                }
-                onClick={() => void onApprove(run.run_id, run.review_digest)}
-              >
-                Approve price directives
-              </button>
-            )}
-            {run.validation && run.validation_current === false && (
-              <p className="error">
-                Stale validation: ledger or reviewed price data changed.
-              </p>
-            )}
-            {run.validation && (
-              <p>
-                {run.validation.stage === "written"
-                  ? "Ledger write validation"
-                  : "Review readiness validation"}
-                : {run.validation.state} · {run.validation.checked_at}
-              </p>
-            )}
-            {run.jobs.map((j, i) => (
-              <div
-                className={`price ${run.new_commodities?.includes(j.commodity) ? "new-commodity" : ""}`}
-                key={i}
-              >
-                <strong>
-                  {j.commodity} · {j.outcome}
-                </strong>
-                {run.new_commodities?.includes(j.commodity) && (
-                  <span className="badge warn">New commodity</span>
-                )}
-                <p>
-                  {j.source} · Requested {j.requested_date} · Quote{" "}
-                  {j.quote_date ?? "unavailable"}
-                </p>
-                {j.directive && <pre>{j.directive}</pre>}
-                {j.detail && <p>{j.detail}</p>}
-              </div>
-            ))}
-          </section>
+          <PriceCard
+            key={run.run_id}
+            run={run}
+            disabled={disabled}
+            onApprove={onApprove}
+          />
         ))
       )}
     </>
+  );
+}
+
+function quoteValue(job: PriceRun["jobs"][number]) {
+  const match = job.directive?.match(
+    /^\d{4}-\d{2}-\d{2}\s+price\s+(\S+)\s+([+-]?\d+(?:\.\d+)?)\s+(\S+)(?:\s*;.*)?$/,
+  );
+  return match && match[1] === job.commodity ? `${match[2]} ${match[3]}` : null;
+}
+const priceOutcome = (value: string) =>
+  (
+    ({
+      emitted: "New price",
+      redundant: "Already saved",
+      skipped: "Skipped",
+      failed: "Fetch failed",
+      unaccounted: "Needs review",
+    }) as Record<string, string>
+  )[value] ?? "Pending";
+
+function PriceCard({
+  run,
+  disabled,
+  onApprove,
+}: {
+  run: PriceRun;
+  disabled: boolean;
+  onApprove: (runId: string, digest: string) => Promise<void>;
+}) {
+  const [saving, setSaving] = useState(false);
+  const submitting = useRef(false);
+  const approved = run.approval?.digest === run.review_digest;
+  const changes = run.jobs.filter((j) => j.outcome === "emitted").length;
+  const missing = run.required_commodities.filter(
+    (c) => !run.coverage.includes(c),
+  );
+  const pending = ["pending", "running"].includes(run.state);
+  const attention =
+    ["failed", "partial"].includes(run.state) ||
+    (!pending && missing.length > 0) ||
+    run.jobs.some((j) => ["failed", "unaccounted"].includes(j.outcome));
+  const status = pending
+    ? "Fetching prices"
+    : attention
+      ? "Needs attention"
+      : approved
+        ? "Approved"
+        : changes
+          ? "Ready for review"
+          : "No updates needed";
+  const newWithoutJob = (run.new_commodities ?? []).filter(
+    (c) => !run.jobs.some((j) => j.commodity === c),
+  );
+  return (
+    <section
+      className="card price-card"
+      aria-label={`Prices for ${run.requested_date}`}
+    >
+      <header className="price-heading">
+        <div>
+          <h2>Price update</h2>
+          <p className="muted">{run.requested_date}</p>
+        </div>
+        <span
+          className={`badge ${attention ? "warn" : approved ? "received" : ""}`}
+        >
+          {status}
+        </span>
+      </header>
+      {attention && (
+        <p className="notice">
+          {run.detail ||
+            "Some prices need review before this update is complete."}
+        </p>
+      )}
+      {missing.length > 0 && (
+        <p className={pending ? "muted" : "error"}>
+          {pending ? "Waiting for quotes" : "Missing prices"}:{" "}
+          {missing.join(", ")}
+        </p>
+      )}
+      {run.validation &&
+        (run.validation_current === false ||
+          run.validation.state === "failed") && (
+          <p className="error">
+            {run.validation_current === false
+              ? "The ledger or prices changed. Validation must run again."
+              : "Validation failed. Ask the agent to review this update."}
+          </p>
+        )}
+      {newWithoutJob.length > 0 && (
+        <div className="new-commodities" aria-label="New commodities">
+          {newWithoutJob.map((c) => (
+            <span className="badge warn" key={c}>
+              {c} · New commodity
+            </span>
+          ))}
+        </div>
+      )}
+      {run.jobs.length > 0 ? (
+        <div className="table-wrap price-quotes">
+          <table>
+            <thead>
+              <tr>
+                <th>Commodity</th>
+                <th className="amount">Price</th>
+                <th>Quote date</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {run.jobs.map((job, i) => (
+                <tr
+                  key={i}
+                  className={`price ${run.new_commodities?.includes(job.commodity) ? "new-commodity" : ""}`}
+                >
+                  <td>
+                    <strong>{job.commodity}</strong>
+                    {run.new_commodities?.includes(job.commodity) && (
+                      <small>
+                        <span className="badge warn">New commodity</span>
+                      </small>
+                    )}
+                  </td>
+                  <td className="amount">
+                    <strong>{quoteValue(job) ?? "Unavailable"}</strong>
+                  </td>
+                  <td>
+                    {job.quote_date ?? "Unavailable"}
+                    {job.quote_date &&
+                      job.quote_date !== job.requested_date && (
+                        <small className="quote-date-warning">
+                          Differs from requested date
+                        </small>
+                      )}
+                  </td>
+                  <td>
+                    <span
+                      className={`badge ${["failed", "unaccounted"].includes(job.outcome) ? "warn" : ""}`}
+                    >
+                      {priceOutcome(job.outcome)}
+                    </span>
+                    {["failed", "unaccounted", "skipped"].includes(
+                      job.outcome,
+                    ) &&
+                      job.detail && <small>{job.detail}</small>}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <p className="empty">
+          {pending
+            ? "Waiting for price results…"
+            : "No price updates in this run."}
+        </p>
+      )}
+      {changes > 0 && (
+        <div className="price-approval">
+          <p>
+            {approved
+              ? "Approval saved. The agent can apply these prices."
+              : `${changes} ${changes === 1 ? "price" : "prices"} to add to your ledger.`}
+          </p>
+          {saving ? (
+            <SavingIndicator />
+          ) : (
+            <button
+              className="primary"
+              disabled={
+                disabled ||
+                approved ||
+                !["complete", "partial"].includes(run.state)
+              }
+              onClick={async () => {
+                if (submitting.current) return;
+                submitting.current = true;
+                setSaving(true);
+                try {
+                  await onApprove(run.run_id, run.review_digest);
+                } finally {
+                  submitting.current = false;
+                  setSaving(false);
+                }
+              }}
+            >
+              {approved ? "Approved" : "Approve prices"}
+            </button>
+          )}
+        </div>
+      )}
+      <details className="price-details">
+        <summary>Sources & technical details</summary>
+        <p>{run.detail}</p>
+        <p>
+          Required: {run.required_commodities.join(", ") || "None"} · Coverage:{" "}
+          {run.coverage.join(", ") || "None"}
+        </p>
+        <p>
+          Preflight: {run.preflight} ({run.preflight_job_count} jobs)
+        </p>
+        <p>
+          Execution: {readable(run.execution.state)} ·{" "}
+          {run.execution.duration_seconds}s · Exit{" "}
+          {run.execution.exit_code ?? "pending"}
+        </p>
+        {run.execution.stderr_summary && (
+          <pre>{run.execution.stderr_summary}</pre>
+        )}
+        {run.jobs.map((job, i) => (
+          <section key={i}>
+            <h4>
+              {job.commodity} · {priceOutcome(job.outcome)}
+            </h4>
+            <p>
+              Source: {job.source} · Requested {job.requested_date}
+            </p>
+            {job.directive && <pre>{job.directive}</pre>}
+            {job.detail && <p>{job.detail}</p>}
+          </section>
+        ))}
+        {run.approval && <p>Approval saved {run.approval.approved_at}</p>}
+        {run.validation && (
+          <p>
+            {run.validation.stage === "written"
+              ? "Ledger write validation"
+              : "Review readiness validation"}
+            : {run.validation.state} · {run.validation.checked_at}
+          </p>
+        )}
+      </details>
+    </section>
   );
 }

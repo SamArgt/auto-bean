@@ -242,7 +242,7 @@ test("a linked transfer opens its exact peer beyond the first page", async () =>
   fireEvent.click(
     await screen.findByRole("button", { name: "Unknown transfer" }),
   );
-  fireEvent.click(screen.getByText("Evidence & rationale"));
+  fireEvent.click(screen.getByText("Entry details & evidence"));
   fireEvent.click(screen.getByRole("button", { name: /Follow transfer/ }));
   await screen.findByRole("heading", { name: "Transfer received" });
   expect(bridge.call).toHaveBeenCalledWith(
@@ -439,4 +439,39 @@ test("sidebar hides empty accounts but retains accounts with resolved transactio
     ).toBeNull(),
   );
   expect(screen.getByRole("button", { name: /Savings.*b.csv/ })).toBeTruthy();
+});
+
+test("clicking a row cell opens its review and closing restores the row button focus", async () => {
+  const bridge = bridgeFixture();
+  render(<Review initialBinding={binding} bridge={bridge} />);
+  fireEvent.click(
+    await screen.findByRole("button", { name: /Checking.*a.csv/ }),
+  );
+  fireEvent.click(await screen.findByText("-25 EUR"));
+  expect(
+    screen.getByRole("dialog", { name: "Transaction review" }),
+  ).toBeTruthy();
+  expect(screen.queryByText("hold", { exact: true })).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Close transaction" }));
+  expect(document.activeElement).toBe(
+    screen.getByRole("button", { name: "Unknown transfer" }),
+  );
+  expect(screen.queryByText("Remaining inputs")).toBeNull();
+});
+
+test("locked row cells cannot open a dialog during a save or unsaved edit", async () => {
+  const { TransactionTable } = await import("./src/TransactionTable");
+  render(
+    <TransactionTable
+      source="a.csv"
+      page={{ etag: "1", total: 1, offset: 0, rows: [row] }}
+      disabled
+      navigationDisabled
+      onLink={vi.fn()}
+      onAnswer={vi.fn()}
+      onSave={vi.fn()}
+    />,
+  );
+  fireEvent.click(screen.getByText("-25 EUR"));
+  expect(screen.queryByRole("dialog")).toBeNull();
 });

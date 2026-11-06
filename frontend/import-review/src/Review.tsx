@@ -18,7 +18,6 @@ import type {
   Page,
 } from "./types";
 
-const readable = (s: string) => s.replaceAll("_", " ");
 const filename = (s: string) => s.split("/").at(-1) ?? s;
 export function Review({
   bridge,
@@ -314,9 +313,7 @@ function ReviewSession({
         source_file: source,
         update,
       });
-      setNotice(
-        "Saved to JSON. Send saved changes when the current review is complete.",
-      );
+      setNotice("Changes saved.");
       await refresh(true);
       return true;
     } catch (e) {
@@ -339,7 +336,7 @@ function ReviewSession({
         expected_etag: overview.etag,
         review_digest: digest,
       });
-      setNotice("Price approval saved to JSON. Agent not notified.");
+      setNotice("Price approval saved.");
       await refresh();
     } catch (error) {
       setError(String(error));
@@ -437,19 +434,7 @@ function ReviewSession({
   }
   const statementContent = source ? (
     <section key={source} className="statement-detail">
-      <h2>
-        {view === "account"
-          ? (detail?.statement_metadata.accounts.find(
-              (a) => a.account_id === account,
-            )?.account_name ?? "Transactions")
-          : filename(source)}
-      </h2>
-      <p className="context">
-        Group status: {readable(selected?.status ?? "unavailable")} ·{" "}
-        {selected?.updated_at
-          ? `Updated ${selected.updated_at}`
-          : "Update time unavailable"}
-      </p>
+      {view === "session" && <h2>{filename(source)}</h2>}
       {selected?.error && (
         <div className="error" role="alert">
           {selected.error}
@@ -474,41 +459,45 @@ function ReviewSession({
           )}
           {view === "account" && (
             <>
-              <div className="filters">
-                <label>
-                  Account
-                  <select
-                    aria-label="Account"
-                    value={account}
-                    disabled={!!drafts.size || busy}
-                    onChange={(e) =>
-                      navigate("account", source, e.target.value)
-                    }
-                  >
-                    <option value="">All accounts</option>
-                    {detail.statement_metadata.accounts.map((a) => (
-                      <option key={a.account_id} value={a.account_id}>
-                        {a.account_name ?? a.account_id}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="checkbox">
-                  <input
-                    type="checkbox"
-                    checked={needs}
-                    disabled={!!drafts.size || busy}
-                    onChange={(e) => {
-                      setNeeds(e.target.checked);
-                      setOffset(0);
-                    }}
-                  />
-                  Needs input
-                </label>
-              </div>
               {page && (
                 <TransactionTable
                   key={`${source}:${account}:${needs}:${offset}`}
+                  filters={
+                    <>
+                      {detail.statement_metadata.accounts.length > 1 && (
+                        <label>
+                          Account
+                          <select
+                            aria-label="Account"
+                            value={account}
+                            disabled={!!drafts.size || busy}
+                            onChange={(e) =>
+                              navigate("account", source, e.target.value)
+                            }
+                          >
+                            <option value="">All accounts</option>
+                            {detail.statement_metadata.accounts.map((a) => (
+                              <option key={a.account_id} value={a.account_id}>
+                                {a.account_name ?? a.account_id}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      )}
+                      <label className="checkbox">
+                        <input
+                          type="checkbox"
+                          checked={needs}
+                          disabled={!!drafts.size || busy}
+                          onChange={(e) => {
+                            setNeeds(e.target.checked);
+                            setOffset(0);
+                          }}
+                        />
+                        Needs input
+                      </label>
+                    </>
+                  }
                   page={page}
                   source={source}
                   focusRecord={focusRecord}
@@ -543,23 +532,27 @@ function ReviewSession({
                       ? "No matching transactions."
                       : `${offset + 1}–${Math.min(offset + 100, page.total)} of ${page.total}`}
                   </span>
-                  <button
-                    disabled={offset === 0 || !!drafts.size || busy}
-                    onClick={() => setOffset(Math.max(0, offset - 100))}
-                  >
-                    Previous
-                  </button>
-                  <button
-                    disabled={
-                      !page ||
-                      offset + 100 >= page.total ||
-                      !!drafts.size ||
-                      busy
-                    }
-                    onClick={() => setOffset(offset + 100)}
-                  >
-                    Next
-                  </button>
+                  {(page.total > 100 || offset > 0) && (
+                    <>
+                      <button
+                        disabled={offset === 0 || !!drafts.size || busy}
+                        onClick={() => setOffset(Math.max(0, offset - 100))}
+                      >
+                        Previous
+                      </button>
+                      <button
+                        disabled={
+                          !page ||
+                          offset + 100 >= page.total ||
+                          !!drafts.size ||
+                          busy
+                        }
+                        onClick={() => setOffset(offset + 100)}
+                      >
+                        Next
+                      </button>
+                    </>
+                  )}
                 </div>
               )}
             </>
@@ -726,16 +719,6 @@ function ReviewSession({
             </aside>
           )}
           <main>
-            {binding && (
-              <details className="export-panel">
-                <summary>Export saved review</summary>
-                <ReviewExport
-                  key={`${binding.workspace}:${binding.session_id}`}
-                  bridge={bridge}
-                  binding={binding}
-                />
-              </details>
-            )}
             {!binding ? (
               <form
                 onSubmit={(e) => {
@@ -763,31 +746,39 @@ function ReviewSession({
                 <button type="submit">Open session</button>
               </form>
             ) : (
-              <div className="context" title={binding.workspace}>
-                {binding.workspace}
-                <br />
-                Session {binding.session_id}
-                {!initialBinding && (
-                  <button
-                    disabled={!!drafts.size || busy}
-                    onClick={() => {
-                      setNotified(null);
-                      setBinding(null);
-                      setOverview(null);
-                      setCatalog({});
-                      setCatalogErrors({});
-                      setView("session");
-                      setSource(null);
-                      setDetail(null);
-                      setPage(null);
-                      setError("");
-                      setLoadError("");
-                    }}
-                  >
-                    Change session
-                  </button>
-                )}
-              </div>
+              <details className="session-details">
+                <summary>Session details & export</summary>
+                <div className="context" title={binding.workspace}>
+                  {binding.workspace}
+                  <br />
+                  Session {binding.session_id}
+                  {!initialBinding && (
+                    <button
+                      disabled={!!drafts.size || busy}
+                      onClick={() => {
+                        setNotified(null);
+                        setBinding(null);
+                        setOverview(null);
+                        setCatalog({});
+                        setCatalogErrors({});
+                        setView("session");
+                        setSource(null);
+                        setDetail(null);
+                        setPage(null);
+                        setError("");
+                        setLoadError("");
+                      }}
+                    >
+                      Change session
+                    </button>
+                  )}
+                </div>
+                <ReviewExport
+                  key={`${binding.workspace}:${binding.session_id}`}
+                  bridge={bridge}
+                  binding={binding}
+                />
+              </details>
             )}
             {loadError && (
               <div role="alert" className="error">
@@ -807,32 +798,30 @@ function ReviewSession({
                 </p>
               </div>
             )}
-            {notice && (
-              <div role="status" className="notice">
-                {notice}
-              </div>
-            )}
             {overview && (
               <>
                 <div className="title">
                   <div>
-                    <p className="eyebrow">IMPORT REVIEW</p>
                     <h1>
                       {view === "session"
                         ? "Session"
                         : view === "price"
                           ? "Price"
-                          : "Account"}
+                          : (detail?.statement_metadata.accounts.find(
+                              (a) => a.account_id === account,
+                            )?.account_name ?? "Transactions")}
                     </h1>
                   </div>
-                  <span className="badge">
-                    {overview.statements.length} statements ·{" "}
-                    {overview.statements.reduce(
-                      (sum, item) => sum + item.needs_input,
-                      0,
-                    )}{" "}
-                    outstanding inputs
-                  </span>
+                  {view === "session" && (
+                    <span className="badge">
+                      {overview.statements.length} statements ·{" "}
+                      {overview.statements.reduce(
+                        (sum, item) => sum + item.needs_input,
+                        0,
+                      )}{" "}
+                      outstanding inputs
+                    </span>
+                  )}
                 </div>
                 {view === "session" && (
                   <SessionOverview
@@ -863,24 +852,24 @@ function ReviewSession({
                 ) : null}
                 <footer className="review-footer" aria-label="Saved changes">
                   <div>
+                    {notice && (
+                      <p role="status" className="save-notice">
+                        {notice}
+                      </p>
+                    )}
                     <strong>
-                      {overview.review_batch?.pending_count ?? 0} saved changes
+                      {overview.review_batch?.pending_count ?? 0} saved{" "}
+                      {overview.review_batch?.pending_count === 1
+                        ? "change"
+                        : "changes"}
                     </strong>
                     <p>
                       {overview.review_batch?.blockers.length
-                        ? `${overview.review_batch.blockers.length} current inputs still need review.`
-                        : "All current required inputs reviewed."}
+                        ? `${overview.review_batch.blockers.length} ${overview.review_batch.blockers.length === 1 ? "item still needs" : "items still need"} review.`
+                        : overview.review_batch?.pending_count
+                          ? "Ready to send."
+                          : "No changes to send."}
                     </p>
-                    {!!overview.review_batch?.blockers.length && (
-                      <details>
-                        <summary>Remaining inputs</summary>
-                        <ul>
-                          {overview.review_batch.blockers.map((item) => (
-                            <li key={item}>{item}</li>
-                          ))}
-                        </ul>
-                      </details>
-                    )}
                   </div>
                   <button
                     className="primary"
@@ -906,10 +895,6 @@ function ReviewSession({
                 sending.
               </p>
             )}
-            <p className="subtle">
-              Local review · Refreshes every 2 seconds while visible · Canonical
-              writes require approval
-            </p>
           </main>
         </div>
       </div>

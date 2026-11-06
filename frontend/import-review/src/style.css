@@ -449,10 +449,12 @@ th {
 td {
   padding: 14px 18px;
   border-top: 1px solid var(--line);
+  vertical-align: middle;
 }
 td small {
   display: block;
-  margin-top: 3px;
+  margin-top: 4px;
+  font-size: 11px;
 }
 .amount {
   text-align: right;
@@ -764,16 +766,21 @@ textarea::placeholder {
   padding: 3px 6px;
 }
 .inline-suggestion {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(160px, 1fr) auto;
   align-items: center;
-  gap: 12px;
-  margin-top: 10px;
+  gap: 16px;
 }
-.inline-suggestion > span {
-  min-width: 150px;
+.inline-suggestion > div {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.suggestion-label {
+  margin-top: 8px;
 }
 .inline-suggestion button {
   padding: 6px 10px;
+  white-space: nowrap;
 }
 .category-options {
   display: flex;
@@ -884,4 +891,165 @@ dialog > .saving {
 }
 .price-nav-badge {
   margin-left: 10px;
+}
+
+/* Keep the review decision visible; disclose source and runtime details on demand. */
+.transaction-row:not(.locked) {
+  cursor: pointer;
+}
+.transaction-row:not(.locked):hover,
+.transaction-row:focus-within {
+  background: color-mix(in srgb, var(--surface) 88%, #365bd6 12%);
+}
+.transaction-row .row-button {
+  color: inherit;
+}
+.transaction-heading,
+.transaction-meta,
+.saved-category,
+.price-heading,
+.price-approval {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.transaction-heading {
+  padding-right: 10px;
+  align-items: start;
+}
+.transaction-heading h2 {
+  font-size: 20px;
+  margin: 0;
+}
+.transaction-heading .badge {
+  flex-shrink: 0;
+}
+.transaction-meta {
+  margin: 14px 0;
+  color: var(--muted);
+}
+.transaction-meta strong {
+  font-size: 19px;
+  color: var(--color-text-primary, #253247);
+  font-variant-numeric: tabular-nums;
+}
+.category-summary {
+  font-weight: 600;
+  padding: 12px 0;
+}
+.saved-category {
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 14px;
+  margin: 18px 0;
+}
+.saved-category small,
+.saved-category strong {
+  display: block;
+}
+.posting-summary {
+  margin: 16px 0;
+}
+.posting-summary caption {
+  text-align: left;
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+.posting-summary td {
+  overflow-wrap: anywhere;
+}
+.posting-summary td small {
+  display: block;
+}
+.statement-detail {
+  margin-top: 0;
+}
+.title {
+  margin: 16px 0 24px;
+}
+.session-details {
+  margin: 0 0 18px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.session-details .context {
+  margin: 12px 0;
+}
+.toolbar {
+  margin: 0 0 18px;
+  align-items: flex-end;
+}
+.toolbar > label {
+  margin: 0;
+}
+.toolbar > .checkbox {
+  min-height: 39px;
+}
+.toolbar > button {
+  min-height: 39px;
+}
+.toolbar > label:has(select) {
+  min-width: 180px;
+}
+.toolbar .search-label {
+  margin-left: auto;
+}
+.review-footer {
+  padding-top: 12px;
+  padding-bottom: 12px;
+}
+.review-footer .save-notice {
+  color: var(--color-text-primary, #253247);
+}
+.price-heading {
+  margin-bottom: 20px;
+}
+.price-heading h2 {
+  margin: 0;
+  font-size: 18px;
+}
+.price-heading p {
+  margin: 3px 0 0;
+  font-size: 12px;
+}
+.price-quotes .amount strong {
+  font-size: inherit;
+  font-weight: 600;
+}
+.price-quotes .new-commodity {
+  border-left: 3px solid #d8a343;
+}
+.price-approval {
+  margin: 20px 0 12px;
+}
+.price-approval p {
+  font-size: 13px;
+  color: var(--muted);
+}
+.price-details {
+  border-top: 1px solid var(--line);
+  margin: 20px 0 0;
+  padding-top: 14px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.price-details section {
+  padding-top: 12px;
+}
+.quote-date-warning {
+  color: var(--muted);
+}
+.account-link {
+  color: var(--color-text-primary, #365bd6);
+}
+@media (max-width: 760px) {
+  .transaction-heading,
+  .saved-category,
+  .price-approval {
+    flex-wrap: wrap;
+  }
+  .toolbar .search-label {
+    margin-left: 0;
+  }
 }
