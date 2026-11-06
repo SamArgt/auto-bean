@@ -374,3 +374,50 @@ def test_session_overview_preserves_group_membership(review_store: ReviewFiles) 
     assert result["groups"][0]["current_status"] == "raw_ready"
     assert result["groups"][0]["source_files"] == [SOURCE]
     Draft202012Validator(CONTRACTS["read_import_session"][1]).validate(result)
+
+
+def test_received_inputs_follow_current_evidence_and_include_off_page_rows(
+    review_store: ReviewFiles,
+) -> None:
+    store = review_store
+    document = complete(store)
+    args = {
+        "workspace": str(store.root),
+        "session_id": store.session_id,
+        "source_file": SOURCE,
+    }
+    store.submit(
+        SOURCE,
+        {
+            "kind": "answer",
+            "subject_kind": "transaction",
+            "subject_id": "row-1",
+            "value": "Expenses:Food",
+            "expected_etag": etag(document),
+        },
+    )
+    page = dispatch("list_import_transactions", {**args, "offset": 1, "limit": 1})
+    assert page["rows"] == []
+    assert page["received_inputs"] == ["row-1"]
+    assert dispatch("read_import_statement", args)["received_inputs"] == [
+        "transaction:row-1"
+    ]
+    assert (
+        dispatch(
+            "read_import_session", {k: v for k, v in args.items() if k != "source_file"}
+        )["statements"][0]["needs_input"]
+        == 0
+    )
+    document = store.statement(SOURCE)
+    assert document["extracted_records"][0]["review"]["state"] == "needs_input"
+    document["extracted_records"][0]["review"]["rationale"] = (
+        "New evidence needs review."
+    )
+    save(store, PARSED, document)
+    assert dispatch("list_import_transactions", args)["received_inputs"] == []
+    assert (
+        dispatch(
+            "read_import_session", {k: v for k, v in args.items() if k != "source_file"}
+        )["statements"][0]["needs_input"]
+        == 1
+    )

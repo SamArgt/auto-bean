@@ -136,6 +136,7 @@ SUMMARY = obj(
 )
 DETAIL = obj(
     {
+        "received_inputs": array(S),
         "source_file": S,
         "etag": HASH,
         "extraction_state": S,
@@ -149,6 +150,7 @@ DETAIL = obj(
 )
 PAGE = obj(
     {
+        "received_inputs": array(S),
         "etag": HASH,
         "total": N,
         "offset": N,
@@ -304,17 +306,22 @@ def dispatch(name: str, args: dict[str, Any]) -> dict[str, Any]:
                 ):
                     invalid("Status and parsed source identity disagree.")
                 review = doc["review"]
+                received = set(store.received_inputs(doc))
                 summary.update(
                     etag=etag(doc),
                     extraction_state=doc["extraction_state"],
-                    needs_input=int(review["processing"].get("needs_input", False))
-                    + sum(
-                        a["state"] == "needs_input"
-                        for a in account_decisions(doc).values()
+                    needs_input=int(
+                        review["processing"].get("needs_input", False)
+                        and "statement" not in received
                     )
                     + sum(
-                        t["state"] == "needs_input" or t["disposition"] == "hold"
-                        for t in transaction_decisions(doc).values()
+                        a["state"] == "needs_input" and "account:" + key not in received
+                        for key, a in account_decisions(doc).items()
+                    )
+                    + sum(
+                        (t["state"] == "needs_input" or t["disposition"] == "hold")
+                        and "transaction:" + key not in received
+                        for key, t in transaction_decisions(doc).items()
                     ),
                 )
             except (WorkflowError, OSError) as error:
@@ -378,6 +385,7 @@ def dispatch(name: str, args: dict[str, Any]) -> dict[str, Any]:
     body = doc.get("review", doc)
     if name == "read_import_statement":
         return {
+            "received_inputs": store.received_inputs(doc),
             **{
                 k: doc[k]
                 for k in (
@@ -409,8 +417,14 @@ def dispatch(name: str, args: dict[str, Any]) -> dict[str, Any]:
                 continue
             rows.append(record)
         offset, limit = args.get("offset", 0), args.get("limit", 100)
+        received = set(store.received_inputs(doc))
         return {
             "etag": etag(doc),
+            "received_inputs": [
+                record["record_id"]
+                for record in rows
+                if "transaction:" + record["record_id"] in received
+            ],
             "total": len(rows),
             "offset": offset,
             "rows": rows[offset : offset + limit],

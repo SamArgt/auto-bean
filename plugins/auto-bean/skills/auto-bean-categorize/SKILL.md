@@ -15,6 +15,7 @@ Within the relevant `statements[]` source section, edit each `extracted_records[
 
 ## Categorization
 
+- Write each `suggestions` item as one short, selectable category. Use a supported ledger account, such as `Expenses:Travel:Lodging` or `Income:Salary`. Order alternatives from most to least likely. Keep questions, conditions and explanations in `rationale`; do not combine alternatives in one item. Preserve asset or liability accounts for transfers and expense accounts for refunds. Do not infer income from a positive bank amount alone. If no category is supported, leave suggestions empty and ask for the missing fact in `rationale`.
 - Compare current facts with workspace context and `.auto-bean/memory/category_mappings.json`. Without a reliable match, give evidence-backed alternatives and explain uncertainty.
 - Research unknown merchants or processor labels when public evidence can establish business type. Search cleaned payee text plus likely location from same-statement transactions, currencies, addresses, station/airport codes, language or owner context. Start local, then broaden without exposing private financial context or browsing account portals.
 - Prefer official sites, directories/maps, regulators, charity/school/healthcare sources, app stores or reputable local sources. Distinguish merchants from processors, marketplaces, platforms and parent companies. Web evidence alone cannot establish transfer intent, duplicates, ownership or ledger account existence.

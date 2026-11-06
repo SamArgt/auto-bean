@@ -55,6 +55,7 @@ def schemas() -> dict[str, Any]:
                 "pending", "running", "complete", "no_op", "failed", "partial"
             ),
             "required_commodities": arr(S),
+            "new_commodities": {**arr(S), "uniqueItems": True},
             "coverage": arr(S),
             "preflight": enum("pending", "passed", "failed"),
             "preflight_job_count": INT,

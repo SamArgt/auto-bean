@@ -184,7 +184,7 @@
             ],
             "rationale": "The statement calls this an adjustment. Confirm whether it is a custody fee.",
             "suggestions": [
-              "Custody fee"
+              "Expenses:Investments:Fees"
             ]
           }
         }

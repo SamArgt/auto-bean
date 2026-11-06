@@ -4,6 +4,7 @@
   "version": "0.2.1",
   "type": "module",
   "scripts": {
+    "build:demo": "tsc --noEmit && node build.mjs --demo",
     "build": "tsc --noEmit && node build.mjs",
     "test": "vitest run"
   },

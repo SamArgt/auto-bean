@@ -122,9 +122,12 @@ class DemoStore:
                         if a["account_id"] == subject.split(":", 1)[1]
                     )
                     block = account["review"]
-                    if any(
-                        r["state"] == "mismatch"
-                        for r in block.get("reconciliation", [])
+                    if request.get("kind") == "answer" or (
+                        request.get("kind") != "mapping"
+                        and any(
+                            r["state"] == "mismatch"
+                            for r in block.get("reconciliation", [])
+                        )
                     ):
                         block["answer"] = value
                     else:
@@ -242,7 +245,8 @@ class DemoStore:
                 rows = statement["extracted_records"]
                 status = state["status"]["groups"][group["group_id"]]["current_status"]
                 available = (
-                    statement["extraction_state"] == "complete"
+                    status == "final_review"
+                    and statement["extraction_state"] == "complete"
                     and (
                         bool(rows)
                         or status.startswith(("categorize_", "write_", "final_review"))

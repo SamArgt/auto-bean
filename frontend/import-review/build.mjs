@@ -2,6 +2,17 @@ import { build } from "esbuild";
 import { readFile, writeFile, readdir } from "node:fs/promises";
 import { createHash } from "node:crypto";
 const root = new URL("../../plugins/auto-bean/ui/", import.meta.url);
+if (process.argv.includes("--demo")) {
+  await build({
+    entryPoints: ["src/demo.tsx"],
+    bundle: true,
+    minify: true,
+    format: "iife",
+    target: "es2022",
+    outfile: "../../experiments/review-ui-design/panel.js",
+  });
+  process.exit(0);
+}
 const output = await build({
   entryPoints: ["src/main.tsx"],
   bundle: true,

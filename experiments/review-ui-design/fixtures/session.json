@@ -32,7 +32,10 @@
           "detail": "Illustrative rate only; not market data."
         }
       ],
-      "detail": "Synthetic valuation quote for the investment statement."
+      "detail": "Synthetic valuation quote for the investment statement.",
+      "new_commodities": [
+        "VWCE"
+      ]
     }
   ],
   "groups": [

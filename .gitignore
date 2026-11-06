@@ -60,3 +60,8 @@ coverage.xml
 
 # Frontend development dependencies
 node_modules/
+
+# Shared review UI experiment build and synthetic saved copies
+/experiments/review-ui-design/panel.js
+/experiments/review-ui-design/panel.css
+/experiments/review-ui-design/.demo-state/

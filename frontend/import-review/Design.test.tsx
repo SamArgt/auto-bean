@@ -34,7 +34,7 @@ const row: Transaction = {
     disposition: "hold",
     rationale: "Confirm the destination.",
     postings: [],
-    suggestions: ["Shared expense", "My savings"],
+    suggestions: ["Expenses:Food:Dining", "Assets:Bank:Savings"],
   },
 };
 const peer: Transaction = {
@@ -187,9 +187,9 @@ test("account dialogs save real MCP answers and protect drafts from navigation",
   fireEvent.click(
     await screen.findByRole("button", { name: "Unknown transfer" }),
   );
-  fireEvent.change(screen.getByLabelText("Transaction answer choices"), {
-    target: { value: "My savings" },
-  });
+  fireEvent.click(
+    screen.getByRole("radio", { name: "Transfer / asset · Bank › Savings" }),
+  );
   expect(
     (
       screen.getByRole("button", {
@@ -202,7 +202,7 @@ test("account dialogs save real MCP answers and protect drafts from navigation",
   fireEvent.click(screen.getByText("Refresh"));
   expect(
     (screen.getByLabelText("Transaction answer") as HTMLInputElement).value,
-  ).toBe("My savings");
+  ).toBe("Assets:Bank:Savings");
   fireEvent.click(screen.getByText("Save choice"));
   await waitFor(() =>
     expect(bridge.call).toHaveBeenCalledWith("update_import_review", {
@@ -212,7 +212,7 @@ test("account dialogs save real MCP answers and protect drafts from navigation",
         kind: "answer",
         subject_kind: "transaction",
         subject_id: "r1",
-        value: "My savings",
+        value: "Assets:Bank:Savings",
         expected_etag: "1",
       },
     }),
@@ -326,9 +326,7 @@ test("polling cannot discard an open draft when its row leaves the page", async 
     />,
   );
   fireEvent.click(screen.getByRole("button", { name: "Unknown transfer" }));
-  fireEvent.change(screen.getByLabelText("Transaction answer choices"), {
-    target: { value: "__custom" },
-  });
+  fireEvent.click(screen.getByRole("radio", { name: "Something else" }));
   fireEvent.change(screen.getByLabelText("Transaction answer"), {
     target: { value: "My unsaved correction" },
   });
@@ -347,4 +345,98 @@ test("polling cannot discard an open draft when its row leaves the page", async 
   expect((screen.getByText("Save answer") as HTMLButtonElement).disabled).toBe(
     true,
   );
+});
+
+test("inline approval shows progress, then received labels in the row and sidebar", async () => {
+  let finish!: () => void;
+  let saved = false;
+  const bridge = bridgeFixture();
+  const original = bridge.call.getMockImplementation()!;
+  bridge.call.mockImplementation(async (name, args) => {
+    if (name === "update_import_review") {
+      await new Promise<void>((resolve) => {
+        finish = resolve;
+      });
+      saved = true;
+      return { etag: "2", source_file: "a.csv", review_digest: "digest" };
+    }
+    const result = (await original(name, args)) as any;
+    if (name === "list_import_transactions" && args.source_file === "a.csv")
+      return { ...result, received_inputs: saved ? ["r1"] : [] };
+    return result;
+  });
+  render(<Review initialBinding={binding} bridge={bridge} />);
+  fireEvent.click(
+    await screen.findByRole("button", { name: /Checking.*a.csv/ }),
+  );
+  const approve = await screen.findByRole("button", {
+    name: /Approve Expense · Food › Dining/,
+  });
+  fireEvent.click(approve);
+  expect(await screen.findByText("Applying changes…")).toBeTruthy();
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect((approve as HTMLButtonElement).disabled).toBe(true);
+  finish();
+  await screen.findByText("Input received");
+  await waitFor(() =>
+    expect(
+      screen.getByRole("button", { name: /Checking.*a.csv.*1 received/ }),
+    ).toBeTruthy(),
+  );
+  expect(bridge.continue).not.toHaveBeenCalled();
+});
+
+test("failed inline approval keeps the row open for input and allows retry", async () => {
+  const bridge = bridgeFixture();
+  const original = bridge.call.getMockImplementation()!;
+  bridge.call.mockImplementation(async (name, args) => {
+    if (name === "update_import_review") throw Error("Save failed");
+    return original(name, args);
+  });
+  render(<Review initialBinding={binding} bridge={bridge} />);
+  fireEvent.click(
+    await screen.findByRole("button", { name: /Checking.*a.csv/ }),
+  );
+  fireEvent.click(
+    await screen.findByRole("button", { name: /Approve Expense/ }),
+  );
+  await screen.findByText("Error: Save failed");
+  await waitFor(() =>
+    expect(
+      (
+        screen.getByRole("button", {
+          name: /Approve Expense/,
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(false),
+  );
+  expect(screen.queryByText("Input received")).toBeNull();
+});
+
+test("sidebar hides empty accounts but retains accounts with resolved transactions", async () => {
+  const bridge = bridgeFixture();
+  const original = bridge.call.getMockImplementation()!;
+  bridge.call.mockImplementation(async (name, args) => {
+    if (name === "list_import_transactions")
+      return {
+        etag: "1",
+        offset: 0,
+        rows: [],
+        total: args.source_file === "a.csv" || args.needs_input ? 0 : 1,
+      };
+    return original(name, args);
+  });
+  render(<Review initialBinding={binding} bridge={bridge} />);
+  await waitFor(() =>
+    expect(bridge.call).toHaveBeenCalledWith(
+      "list_import_transactions",
+      expect.objectContaining({ source_file: "b.csv", needs_input: false }),
+    ),
+  );
+  await waitFor(() =>
+    expect(
+      screen.queryByRole("button", { name: /Checking.*a.csv/ }),
+    ).toBeNull(),
+  );
+  expect(screen.getByRole("button", { name: /Savings.*b.csv/ })).toBeTruthy();
 });

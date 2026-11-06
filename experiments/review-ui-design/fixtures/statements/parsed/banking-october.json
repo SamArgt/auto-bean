@@ -75,8 +75,8 @@
             ],
             "rationale": "Is this a shared expense or a transfer to another account?",
             "suggestions": [
-              "Shared expense (dining)",
-              "Transfer to another account I own"
+              "Expenses:Food:Dining",
+              "Assets:Bank:Savings"
             ]
           }
         },

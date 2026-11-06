@@ -251,3 +251,61 @@ test("session shows persisted multi-statement groups", () => {
   expect(screen.getByText("statements/raw/checking.csv")).toBeTruthy();
   expect(screen.getByText("statements/raw/savings.pdf")).toBeTruthy();
 });
+
+test("price tab highlights explicitly new commodities, including those without jobs", () => {
+  const run: Overview["price_runs"][number] = {
+    run_id: "new-fund",
+    review_digest: "digest",
+    validation_current: null,
+    requested_date: "2026-11-04",
+    state: "partial",
+    required_commodities: ["NEW", "WAIT", "KNOWN"],
+    new_commodities: ["NEW", "WAIT"],
+    coverage: ["NEW", "KNOWN"],
+    preflight: "passed",
+    preflight_job_count: 2,
+    execution: {
+      state: "complete",
+      exit_code: 0,
+      duration_seconds: 0,
+      stderr_summary: "",
+    },
+    detail: "Quotes",
+    jobs: ["NEW", "KNOWN"].map((commodity) => ({
+      commodity,
+      source: "fixture",
+      requested_date: "2026-11-04",
+      outcome: "emitted",
+    })),
+  };
+  render(
+    <SessionPrices
+      overview={
+        {
+          workspace: "/ledger",
+          session_id: "s",
+          etag: "1",
+          groups: [],
+          statements: [],
+          price_runs: [run],
+        } as unknown as Overview
+      }
+      disabled={false}
+      onApprove={vi.fn()}
+      mode="price"
+    />,
+  );
+  expect(screen.getByText("WAIT · New commodity")).toBeTruthy();
+  expect(
+    screen
+      .getByText("NEW · emitted")
+      .closest(".price")
+      ?.classList.contains("new-commodity"),
+  ).toBe(true);
+  expect(
+    screen
+      .getByText("KNOWN · emitted")
+      .closest(".price")
+      ?.classList.contains("new-commodity"),
+  ).toBe(false);
+});

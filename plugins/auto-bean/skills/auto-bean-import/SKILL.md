@@ -41,6 +41,8 @@ Review mappings, postings and supporting directives together. Resolved account, 
 
 Pause edits across the session and run shared validation with `--session <id> --stage review` under the [per-result rules](../../references/common.md#validation). Resolve affected errors; unrelated pending members need not block ready work. Present mappings, explicit postings and supporting directives in conversation and the available panel. The ledger is unchanged on first entry to `final_review`. Obtain explicit approval of that review. Keep chat approval in conversation; do not create approval JSON. Material corrections require renewed approval.
 
+Before statement writes, identify commodities introduced by this session from the existing ledger and proposed postings. Include prior uses and operating currencies; a missing optional `commodity` directive alone does not make a commodity new. Preserve this evidence in the pending price run's `new_commodities` list and pass it to Prices. Keep the list on resume.
+
 After approval, invoke `$auto-bean:auto-bean-write` to write directly from parsed decisions. Write checks existing source IDs before appending and returns changed files or blockers. A shared transfer needs all affected statement approvals and is written once.
 
 Keep partial/interrupted writes at `final_review` or `write_blocked`. Preserve completed evidence and inspect provenance before resuming; approved entries may exist. Mark a group `done` only when every member has current passed `written` validation and no unresolved group flags. Revalidate when source evidence, decisions or ledger files change. Interrupted writes and affected validation failures remain incomplete.

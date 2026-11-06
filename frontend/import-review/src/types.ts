@@ -74,6 +74,7 @@ export type AccountDecision = {
   }[];
 };
 export type Detail = {
+  received_inputs?: string[];
   source_file: string;
   etag: string;
   extraction_state: string;
@@ -116,6 +117,7 @@ export type Transaction = {
   };
 };
 export type Page = {
+  received_inputs?: string[];
   etag: string;
   total: number;
   offset: number;
@@ -130,6 +132,7 @@ export type PriceRun = {
   requested_date: string;
   state: string;
   required_commodities: string[];
+  new_commodities?: string[];
   coverage: string[];
   preflight: string;
   preflight_job_count: number;

@@ -154,6 +154,16 @@ export function SessionPrices({
               {readable(run.state)} · {run.requested_date}
             </h3>
             <p>{run.detail}</p>
+            {!!run.new_commodities?.length && (
+              <div className="new-commodities" aria-label="New commodities">
+                <strong>New in this import</strong>
+                {run.new_commodities.map((commodity) => (
+                  <span className="badge warn" key={commodity}>
+                    {commodity} · New commodity
+                  </span>
+                ))}
+              </div>
+            )}
             <p>
               Required: {run.required_commodities.join(", ") || "None"} ·
               Preflight: {run.preflight} ({run.preflight_job_count} jobs)
@@ -219,10 +229,16 @@ export function SessionPrices({
               </p>
             )}
             {run.jobs.map((j, i) => (
-              <div className="price" key={i}>
+              <div
+                className={`price ${run.new_commodities?.includes(j.commodity) ? "new-commodity" : ""}`}
+                key={i}
+              >
                 <strong>
                   {j.commodity} · {j.outcome}
                 </strong>
+                {run.new_commodities?.includes(j.commodity) && (
+                  <span className="badge warn">New commodity</span>
+                )}
                 <p>
                   {j.source} · Requested {j.requested_date} · Quote{" "}
                   {j.quote_date ?? "unavailable"}
