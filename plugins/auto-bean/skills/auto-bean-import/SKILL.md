@@ -1,6 +1,6 @@
 ---
 name: auto-bean-import
-description: Import new statements from statements/raw/ or resume unfinished groups in statements/import-status.yml through review, writing and validation.
+description: Import new statements or resume saved import sessions through review, writing and validation.
 ---
 
 Import owns orchestration/status; parsed decisions drive writes. Read [guidance](../../references/common.md) and the [contract](../../references/import-review.md). The panel supplements chat.
@@ -9,10 +9,10 @@ Import owns orchestration/status; parsed decisions drive writes. Read [guidance]
 
 On each pass, including resume, use Query for balances/history scoped by account, date or source ID. Avoid full dumps; reuse unchanged configuration/includes. Hashes do not replace content inspection.
 
-1. Inspect `statements/import-status.yml` and its saved sessions. Resume unfinished groups and unresolved price runs, approvals or follow-ups, even when all groups are `done`. Keep session/group IDs, parsed files, decisions, answers and completed evidence. Reopen done groups only for explicit rework. Route structural status migration to `$auto-bean:auto-bean-migrate`.
-2. On every pass, scan `statements/raw/` with Git status and tracked/untracked listings for new PDF/CSV/XLSX/XLS sources. Exclude sources already assigned in saved status. New evidence may resolve a blocked group; unrelated sources may progress independently. Report no changes only when neither new sources nor unfinished session work remain; create no empty session.
-3. Honor user groups; otherwise default to one statement per group and combine sources when shared processing helps. Add new groups needed for reconciliation to the active session so linked rows remain in one session. Preserve existing membership unless the user changes it or evidence warrants an explained revision. With multiple possible sessions, resolve the intended assignment. Summarize new or revised groups before dispatch.
-4. Save membership using the [session](../../references/schemas/session.schema.json) and [status](../../references/schemas/status.schema.json) schemas: one workspace-unique group ID, parsed path and YAML lifecycle entry per group; each source belongs to one group. Keep per-source fingerprints and retry counts. Check session/status membership and open the review panel, including on resume. If unavailable, report it and review in conversation.
+1. Inspect `statements/import-status.yml` and saved sessions. Resume unfinished groups, price runs, approvals and follow-ups, even if all groups are `done`. Keep IDs, parsed files, decisions, answers and completed evidence. Reopen done groups only for explicit rework. Route structural status migration to `$auto-bean:auto-bean-migrate`.
+2. Each pass, scan `statements/raw/` with Git status and tracked/untracked listings for new PDF/CSV/XLSX/XLS sources. Exclude assigned sources. New evidence may unblock a group; unrelated sources may progress independently. Report no changes only if no new sources or unfinished session work remain. Create no empty session.
+3. Honor user groups; otherwise use one statement per group, combining sources when shared processing helps. Add reconciliation groups to the active session to keep linked rows together. Change membership only on user request or an explained evidence-based revision. Resolve ambiguous session assignments. Summarize new or revised groups before dispatch.
+4. Save [session](../../references/schemas/session.schema.json) and [status](../../references/schemas/status.schema.json) membership: one workspace-unique group ID, parsed path and YAML lifecycle entry per group; one group per source. Keep source fingerprints and retry counts. Check membership and open the review panel on every pass or resume. If unavailable, report it and review in chat.
 5. Assign extraction to `$auto-bean:auto-bean-process`. Supply members, session, fingerprints, parsed target, retry state, matching source hints and [ownership](../../references/common.md#ownership). Process creates group JSON before extraction and returns per-source outcomes and a group status proposal. Release only complete, trustworthy sources downstream.
 
 Import owns lifecycle YAML; migration may add reviewed `legacy: true` to completed groups. Keep marked sources registered, skip review and report validation exclusions. Never reopen/reimport automatically. Store facts/decisions in parsed `statements`, membership/groups/prices in the session, and pointers/flags in YAML. No per-source lifecycle entries, stage documents or session transaction copies.
@@ -41,21 +41,21 @@ Review mappings, postings and supporting directives together. Resolved account, 
 
 Pause edits across the session and run shared validation with `--session <id> --stage review` under the [per-result rules](../../references/common.md#validation). Resolve affected errors; unrelated pending members need not block ready work. Present mappings, explicit postings and supporting directives in conversation and the available panel. The ledger is unchanged on first entry to `final_review`. Obtain explicit approval of that review. Keep chat approval in conversation; do not create approval JSON. Material corrections require renewed approval.
 
-Before statement writes, identify commodities introduced by this session from the existing ledger and proposed postings. Include prior uses and operating currencies; a missing optional `commodity` directive alone does not make a commodity new. Preserve this evidence in the pending price run's `new_commodities` list and pass it to Prices. Keep the list on resume.
+Before statement writes, compare proposed commodities with prior ledger uses and operating currencies. A missing optional `commodity` directive alone does not make a commodity new. Save introduced commodities in the pending price run's `new_commodities` list. Pass it to Prices and preserve it on resume.
 
 After approval, invoke `$auto-bean:auto-bean-write` to write directly from parsed decisions. Write checks existing source IDs before appending and returns changed files or blockers. A shared transfer needs all affected statement approvals and is written once.
 
-Keep partial/interrupted writes at `final_review` or `write_blocked`. Preserve completed evidence and inspect provenance before resuming; approved entries may exist. Mark a group `done` only when every member has current passed `written` validation and no unresolved group flags. Revalidate when source evidence, decisions or ledger files change. Interrupted writes and affected validation failures remain incomplete.
+Keep partial/interrupted writes at `final_review` or `write_blocked`. Preserve completed evidence and inspect provenance before resuming; approved entries may exist. Mark a group `done` only when every member has current passed `written` validation and no unresolved group flags. Revalidate when source evidence, decisions or ledger files change.
 
 ## Prices and Memory
 
 Run or resume `$auto-bean:auto-bean-prices` after the statement pass, including price-only resumes. Reuse existing runs; resolve pending work before another fetch. Do not repeat unchanged completed runs. Prices validates with `--price-run <id>` to preserve pending statement reports. New directives need separate approval and do not reverse completed groups. No required commodity means a structured zero-job `no_op`.
 
-Finish with `$auto-bean:auto-bean-memory`, supplying workspace, session/parsed paths and approval context. It derives eligible lessons. Apply returned workspace `MEMORY.md` edits under its main-thread rules and report the outcome.
+Finish with `$auto-bean:auto-bean-memory`. Supply workspace, session/parsed paths and approval context. Apply its eligible workspace `MEMORY.md` edits under its main-thread rules and report the outcome.
 
 ## Final status block
 
-End user handoffs with this block; omit it from progress updates and clarification questions.
+End handoffs with this block. Omit it from progress updates and clarification questions.
 
 ```markdown
 ---

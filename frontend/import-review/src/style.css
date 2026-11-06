@@ -14,6 +14,8 @@
 }
 body {
   margin: 0;
+  padding: var(--safe-area-top, 0px) var(--safe-area-right, 0px)
+    var(--safe-area-bottom, 0px) var(--safe-area-left, 0px);
 }
 button,
 input,
@@ -24,7 +26,7 @@ textarea {
 }
 button,
 summary {
-  cursor: pointer;
+  cursor: var(--cursor-interaction, pointer);
 }
 button {
   border: 1px solid var(--line);
@@ -145,7 +147,9 @@ small,
 .workspace-layout {
   display: grid;
   grid-template-columns: 240px minmax(0, 1fr);
-  min-height: calc(100vh - 64px);
+  min-height: calc(
+    100dvh - 64px - var(--safe-area-top, 0px) - var(--safe-area-bottom, 0px)
+  );
 }
 .workspace-layout:not(:has(.sidebar)) {
   grid-template-columns: 1fr;
@@ -162,8 +166,10 @@ main {
   border-right: 1px solid var(--line);
   padding: 30px 16px 160px;
   position: sticky;
-  top: 0;
-  height: calc(100vh - 64px);
+  top: var(--safe-area-top, 0px);
+  height: calc(
+    100dvh - 64px - var(--safe-area-top, 0px) - var(--safe-area-bottom, 0px)
+  );
   overflow-y: auto;
 }
 .sidebar > .eyebrow {
@@ -534,9 +540,11 @@ fieldset label {
 }
 .review-footer {
   position: fixed;
-  bottom: 0;
-  left: 240px;
-  right: 0;
+  bottom: var(--safe-area-bottom, 0px);
+  left: calc(240px + var(--safe-area-left, 0px));
+  right: var(--safe-area-right, 0px);
+  max-height: 40dvh;
+  overflow-y: auto;
   z-index: 2;
   padding: 16px 32px;
   display: flex;
@@ -565,7 +573,7 @@ fieldset label {
     grid-template-columns: 210px minmax(0, 1fr);
   }
   .review-footer {
-    left: 210px;
+    left: calc(210px + var(--safe-area-left, 0px));
     padding: 16px 22px;
   }
   main {
@@ -637,7 +645,7 @@ fieldset label {
     flex-wrap: wrap;
   }
   .review-footer {
-    left: 0;
+    left: var(--safe-area-left, 0px);
     padding: 14px 16px;
   }
   .review-footer > button {
@@ -800,7 +808,7 @@ textarea::placeholder {
   border: 1px solid var(--line);
   border-radius: 7px;
   font-size: 14px;
-  cursor: pointer;
+  cursor: var(--cursor-interaction, pointer);
 }
 .category-options label:has(input:checked) {
   border-color: var(--accent);
@@ -895,7 +903,7 @@ dialog > .saving {
 
 /* Keep the review decision visible; disclose source and runtime details on demand. */
 .transaction-row:not(.locked) {
-  cursor: pointer;
+  cursor: var(--cursor-interaction, pointer);
 }
 .transaction-row:not(.locked):hover,
 .transaction-row:focus-within {
@@ -1042,6 +1050,24 @@ dialog > .saving {
 }
 .account-link {
   color: var(--color-text-primary, #365bd6);
+}
+@media (max-width: 600px) {
+  .app-header,
+  .app-header > div {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .workspace-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .sidebar {
+    position: static;
+    height: auto;
+    max-height: 240px;
+    padding: 16px;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
 }
 @media (max-width: 760px) {
   .transaction-heading,

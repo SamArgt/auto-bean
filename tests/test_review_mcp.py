@@ -76,10 +76,21 @@ def test_stdio_discovery_without_workspace_and_ui_resource(tmp_path: Path) -> No
                     t for t in listing.tools if t.name == "open_import_review"
                 )
                 assert opener.meta
+                assert opener.meta["openai/ui"]["entrypoints"] == [{"type": "thread"}]
                 uri = opener.meta["ui"]["resourceUri"]
                 assert uri.startswith("ui://auto-bean/import-review/")
                 resource = await session.read_resource(AnyUrl(uri))
                 assert resource.contents[0].mimeType == "text/html;profile=mcp-app"
+                assert resource.contents[0].meta == {
+                    "ui": {
+                        "csp": {"connectDomains": [], "resourceDomains": []},
+                        "prefersBorder": False,
+                    },
+                    "openai/ui": {
+                        "availableDisplayModes": ["fullscreen"],
+                        "preferredDisplayMode": "fullscreen",
+                    },
+                }
                 assert "Import review" in resource.contents[0].text  # type: ignore[union-attr]
                 for arguments in (
                     {"extra": True},

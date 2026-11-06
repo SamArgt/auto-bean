@@ -187,6 +187,7 @@ export type Overview = Binding & {
   price_runs: PriceRun[];
 };
 export interface Bridge {
+  readonly canContinue?: boolean;
   call<T>(name: string, args: Record<string, unknown>): Promise<T>;
   continue(sessionId: string, subjects: string[]): Promise<void>;
   openFile?(path: string): Promise<void>;

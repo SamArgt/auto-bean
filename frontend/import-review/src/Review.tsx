@@ -91,6 +91,7 @@ function ReviewSession({
   const activeRequest = useRef<string | null>(null);
   const activeSubmission = useRef(false);
   const searchRequest = useRef(0);
+  const accountCountsFailed = useRef(false);
   const queryKey = JSON.stringify([binding, source, offset, account, needs]);
   const latestQuery = useRef(queryKey);
   latestQuery.current = queryKey;
@@ -152,7 +153,13 @@ function ReviewSession({
                 if (previous[file]) next[file] = previous[file];
               }
             });
-            return next;
+            // Keep account counts when the complete evidence is unchanged.
+            // An etag alone does not cover validation and received inputs.
+            return !force &&
+              !accountCountsFailed.current &&
+              JSON.stringify(next) === JSON.stringify(previous)
+              ? previous
+              : next;
           });
           // Compute failures outside the state updater, which React may defer.
           sources.forEach((file, i) => {
@@ -231,6 +238,9 @@ function ReviewSession({
       }),
     ).then((results) => {
       if (cancelled) return;
+      accountCountsFailed.current = results.some(
+        (result) => result.status === "rejected",
+      );
       setAccountNeeds(
         Object.fromEntries(
           accounts.map(({ file, account, received }, i) => {
@@ -264,6 +274,7 @@ function ReviewSession({
     if (
       !binding ||
       !overview ||
+      bridge.canContinue === false ||
       activeSubmission.current ||
       drafts.size ||
       loadError ||
@@ -606,7 +617,7 @@ function ReviewSession({
             <span className="eyebrow">AUTO BEAN</span>
             <h1>Import review</h1>
           </div>
-          <button onClick={() => void refresh()} disabled={!binding}>
+          <button onClick={() => void refresh(true)} disabled={!binding}>
             Refresh
           </button>
         </header>
@@ -875,6 +886,7 @@ function ReviewSession({
                     className="primary"
                     disabled={
                       busy ||
+                      bridge.canContinue === false ||
                       !!drafts.size ||
                       !!loadError ||
                       (!notified && !overview.review_batch?.ready)
@@ -885,6 +897,13 @@ function ReviewSession({
                   </button>
                   {!!drafts.size && (
                     <p>Save or discard unsaved edits before sending.</p>
+                  )}
+                  {bridge.canContinue === false && (
+                    <p>
+                      This host cannot send changes to the conversation. Your
+                      changes are saved. Ask the agent to continue the import in
+                      chat.
+                    </p>
                   )}
                 </footer>
               </>
