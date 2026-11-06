@@ -6,6 +6,9 @@ on:
       - main
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   quality-baseline:
     strategy:
@@ -16,6 +19,8 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -27,6 +32,12 @@ jobs:
 
       - name: Sync development dependencies
         run: uv sync --locked --group dev --group eval
+
+      - name: Require a plugin version increase
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: uv run python scripts/check_plugin_version.py --base-ref "$BASE_SHA"
 
       - name: Set up Node for frontend checks
         uses: actions/setup-node@v4
@@ -60,4 +71,11 @@ jobs:
 
       - name: Packaged runtime smoke
         run: uv run python scripts/smoke_plugin.py
+
+  release:
+    needs: quality-baseline
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
+    uses: ./.github/workflows/publish-plugin.yml
 

@@ -1,0 +1,63 @@
+name: Publish plugin package
+
+on:
+  workflow_call:
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    # Both callers must finish their full verification matrix first.
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
+    runs-on: ubuntu-latest
+    concurrency:
+      group: publish-plugin-${{ github.sha }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --locked --group dev
+      - name: Build the tested package
+        run: uv run python scripts/package_plugin.py
+      - name: Tag the tested commit and publish its archive
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="$(uv run python -c 'import json; print(json.load(open("plugins/auto-bean/plugin.json"))["version"])')"
+          tag="v$version"
+          archive="dist/auto-bean-$version.zip"
+          commit="$(git rev-parse HEAD)"
+
+          if [[ "$GITHUB_REF_TYPE" == tag && "$GITHUB_REF_NAME" != "$tag" ]]; then
+            echo "Tag $GITHUB_REF_NAME does not match plugin version $version." >&2
+            exit 1
+          fi
+
+          if existing="$(git rev-parse --verify --quiet "refs/tags/$tag^{commit}")"; then
+            if [[ "$existing" != "$commit" ]]; then
+              echo "Tag $tag already belongs to another commit. Increase the plugin version." >&2
+              exit 1
+            fi
+          else
+            git tag "$tag" "$commit"
+            git push origin "refs/tags/$tag"
+          fi
+
+          # GITHUB_TOKEN tag pushes do not trigger the tag workflow. Publish here.
+          # Keep incomplete uploads in draft so a rerun can finish them safely.
+          if draft="$(gh release view "$tag" --json isDraft --jq .isDraft)"; then
+            if [[ "$draft" == false ]]; then
+              echo "Release $tag is already published."
+              exit 0
+            fi
+            gh release upload "$tag" "$archive" --clobber
+          else
+            gh release create "$tag" "$archive" --verify-tag --generate-notes --draft
+          fi
+          gh release edit "$tag" --draft=false
