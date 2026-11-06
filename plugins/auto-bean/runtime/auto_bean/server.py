@@ -44,7 +44,7 @@ from auto_bean.validation import (
 UI_BUILD = json.loads((PLUGIN / "ui/build.json").read_text())
 # Hosts cache UI resources by URI. New bundles must have a new resource identity.
 URI = f"ui://auto-bean/import-review/{UI_BUILD['bundle_sha256']}.html"
-server: Server[Any] = Server("auto-bean-import-review", version="0.2.2")
+server: Server[Any] = Server("auto-bean-import-review", version="0.2.3")
 S: dict[str, Any] = {"type": "string"}
 HASH = {"type": "string", "pattern": "^[a-f0-9]{64}$"}
 N: dict[str, Any] = {"type": "integer", "minimum": 0}

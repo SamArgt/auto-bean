@@ -98,6 +98,25 @@ The user now approves the corrected review. The standard
 Every phase preserves raw evidence, protected files, and Git history.
 No phase may commit or push.
 
+## Manual handoff regression checklist
+
+Use this checklist when a live model evaluation or desktop replay is explicitly requested. These are behavioral checks, not automated grader assertions. The current fixture has CSV and PDF sources; use a synthetic spreadsheet variant for the staggered three-format case. Harbor does not test desktop rendering or panel clicks. Inspect native tool events for panel-open timing, and use a desktop replay to check visible panel behavior.
+
+Record worker dispatch, return and file-release events, parent edits, user question prompts, panel opens and validation stages. A worker has settled only after its writes stop and it returns completed work or a persisted blocker. Check the first handoff and the resumed correction turn. Static skill and packaging checks do not prove these outcomes.
+
+| Scenario | Required result |
+| --- | --- |
+| CSV finishes before PDF and spreadsheet workers | No early questions or panel open. All runnable follow-ups finish before one combined handoff. |
+| One source cannot be extracted | Its worker returns a persisted blocker without waiting for answers. Independent work finishes before one consolidated request. |
+| A later statement resolves a suspected transfer | Import resolves the match from evidence and removes the obsolete question. |
+| Saved answers exist on resume | Preserve and apply the answers before reopening review. Do not repeat unchanged questions. |
+| Answers reveal another required decision | Finish dependent work, then present one new consolidated handoff. Answers do not authorize writes. |
+| Prices are proposed but unapproved | Use review-stage checks when needed. Do not run written-stage checks as though proposed prices already exist. Missing coverage stays unresolved. |
+| Parent mapping overlaps worker activity | Parent edits only released paths. Worker-owned fields and saved answers remain intact. |
+| Panel is unavailable | Give one complete chat handoff without repeated open attempts. The ledger remains unchanged without approval. |
+
+At each handoff, check that questions retain source/account/record IDs or price-run/commodity IDs. A charge and reversal may share a question only when one answer resolves both. Confirm one panel-open attempt and one chat question set, with no duplicate question-tool prompt. Later approval review after clarification is a separate valid handoff. An explicitly requested early view must be labeled incomplete.
+
 ## Results and source map
 
 - [task.toml](task.toml) averages step rewards and gates both earlier steps on `state = 1`.

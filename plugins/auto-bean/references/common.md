@@ -51,6 +51,8 @@ Agents edit their assigned files directly with ordinary file tools; no runtime p
 
 Reread before each scoped edit and preserve unrelated fields, answers, custom content and user changes. Import serializes edits to each parsed document and all ledger writes; parallel workers use distinct groups. Serial stage execution follows the same ownership boundaries. Coordinate independent chats before they share a workspace. Partial writes block dependent work until actual provenance is checked; never append again or restore whole files blindly.
 
+Worker assignments name exact writable files and owned fields. A worker finishes its writes before returning control. Import waits for file release before editing or dispatching another stage on that file. Parent scripts target released paths explicitly; do not scan and rewrite all parsed files while workers are active. The same rule applies to shared session JSON when Prices owns its price-run fields.
+
 Approval comes from the user's conversation instruction or current panel confirmation. A correction, schema-valid document or successful validation is not approval. Material changes to what the user reviewed require renewed review. Approval does not authorize unrelated edits, commits or pushes. Queries disclose incomplete/unapproved ledger work rather than treating it as accepted history.
 
 ## Memory
@@ -83,7 +85,11 @@ auto_bean validate --workspace "$AUTO_BEAN_WORKSPACE" --session <session-id> --p
 
 For a price outcome, use `--price-run <run-id>` with its session. This validates only that price run and the shared ledger. It leaves statement reports and other price-run reports unchanged. Import and Write use session validation without this filter to check statement completion.
 
+Use `--stage review` for unapproved price proposals when a check is needed. Use `--stage written` after approved price writes, for verified redundant results, or for a zero-job no-op. Pending approval is not evidence of a missing written directive. Missing source coverage remains unresolved and cannot qualify as a no-op.
+
 For imports, Import owns review validation, Write owns validation after transaction writes, and Prices owns validation after its outcome. Import must pause session/status, parsed and price-run edits plus ledger writes before any session validation, including worker-initiated checks. Resume edits after terminal completion. The command writes generated reports across the session; its locks do not serialize ordinary file edits or panel activity. A concurrent-change error requires a fresh check against stable files.
+
+Keep schema and extraction checks local to each stage. Run shared review validation after runnable preparation settles and session edits stop. Repair actionable errors and rerun after relevant changes; do not repeat checks against unchanged known blockers. In user-facing results, distinguish source opening-plus-activity arithmetic from review validation and written-ledger validation. Source arithmetic alone does not establish correct ledger postings.
 
 Groups marked `legacy: true` must be `done`; review excludes them and session validation reports them as historical exclusions without reading modern parsed evidence. Source mappings remain registered for duplicate prevention. Unmarked incompatible evidence requires migration checks.
 

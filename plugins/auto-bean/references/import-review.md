@@ -4,57 +4,42 @@ Use this reference for field meanings and edge cases. The Import, Process, Categ
 
 ## Process flow
 
-This is the process diagram for [Import](../skills/auto-bean-import/SKILL.md). Sessions contain user-defined or agent-inferred groups, usually one statement each. Processing and categorization may use separate workers or run serially under Import. **∥** marks optional parallel work across groups. **◆** marks main-agent coordination. Orange nodes show human input; dotted links are conditional clarification loops.
+This is the process diagram for [Import](../skills/auto-bean-import/SKILL.md). Sessions contain user-defined or agent-inferred groups, usually one statement each. Processing and categorization may use separate workers or run serially under Import. **∥** marks optional parallel work across groups. **◆** marks main-agent coordination. The orange node shows the consolidated user handoff. Dotted links show blockers, answers and repairs. Both approved write branches share one serial ledger writer.
 
-Each group resumes from saved state; the diagram shows a new import. Every pass also discovers new sources and checks session price follow-ups, even when groups are done. New counterpart sources join the relevant active session without resetting existing groups. Independent work continues around blocked rows, except during the stable session-wide window required for [validation](common.md#validation).
+Each group resumes from saved state; the diagram shows a new import. Every pass also discovers new sources and checks session price follow-ups, even when groups are done. New counterpart sources join the relevant active session without resetting existing groups. Independent work continues around blocked rows, except during the stable session-wide window required for [validation](common.md#validation). Workers return persisted blockers without waiting for answers. Import gathers these findings under its [consolidated handoff rule](../skills/auto-bean-import/SKILL.md#consolidated-handoff) after all runnable work settles. On resume, saved answers are applied before another review opens.
 
 ```mermaid
 flowchart TD
-    S([Start or resume import]) --> D["Discover sources<br/>Read status and fingerprints"]
-    D --> G["◆ Define statement groups<br/>Use user groups or infer; default one statement"]
-    G --> E{"Already done?"}
-    E -- Yes --> R{"Explicit rework requested?"}
-    R -- No --> SK([Skip statement])
-    R -- Yes --> P
-    E -- No --> P["∥ Process assigned groups<br/>Extract and validate each source"]
-
-    P --> A["◆ Inspect accounts<br/>Plan openings and document references"]
-    A --> B["Check opening balances<br/>Resolve account and balance decisions"]
-    B --> C["∥ Categorize assigned groups<br/>Use complete ready evidence"]
-    C --> X["◆ Review batch transfers and duplicates<br/>Assign dispositions and one posting owner"]
-    X --> F["◆ Validate and prepare final review<br/>Mappings, parsed postings and supporting directives"]
-
-    P <-.-> HP["Human: source clarification<br/>or manual resolution"]
-    A <-.-> HA["Human: resolve account/date<br/>and mapping questions"]
-    B <-.-> HB["Human: choose balance remediation"]
-    C <-.-> HC["Human: resolve category<br/>or transaction ambiguity"]
-    X <-.-> HX["Human: resolve uncertain<br/>transfer or duplicate decisions"]
-    W <-.-> HW["Human: resolve missing facts<br/>or repair needing direction"]
-
-    F --> AP{"Human approves<br/>the current parsed decisions?"}
-    AP -- "No or pending" --> H["Keep review or blocked state"]
-    H -- "Correct and revalidate" --> F
-    AP -- Yes --> W["Write approved entries serially<br/>Directly from parsed JSON"]
-    W --> V["Validate written transactions<br/>Check ledger and closing balances"]
-    V -- Passed --> DN["Mark group done only when all members pass"]
-
-    DN --> PR["After statement writes/reviews:<br/>Run or resume price epilogue"]
-    PR --> PC{"Price edits?"}
-    PC -- Yes --> PA["Human: separately approve<br/>proposed price directives"]
-    PC -- "No new edits; validate outcome" --> M["Invoke Memory with import JSON<br/>Apply eligible memory updates"]
-    PA -- Approved --> PW["Write approved prices<br/>Validate ledger"]
-    PW -- Validated --> M
-    PA -- Pending --> PP["Keep price follow-up pending<br/>Statements remain done"]
-    PP --> M
-    M --> END([Summarize outcomes and remaining actions])
+    S([Start or resume import]) --> D["Discover sources and read saved answers<br/>Resume each group at its owning stage"]
+    D --> G["◆ Define or preserve groups<br/>Dispatch exact writable files"]
+    G --> P["∥ Process assigned groups<br/>Extract and check each source"]
+    P --> A["◆ Inspect accounts and openings<br/>Use released files only"]
+    A --> C["∥ Categorize ready evidence<br/>Persist questions and release files"]
+    C --> X["◆ Finish runnable follow-ups<br/>Resolve transfers and duplicates"]
+    P -. "Persist processing blockers" .-> X
+    A -. "Persist account or balance blockers" .-> X
+    G -- "Groups already done" --> PR
+    X --> PR["Prepare or resume available prices<br/>Return proposals and missing coverage"]
+    PR --> F["◆ Collect all worker returns<br/>Apply saved answers and finish unblocked work"]
+    F --> V["◆ Pause edits and validate review<br/>Repair actionable errors"]
+    V --> H["Human: one consolidated handoff<br/>Questions or review; open panel once<br/>Statement and price approvals are separate"]
+    H -. "Answers or corrections" .-> D
+    H -- "Statements explicitly approved" --> W["Write approved statements serially<br/>Validate written ledger and mark passed groups done"]
+    H -- "Prices explicitly approved" --> PW["Write approved prices serially<br/>Validate selected price run"]
+    H -- "Input or approval pending" --> M
+    W -- "Written checks passed" --> M
+    PW -- "Written checks passed" --> M
+    W -. "Repair or missing facts" .-> X
+    PW -. "Repair or missing facts" .-> PR
+    M["Invoke Memory on eligible evidence<br/>Preserve pending work"] --> END([Summarize outcomes and next action])
 
     classDef human fill:#fff1d6,stroke:#b7791f,color:#222;
-    class HP,HA,HB,HC,HX,HW,AP,PA human;
+    class H human;
 ```
 
 Before first approval, proposed postings and supporting directives remain in parsed JSON and the ledger is unchanged. The statement review covers mappings, openings and transactions together; clarification loops are conditional, not extra approval rounds. A shared transfer requires approval for all affected statements. Write returns its written validation result to Import for `done`; failures return to the owning stage for repair. Material corrections require renewed review. Interrupted writes resume from actual provenance without duplicate appends or whole-file restoration.
 
-The price epilogue runs after the current statement pass, including when some work remains pending. It records a zero-job result when no commodities need prices. Price questions or approval can remain pending while groups stay `done`. Memory uses only accepted, verified work; unresolved proposals are not learned. The overall import is `Complete` only when every in-scope group is done and no price or follow-up action remains.
+Price preparation runs after the current statement preparation and before the consolidated handoff, including when some work remains pending. It uses supplied proposed commodity evidence before statement writes. Price writes still require separate current approval. It records a zero-job result when no commodities need prices. Price questions or approval can remain pending while groups stay `done`. Memory uses only accepted, verified work; unresolved proposals are not learned. The overall import is `Complete` only when every in-scope group is done and no price or follow-up action remains.
 
 ## State and validation
 
@@ -89,7 +74,7 @@ Optional `approval` fields belong to panel bookkeeping. Chat approval needs no J
 
 A shared transfer preserves both identities in ledger metadata: `source`, `source_fingerprint`, `account_id`, `record_id` and the corresponding `peer_` fields. It covers exactly the two linked rows. Within one source, the lexicographically first linked row ID supplies the posting; its counterpart may leave postings empty. New ledger narration and any extracted payee come from that owner's source row. Ordinary posted rows preserve their own source description/payee.
 
-Required account openings, source-supported opening transactions, document directives and justified balance assertions belong in account `proposed_directives` before review. Document paths are workspace-relative in this field; Write adjusts relative paths for the actual target ledger file. The validator checks those approved directives in the include graph. An unexplained balance difference never authorizes an opening adjustment.
+Auto Bean account `proposed_directives` accepts only `open`, `balance`, `document` and justified transactions. Put required account openings, source-supported opening transactions, document directives and justified balance assertions there before review. Do not put optional `commodity` declarations in this field; this is an Auto Bean field limit, not a Beancount syntax restriction. Document paths are workspace-relative in this field; Write adjusts relative paths for the actual target ledger file. The validator checks those approved directives in the include graph. An unexplained balance difference never authorizes an opening adjustment.
 
 ## Status
 

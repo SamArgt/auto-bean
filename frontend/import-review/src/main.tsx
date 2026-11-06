@@ -14,7 +14,7 @@ import "@openai/mcp-extensions/app/styles.css";
 import "./style.css";
 const root = createRoot(document.getElementById("root")!);
 const app = new App(
-  { name: "Auto Bean Import Review", version: "0.2.2" },
+  { name: "Auto Bean Import Review", version: "0.2.3" },
   { availableDisplayModes: ["fullscreen"] },
 );
 const extensions = new OpenAIExtensions(app);

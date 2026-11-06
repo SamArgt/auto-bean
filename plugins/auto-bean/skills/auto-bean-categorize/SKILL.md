@@ -7,7 +7,7 @@ Read [common guidance](../../references/common.md) and the import contract's [st
 
 ## Scope and proposals
 
-Work on the group assigned by Import, as a worker or serial stage. Read its JSON, status, session and supplied reconciliation context/answers. Handle only complete source sections released by Import, starting at `categorize_ready` or resuming as directed. Continue ready members while holding blocked members and linked transfers. Return per-source findings and one group status proposal; any unresolved member keeps the group blocked. Do not discover statements, edit shared status or memory, mutate the ledger, or request approval/commit/push. Return questions to the Import stage, which owns user interaction.
+Work on the group assigned by Import, as a worker or serial stage. Read its JSON, status, session and supplied reconciliation context/answers. Handle only complete source sections released by Import, starting at `categorize_ready` or resuming as directed. Continue ready members while holding blocked members and linked transfers. Return per-source findings and one group status proposal; any unresolved member keeps the group blocked. Do not discover statements, edit shared status or memory, mutate the ledger, or request approval/commit/push. Return persisted questions to Import without waiting for user answers. Do not ask the user or open the panel; Import owns the [consolidated handoff](../auto-bean-import/SKILL.md#consolidated-handoff).
 
 Use `$auto-bean:auto-bean-query` for ledger accounts, constraints, registers, balances and transaction/duplicate checks. Source account names/owner evidence do not establish ledger mapping without a current check or approved mapping.
 
