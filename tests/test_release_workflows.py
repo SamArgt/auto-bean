@@ -135,8 +135,6 @@ def publisher(repository: Path, tmp_path: Path) -> tuple[Path, dict[str, str]]:
         "PATH": f"{binaries}{os.pathsep}{os.environ['PATH']}",
         "GH_TEST_STATE": str(tmp_path / "release.json"),
         "GH_TEST_LOG": str(tmp_path / "gh.log"),
-        "GITHUB_REF_TYPE": "branch",
-        "GITHUB_REF_NAME": "main",
     }
     return script, env
 
@@ -191,15 +189,4 @@ def test_existing_tag_on_other_commit_is_never_moved(
     assert result.returncode != 0
     assert "another commit" in result.stderr
     assert git(repository, "rev-parse", "v0.2.2") == previous
-    assert not Path(publisher[1]["GH_TEST_LOG"]).exists()
-
-
-def test_manual_tag_must_match_manifest_version(
-    repository: Path, publisher: tuple[Path, dict[str, str]]
-) -> None:
-    publisher[1].update(GITHUB_REF_TYPE="tag", GITHUB_REF_NAME="v0.2.3")
-    result = publish(repository, publisher)
-    assert result.returncode != 0
-    assert "does not match" in result.stderr
-    assert not git(repository, "tag", "--list")
     assert not Path(publisher[1]["GH_TEST_LOG"]).exists()

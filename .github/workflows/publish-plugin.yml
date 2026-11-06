@@ -8,8 +8,8 @@ permissions:
 
 jobs:
   publish:
-    # Both callers must finish their full verification matrix first.
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
+    # Repository Baseline must finish its full verification matrix first.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     concurrency:
       group: publish-plugin-${{ github.sha }}
@@ -34,11 +34,6 @@ jobs:
           archive="dist/auto-bean-$version.zip"
           commit="$(git rev-parse HEAD)"
 
-          if [[ "$GITHUB_REF_TYPE" == tag && "$GITHUB_REF_NAME" != "$tag" ]]; then
-            echo "Tag $GITHUB_REF_NAME does not match plugin version $version." >&2
-            exit 1
-          fi
-
           if existing="$(git rev-parse --verify --quiet "refs/tags/$tag^{commit}")"; then
             if [[ "$existing" != "$commit" ]]; then
               echo "Tag $tag already belongs to another commit. Increase the plugin version." >&2
@@ -49,7 +44,6 @@ jobs:
             git push origin "refs/tags/$tag"
           fi
 
-          # GITHUB_TOKEN tag pushes do not trigger the tag workflow. Publish here.
           # Keep incomplete uploads in draft so a rerun can finish them safely.
           if draft="$(gh release view "$tag" --json isDraft --jq .isDraft)"; then
             if [[ "$draft" == false ]]; then

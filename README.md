@@ -84,9 +84,8 @@ development metadata and lockfiles together, then rebuild the UI.
 
 After a merge to `main`, both CI platforms must pass. CI then tags that tested
 commit as `v<version>` and publishes `auto-bean-<version>.zip` in a GitHub Release.
-The publisher runs directly after CI; it does not depend on another workflow
-being triggered by its tag push. Manually pushed `v*` tags still run full release
-validation and use the same publisher.
+`repository-baseline.yml` calls `publish-plugin.yml` directly after CI.
+This is the only release flow. Pushing a tag does not trigger a release.
 
 Rerun a failed release job to resume an incomplete draft. Existing published
 releases are left unchanged. A tag that points to another commit causes a failure;
