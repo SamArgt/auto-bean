@@ -1,6 +1,8 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": ["config:recommended"],
+  "reviewers": ["SamArgt"],
+  "assignAutomerge": true,
   "enabledManagers": ["pep621", "npm", "github-actions", "dockerfile", "custom.regex"],
   "ignorePaths": ["experiments/**", "plugins/auto-bean/assets/workspace_template/**"],
   "automerge": false,
