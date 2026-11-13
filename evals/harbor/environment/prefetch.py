@@ -24,7 +24,8 @@ for path in sorted(Path("/opt/raw-fixtures").iterdir()):
             "/opt/extraction-smoke",
         ],
         check=True,
-        timeout=120,
+        # First-use model downloads can take more than ten minutes.
+        timeout=900,
     )
 # Keep the required model cache, but never leak extracted answers into trials.
 shutil.rmtree("/opt/extraction-smoke")
