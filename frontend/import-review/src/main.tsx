@@ -10,11 +10,12 @@ import { createRoot } from "react-dom/client";
 import { Review } from "./Review";
 import type { Binding } from "./types";
 import { createBridge } from "./bridge";
+import { version } from "../package.json";
 import "@openai/mcp-extensions/app/styles.css";
 import "./style.css";
 const root = createRoot(document.getElementById("root")!);
 const app = new App(
-  { name: "Auto Bean Import Review", version: "0.2.3" },
+  { name: "Auto Bean Import Review", version },
   { availableDisplayModes: ["fullscreen"] },
 );
 const extensions = new OpenAIExtensions(app);

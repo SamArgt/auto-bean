@@ -1,0 +1,67 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "enabledManagers": ["pep621", "npm", "github-actions", "dockerfile", "custom.regex"],
+  "ignorePaths": ["experiments/**", "plugins/auto-bean/assets/workspace_template/**"],
+  "automerge": false,
+  "statusCheckWhen": {"artifactError": "never"},
+  "rebaseWhen": "behind-base-branch",
+  "separateMajorMinor": true,
+  "prConcurrentLimit": 3,
+  "commitBody": "Auto-Bean-Update-Types:{{#each upgrades}} {{updateType}}{{/each}}",
+  "lockFileMaintenance": {"enabled": true, "schedule": ["before 4am on monday"]},
+  "postUpgradeTasks": {
+    "commands": ["uv run --no-project python scripts/renovate.py prepare --base-ref origin/main"],
+    "executionMode": "branch",
+    "fileFilters": [
+      "plugins/auto-bean/plugin.json",
+      "plugins/auto-bean/runtime/pyproject.toml",
+      "plugins/auto-bean/runtime/uv.lock",
+      "pyproject.toml",
+      "uv.lock",
+      "frontend/import-review/package.json",
+      "frontend/import-review/package-lock.json",
+      "plugins/auto-bean/ui/bundle.html",
+      "plugins/auto-bean/ui/build.json"
+    ]
+  },
+  "packageRules": [
+    {"matchManagers": ["pep621"], "rangeStrategy": "bump"},
+    {"matchPackageNames": ["react", "react-dom", "@types/react", "@types/react-dom"], "groupName": "React"},
+    {"matchPackageNames": ["torch", "torchvision"], "groupName": "PyTorch"},
+    {"matchPackageNames": ["beancount", "harbor", "reportlab"], "addLabels": ["eval-dependencies"]},
+    {"matchFileNames": ["evals/**"], "addLabels": ["eval-dependencies"]},
+    {"matchUpdateTypes": ["major"], "addLabels": ["major-update"]}
+  ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["/^\\.github/workflows/.*\\.yml$/"],
+      "matchStrings": ["--package renovate@(?<currentValue>[0-9.]+)"],
+      "depNameTemplate": "renovate",
+      "datasourceTemplate": "npm"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["/^evals/harbor/environment/Dockerfile$/", "/^evals/harbor/codex\\.yaml$/"],
+      "matchStrings": ["@openai/codex@(?<currentValue>[0-9.]+)", "version: (?<currentValue>[0-9.]+)"],
+      "depNameTemplate": "@openai/codex",
+      "datasourceTemplate": "npm"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["/^evals/harbor/environment/Dockerfile$/"],
+      "matchStrings": ["reportlab==(?<currentValue>[0-9.]+)"],
+      "depNameTemplate": "reportlab",
+      "datasourceTemplate": "pypi"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["/^evals/harbor/environment/Dockerfile$/"],
+      "matchStrings": ["uv python install (?<currentValue>[0-9.]+)"],
+      "depNameTemplate": "python",
+      "datasourceTemplate": "python-version",
+      "versioningTemplate": "pep440"
+    }
+  ]
+}

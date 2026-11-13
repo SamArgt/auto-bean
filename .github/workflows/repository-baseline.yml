@@ -51,6 +51,16 @@ jobs:
           npm --prefix frontend/import-review test
           git diff --exit-code -- plugins/auto-bean/ui
 
+      - name: Set up Node for Renovate validation
+        if: runner.os == 'Linux'
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Validate Renovate configuration
+        if: runner.os == 'Linux'
+        run: npx --yes --package renovate@44.237.3 -- renovate-config-validator --strict renovate.json
+
       - name: Check runtime lock
         run: uv lock --project plugins/auto-bean/runtime --check
 
