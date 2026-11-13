@@ -59,7 +59,7 @@ jobs:
 
       - name: Validate Renovate configuration
         if: runner.os == 'Linux'
-        run: npx --yes --package renovate@44.237.3 -- renovate-config-validator --strict renovate.json
+        run: npx --yes --package renovate@44.238.1 -- renovate-config-validator --strict renovate.json
 
       - name: Check runtime lock
         run: uv lock --project plugins/auto-bean/runtime --check
