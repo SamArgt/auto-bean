@@ -113,6 +113,10 @@ CI reports lockfile, version, and generated UI failures. Renovate also publishes
 `renovate/artifacts` on every update. The merge helper waits for successful commit
 statuses as well as both baseline jobs. Existing App installations must grant
 Commit statuses write permission before enabling this status report.
+The workflow requests each required App permission when it creates the token.
+If the installation lacks a permission, token creation fails before Renovate runs.
+The workflow keeps debug logs and enables Renovate's error-specific exit codes.
+An aborted refresh fails the job and prevents its merge step from running.
 
 ## Validation and recovery
 
@@ -123,6 +127,20 @@ uv run pytest tests/test_renovate.py tests/test_release_workflows.py
 
 If preparation fails, inspect the Renovate workflow log and fix the cause.
 Request a rebase from the Dependency Dashboard to rebuild the PR.
+If the log reports `repository-changed`, inspect the preceding debug error.
+This result can hide an API permission failure; it does not prove that `main` moved.
+A `403` on `repos/.../statuses/...` with `statuses=write` means that the App token
+cannot write commit statuses. Set the App's **Commit statuses** permission to
+**Read and write**, then accept the permission update for its installation.
+Run Renovate again after both settings are updated. Keep artifact status reporting
+enabled so failed preparation continues to block automatic merging.
+
+If Renovate posts an **Edited/Blocked** notice, inspect the branch's manual commits.
+Use the Renovate rebase/retry checkbox only when those changes can be discarded.
+Then run the Renovate workflow, or request the rebase from the Dependency Dashboard.
+GitHub's **Update branch** button adds a human-authored merge commit and can stop
+later automatic rebases. Use Renovate's own rebase request for these branches.
+
 If CI fails, keep the PR open and fix the failure before merging.
 To stop automatic merges, set `RENOVATE_AUTOMERGE=false`.
 To stop all Renovate runs, disable the workflow in GitHub Actions.
