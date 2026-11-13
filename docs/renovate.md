@@ -1,6 +1,8 @@
 # Dependency updates
 
-Renovate runs each hour. It prepares a versioned PR, then waits for CI.
+Renovate runs each Friday at 07:17 UTC, including lockfile maintenance.
+This is 08:17 in Paris in winter and 09:17 in summer.
+It prepares a versioned PR, then waits for CI.
 The merge step checks the actual dependency diff. Labels do not grant permission to merge.
 
 ```mermaid

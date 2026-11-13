@@ -9,7 +9,7 @@
   "separateMajorMinor": true,
   "prConcurrentLimit": 3,
   "commitBody": "Auto-Bean-Update-Types:{{#each upgrades}} {{updateType}}{{/each}}",
-  "lockFileMaintenance": {"enabled": true, "schedule": ["before 4am on monday"]},
+  "lockFileMaintenance": {"enabled": true, "schedule": ["on friday"]},
   "postUpgradeTasks": {
     "commands": ["uv run --no-project python scripts/renovate.py prepare --base-ref origin/main"],
     "executionMode": "branch",
