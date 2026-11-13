@@ -93,7 +93,7 @@ extraction = [
 [package.metadata]
 requires-dist = [
     { name = "beancount", specifier = ">=3,<4" },
-    { name = "beanprice", specifier = ">=2,<3" },
+    { name = "beanprice", specifier = ">=2.1.0,<3" },
     { name = "beanquery", specifier = ">=0.2,<1" },
     { name = "docling", marker = "extra == 'extraction'", specifier = ">=2,<3" },
     { name = "fava", specifier = ">=1,<2" },
