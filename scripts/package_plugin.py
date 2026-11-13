@@ -76,6 +76,24 @@ def validate_plugin(plugin: Path = PLUGIN) -> str:
         raise ValueError("Review UI bundle does not match its build evidence")
     source = ROOT / "frontend/import-review"
     if plugin.resolve() == PLUGIN.resolve():
+        development = tomllib.loads((ROOT / "pyproject.toml").read_text())
+        dev_lock = tomllib.loads((ROOT / "uv.lock").read_text())
+        dev_package = next(
+            item for item in dev_lock["package"] if item["name"] == "auto-bean-dev"
+        )
+        frontend = json.loads((source / "package.json").read_text())
+        frontend_lock = json.loads((source / "package-lock.json").read_text())
+        if any(
+            value != version
+            for value in (
+                development["project"]["version"],
+                dev_package["version"],
+                frontend["version"],
+                frontend_lock["version"],
+                frontend_lock["packages"][""]["version"],
+            )
+        ):
+            raise ValueError("Development or frontend release versions disagree")
         expected_inputs = {
             "package.json",
             "package-lock.json",

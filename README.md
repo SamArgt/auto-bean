@@ -82,6 +82,11 @@ Every PR must increase `plugins/auto-bean/plugin.json` above its base version.
 Use a stable `major.minor.patch` version. Update the runtime, frontend,
 development metadata and lockfiles together, then rebuild the UI.
 
+Renovate prepares patch bumps and UI builds for dependency PRs. It can merge
+minor and patch updates after both CI platforms pass. Major updates and direct
+eval dependency changes require manual merge. See the [dependency update flow
+and setup guide](docs/renovate.md).
+
 After a merge to `main`, both CI platforms must pass. CI then tags that tested
 commit as `v<version>` and publishes `auto-bean-<version>.zip` in a GitHub Release.
 `repository-baseline.yml` calls `publish-plugin.yml` directly after CI.
