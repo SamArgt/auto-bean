@@ -1,6 +1,6 @@
 [project]
 name = "auto-bean-runtime"
-version = "0.2.13"
+version = "0.2.14"
 requires-python = ">=3.13,<3.14"
 dependencies = [
     "beancount>=3.2.3,<4",
