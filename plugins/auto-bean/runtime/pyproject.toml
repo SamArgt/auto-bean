@@ -1,6 +1,6 @@
 [project]
 name = "auto-bean-runtime"
-version = "0.2.12"
+version = "0.2.13"
 requires-python = ">=3.13,<3.14"
 dependencies = [
     "beancount>=3.2.3,<4",
@@ -14,7 +14,7 @@ dependencies = [
 
 [project.optional-dependencies]
 extraction = [
-    "docling>=2,<3",
+    "docling>=2.150.0,<3",
     "torch",
     "torchvision",
 ]
