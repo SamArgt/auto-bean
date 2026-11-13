@@ -4,6 +4,9 @@ Renovate runs daily at 07:17 UTC. Lockfile maintenance runs on Fridays.
 This is 08:17 in Paris in winter and 09:17 in summer.
 Renovate allows up to five open PRs. Its default limit of two new PRs per hour still applies.
 It prepares a versioned PR, then waits for CI.
+After each merge, a successful Repository Baseline run on `main` starts a full
+Renovate refresh. This rebases remaining PRs, recalculates their plugin versions,
+and rebuilds the UI. The refresh also runs while automatic merging is disabled.
 When Repository Baseline succeeds for a Renovate PR in this repository, it
 triggers the merge check immediately. This check does not scan dependencies.
 Failed CI, fork PRs, and disabled automatic merging do not start the merge job.
@@ -24,6 +27,8 @@ flowchart TD
     I --> J{Both platforms pass?}
     J -- Yes --> K[Tag tested commit and publish plugin]
     J -- No --> L[Stop publication]
+    K --> R[Main workflow succeeds: run Renovate]
+    R --> B
 ```
 
 ## Merge rules
@@ -43,9 +48,11 @@ packages such as Beancount. It also checks lockfile-only maintenance PRs.
 Renovate writes update types into its commit message. The merge step accepts
 one App-authored commit, checks its diff, and requires both current CI results.
 It merges at most one PR per run. Other PRs must rebase before their next merge.
-A stale PR waits for the next daily refresh or a manual Renovate run.
-The completion trigger uses the helper from `main` and rechecks current PR
-heads and CI results. It does not execute code or download artifacts from the PR.
+Successful `main` CI starts the next refresh automatically. Daily and manual
+runs provide a fallback if that refresh does not run.
+The PR completion trigger uses the helper from `main` and rechecks current PR
+heads and CI results. That merge-only run does not execute code or download
+artifacts from the PR. The main completion trigger runs the full preparation flow.
 
 The preparation helper uses the base plugin version plus one patch increment.
 It updates all local release versions without re-resolving dependencies.
