@@ -1,6 +1,6 @@
 [project]
 name = "auto-bean-dev"
-version = "0.2.12"
+version = "0.2.13"
 description = "Development tooling for the auto-bean Codex plugin."
 requires-python = ">=3.13,<3.14"
 dependencies = []

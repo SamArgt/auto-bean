@@ -4,6 +4,8 @@ on:
   schedule:
     - cron: "17 7 * * *" # Daily at 07:17 UTC.
   workflow_dispatch:
+  issues:
+    types: [edited]
   workflow_run:
     workflows: [Repository Baseline]
     types: [completed]
@@ -12,14 +14,37 @@ on:
 permissions:
   contents: read
 
-concurrency:
-  group: renovate
-  cancel-in-progress: false
-
 jobs:
-  update:
+  dashboard-request:
     if: >-
-      github.ref == 'refs/heads/main' && vars.RENOVATE_APP_ID != '' &&
+      github.event_name == 'issues' && vars.RENOVATE_APP_ID != '' &&
+      github.event.issue.user.login == 'auto-bean-renovate[bot]' &&
+      github.event.issue.title == 'Dependency Dashboard' &&
+      github.event.issue.state == 'open' &&
+      github.event.sender.login == github.repository_owner &&
+      github.event.changes.body.from != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      requested: ${{ steps.dashboard.outputs.requested }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - uses: astral-sh/setup-uv@v6
+      - name: Detect a newly checked dashboard action
+        id: dashboard
+        run: uv run --no-project python scripts/renovate.py dashboard-request
+
+  update:
+    needs: dashboard-request
+    if: >-
+      !cancelled() && github.ref == 'refs/heads/main' && vars.RENOVATE_APP_ID != '' &&
+      (github.event_name != 'issues' || needs.dashboard-request.outputs.requested == 'true') &&
       (github.event_name != 'workflow_run' ||
        (github.event.workflow_run.conclusion == 'success' &&
         github.event.workflow_run.head_repository.full_name == github.repository &&
@@ -30,6 +55,11 @@ jobs:
           startsWith(github.event.workflow_run.head_branch, 'renovate/')))))
     runs-on: ubuntu-latest
     timeout-minutes: 55
+    # Filter issue edits before entering the shared queue. Bot updates must not
+    # replace a pending refresh. The latest refresh reads all checked requests.
+    concurrency:
+      group: renovate
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@v4
         with:

@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "inputs": {
-    "package.json": "e41373e3d29ce943bc31ae08fada5432efa40ccb4f85e297e1155417cabf4a78",
-    "package-lock.json": "7edfce73d9a673c192aa50d27a8485bdbaaba8204413e48579991b87513519f4",
+    "package.json": "311f9736acf9eca18f36cf52c65ff727ad1d9de52681958195aab75439c0b3ca",
+    "package-lock.json": "43845b07c2a7da3cc78e7efd9e51fc62122090380b53efe050001eda1b12cf29",
     "tsconfig.json": "f253b3e17bdca47759a8a0f17ff5740ca35cc0f7f69baa88d50c7c20b6bbbb1d",
     "build.mjs": "771ecaa646eaaa92d87c80b51fab191afeacf5da115cef106927af821d4b0169",
     "src/Review.tsx": "622b6b60cc664942124c79677e78f1bdaca14ec76409a6aa9851819c875a9699",
@@ -20,5 +20,5 @@
     "src/suggestions.ts": "13b4bbaa018d093c674ae4e5414fb44a6afaf00c788448c500a6aafed0e3a891",
     "src/types.ts": "a2fbc56f172ae21609d6161ec2879a19cbbb8258c09e2d498483327bb0869c5a"
   },
-  "bundle_sha256": "3cc44652a702dc9bd1be183dc6b4d44a64fea7d5b8f56970e265c52e02bf6d4e"
+  "bundle_sha256": "ce23086e047d38654b75d6c72c3f7ae4aaf7ec94113a56911c31445453ee0f71"
 }

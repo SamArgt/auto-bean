@@ -25,6 +25,22 @@ CHECKS = {"quality-baseline (ubuntu-latest)", "quality-baseline (macos-latest)"}
 SAFE_TYPES = {"minor", "patch", "pin", "pinDigest", "digest", "lockFileMaintenance"}
 
 
+def dashboard_requested(event: dict[str, Any]) -> bool:
+    """Accept new checked Renovate actions, not text edits or unchecked boxes."""
+    previous = event.get("changes", {}).get("body", {}).get("from")
+    current = event.get("issue", {}).get("body")
+    if not isinstance(previous, str) or not isinstance(current, str):
+        return False
+    pattern = re.compile(
+        r"(?m)^\s*- \[([ xX])\] <!-- "
+        r"((?:unlimit-branch|rebase-branch|approve-branch|approvePr-branch)=\S+|"
+        r"create-all-rate-limited-prs|rebase-all-open-prs|approve-all-pending-prs) -->"
+    )
+    unchecked = {action for state, action in pattern.findall(previous) if state == " "}
+    checked = {action for state, action in pattern.findall(current) if state != " "}
+    return bool(unchecked & checked)
+
+
 def command(*args: str) -> str:
     return subprocess.check_output(args, text=True).strip()
 
@@ -320,9 +336,16 @@ def main() -> None:
     preparation = commands.add_parser("prepare")
     preparation.add_argument("--base-ref", required=True)
     commands.add_parser("merge")
+    commands.add_parser("dashboard-request")
     args = parser.parse_args()
     if args.action == "prepare":
         prepare(args.base_ref)
+    elif args.action == "dashboard-request":
+        requested = dashboard_requested(
+            json.loads(Path(os.environ["GITHUB_EVENT_PATH"]).read_text())
+        )
+        with Path(os.environ["GITHUB_OUTPUT"]).open("a") as output:
+            output.write(f"requested={str(requested).lower()}\n")
     else:
         merge()
 
