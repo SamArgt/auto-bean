@@ -43,7 +43,8 @@ jobs:
   update:
     needs: dashboard-request
     if: >-
-      !cancelled() && github.ref == 'refs/heads/main' && vars.RENOVATE_APP_ID != '' &&
+      !cancelled() && github.event_name == 'workflow_dispatch' &&
+      github.ref == 'refs/heads/codex/fix-renovate-rebases' && vars.RENOVATE_APP_ID != '' &&
       (github.event_name != 'issues' || needs.dashboard-request.outputs.requested == 'true') &&
       (github.event_name != 'workflow_run' ||
        (github.event.workflow_run.conclusion == 'success' &&
@@ -92,6 +93,8 @@ jobs:
       - name: Update dependencies and prepare PRs
         if: github.event_name != 'workflow_run' || github.event.workflow_run.event == 'push'
         env:
+          LOG_LEVEL: debug
+          RENOVATE_EXIT_CODE_FOR_ERRORS: "true"
           RENOVATE_TOKEN: ${{ steps.app.outputs.token }}
           RENOVATE_GIT_AUTHOR: ${{ steps.identity.outputs.author }}
           RENOVATE_PLATFORM: github
@@ -101,7 +104,7 @@ jobs:
           RENOVATE_ALLOWED_COMMANDS: '["^uv run --no-project python scripts/renovate\\.py prepare --base-ref origin/main$"]'
         run: npx --yes --package renovate@44.238.1 -- renovate "$GITHUB_REPOSITORY"
       - name: Merge eligible PRs
-        if: vars.RENOVATE_AUTOMERGE == 'true'
+        if: false
         env:
           GH_TOKEN: ${{ steps.app.outputs.token }}
           RENOVATE_BOT: ${{ steps.app.outputs.app-slug }}[bot]
