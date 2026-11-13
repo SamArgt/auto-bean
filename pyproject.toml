@@ -1,6 +1,6 @@
 [project]
 name = "auto-bean-dev"
-version = "0.2.28"
+version = "0.2.29"
 description = "Development tooling for the auto-bean Codex plugin."
 requires-python = ">=3.13,<3.14"
 dependencies = []
@@ -18,7 +18,7 @@ dev = [
     "types-pyyaml>=6.0.12.20261113,<7",
     "jsonschema>=4.26.0,<5",
     "types-jsonschema>=4.26.0.20261006,<5",
-    "mcp>=1.30,<2",
+    "mcp>=2.3.0,<3",
 ]
 eval = [
     "beancount>=3.2.3",
