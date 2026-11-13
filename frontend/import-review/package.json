@@ -1,7 +1,7 @@
 {
   "name": "auto-bean-import-review",
   "private": true,
-  "version": "0.2.6",
+  "version": "0.2.7",
   "type": "module",
   "scripts": {
     "build:demo": "tsc --noEmit && node build.mjs --demo",
@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/ext-apps": "1.7.5",
-    "@openai/mcp-extensions": "0.2.0",
+    "@openai/mcp-extensions": "0.2.1",
     "react": "19.3.1",
     "react-dom": "19.3.1"
   },
