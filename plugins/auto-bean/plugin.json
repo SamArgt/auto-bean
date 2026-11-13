@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "auto-bean",
-  "version": "0.2.21",
+  "version": "0.2.22",
   "description": "Initialize and operate local Beancount ledgers through Codex.",
   "author": {
     "name": "SamArgt"
