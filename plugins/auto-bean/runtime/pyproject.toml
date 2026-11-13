@@ -1,6 +1,6 @@
 [project]
 name = "auto-bean-runtime"
-version = "0.2.7"
+version = "0.2.8"
 requires-python = ">=3.13,<3.14"
 dependencies = [
     "beancount>=3,<4",
@@ -8,7 +8,7 @@ dependencies = [
     "fava>=1,<2",
     "beanprice>=2,<3",
     "jsonschema>=4,<5",
-    "pyyaml>=6,<7",
+    "pyyaml>=6.0.3,<7",
     "mcp>=1.30,<2",
 ]
 
