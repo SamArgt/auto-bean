@@ -18,7 +18,7 @@ COPY plugins/auto-bean/runtime /opt/auto-bean-marketplace/plugins/auto-bean/runt
 COPY plugins/auto-bean/assets /opt/auto-bean-marketplace/plugins/auto-bean/assets
 COPY evals/harbor/fixtures.py /opt/evals/harbor/fixtures.py
 COPY evals/harbor/environment/prefetch.py /tmp/prefetch.py
-RUN uv python install 3.13.12
+RUN uv python install 3.15.2
 RUN uv run --no-project --python 3.13 --with reportlab==5.1.0 python -c "from pathlib import Path; from evals.harbor.fixtures import raw_inputs; raw_inputs(Path('/opt/raw-fixtures'))"
 
 FROM ledger-base AS extraction-cache
