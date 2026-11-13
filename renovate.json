@@ -9,7 +9,7 @@
   "statusCheckWhen": {"artifactError": "never"},
   "rebaseWhen": "behind-base-branch",
   "separateMajorMinor": true,
-  "prConcurrentLimit": 3,
+  "prConcurrentLimit": 5,
   "commitBody": "Auto-Bean-Update-Types:{{#each upgrades}} {{updateType}}{{/each}}",
   "lockFileMaintenance": {"enabled": true, "schedule": ["on friday"]},
   "postUpgradeTasks": {
