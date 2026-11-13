@@ -28,7 +28,7 @@ jobs:
     outputs:
       requested: ${{ steps.dashboard.outputs.requested }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: main
           persist-credentials: false
@@ -61,7 +61,7 @@ jobs:
       group: renovate
       cancel-in-progress: false
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           # Run the trusted merge helper, never code from the triggering PR.
           ref: main
