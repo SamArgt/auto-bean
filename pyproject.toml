@@ -1,6 +1,6 @@
 [project]
 name = "auto-bean-dev"
-version = "0.2.18"
+version = "0.2.19"
 description = "Development tooling for the auto-bean Codex plugin."
 requires-python = ">=3.13,<3.14"
 dependencies = []
@@ -12,7 +12,7 @@ package = false
 dev = [
     "beancount>=3.2.3",
     "mypy>=1.18.2,<2",
-    "pytest>=7.4,<9",
+    "pytest>=7.4.4,<9",
     "ruff>=0.15.2,<0.16",
     "pyyaml>=6.0.3,<7",
     "types-pyyaml>=6.0.12.20261113,<7",
