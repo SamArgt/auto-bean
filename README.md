@@ -87,15 +87,16 @@ minor and patch updates after both CI platforms pass. Major updates and direct
 eval dependency changes require manual merge. See the [dependency update flow
 and setup guide](docs/renovate.md).
 
-After a merge to `main`, both CI platforms must pass. CI then tags that tested
-commit as `v<version>` and publishes `auto-bean-<version>.zip` in a GitHub Release.
-`repository-baseline.yml` calls `publish-plugin.yml` directly after CI.
+Both CI platforms run on PRs. Branch protection must require both checks and
+an up-to-date branch before merge. After a merge to `main`,
+`repository-baseline.yml` calls `publish-plugin.yml` without repeating the checks.
+It builds the package, tags the merged commit as `v<version>`, and publishes
+`auto-bean-<version>.zip` in a GitHub Release.
 This is the only release flow. Pushing a tag does not trigger a release.
 
 Rerun a failed release job to resume an incomplete draft. Existing published
 releases are left unchanged. A tag that points to another commit causes a failure;
-increase the version instead of moving the tag. The first automatic release runs
-after these workflows merge to `main` and that commit passes CI.
+increase the version instead of moving the tag.
 
 ### Parsed schemas
 

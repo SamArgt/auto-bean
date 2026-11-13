@@ -11,6 +11,7 @@ permissions:
 
 jobs:
   quality-baseline:
+    if: github.event_name == 'pull_request'
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
@@ -83,7 +84,7 @@ jobs:
         run: uv run python scripts/smoke_plugin.py
 
   release:
-    needs: quality-baseline
+    # Branch protection requires both PR checks on an up-to-date branch.
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     permissions:
       contents: write

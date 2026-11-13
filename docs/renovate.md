@@ -28,11 +28,9 @@ flowchart TD
     M --> F{Major, direct eval, or unknown change?}
     F -- Yes --> G[Human reviews and merges]
     F -- No --> H[Automatically merge]
-    G --> I[Run main CI]
+    G --> I[Build plugin on main]
     H --> I
-    I --> J{Both platforms pass?}
-    J -- Yes --> K[Tag tested commit and publish plugin]
-    J -- No --> L[Stop publication]
+    I --> K[Tag merged commit and publish plugin]
     K --> R[Main workflow succeeds: run Renovate]
     R --> B
 ```
@@ -54,7 +52,7 @@ packages such as Beancount. It also checks lockfile-only maintenance PRs.
 Renovate writes update types into its commit message. The merge step accepts
 one App-authored commit, checks its diff, and requires both current CI results.
 It merges at most one PR per run. Other PRs must rebase before their next merge.
-Successful `main` CI starts the next refresh automatically. Daily and manual
+Successful publication on `main` starts the next refresh automatically. Daily and manual
 runs provide a fallback if that refresh does not run.
 The PR completion trigger uses the helper from `main` and rechecks current PR
 heads and CI results. That merge-only run does not execute code or download
@@ -89,7 +87,7 @@ Human-authored PRs can still choose a higher minor or major release version.
    after the replacement rules are active. GitHub's native auto-merge can stay off.
 8. Set `RENOVATE_AUTOMERGE=true`. The next successful Renovate PR CI run or
    manual Renovate run can merge an eligible PR.
-   Verify that the merge starts main CI and that publication follows its success.
+   Verify that the merge publishes the plugin without repeating the PR checks.
 
 The workflow skips runs until the App ID is configured. An App token ensures
 that bot writes and merges start CI. The App cannot bypass the required checks.
