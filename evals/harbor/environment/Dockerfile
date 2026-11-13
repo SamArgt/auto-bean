@@ -41,7 +41,7 @@ COPY --from=frontend /build/plugins/auto-bean/ui/ /opt/auto-bean-marketplace/plu
 COPY .agents/plugins/marketplace.json /opt/auto-bean-marketplace/.agents/plugins/marketplace.json
 COPY evals/harbor/probe_plugin.py evals/harbor/capture.py /opt/evals/harbor/
 COPY evals/harbor/environment/setup_import.py /opt/evals/harbor/setup_import.py
-RUN npm install -g --cache /tmp/npm-cache @openai/codex@0.163.0 && codex --version && rm -rf /tmp/npm-cache
+RUN npm install -g --cache /tmp/npm-cache @openai/codex@0.169.0 && codex --version && rm -rf /tmp/npm-cache
 RUN --mount=type=cache,id=auto-bean-ledger-dependencies,target=/opt/uv-cache codex plugin marketplace add /opt/auto-bean-marketplace && codex plugin add auto-bean@auto-bean --json && uv run --no-project --python 3.13 /opt/evals/harbor/probe_plugin.py && cp -a /opt/uv-cache /opt/dependency-cache && rm -rf /root/.codex /root/.cache/auto-bean-service
 ENV UV_CACHE_DIR=/opt/dependency-cache
 RUN uv run --no-project --python 3.13 /opt/evals/harbor/capture.py --phase metadata && chmod -R a-w /opt/auto-bean-marketplace
