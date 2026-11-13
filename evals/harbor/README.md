@@ -16,7 +16,8 @@ uv run --group eval harbor run --config evals/harbor/codex.yaml \
 
 - [codex.yaml](codex.yaml) selects all four tasks, one attempt, `gpt-6.1-sol`, and Codex CLI `0.163.0`.
 - Each task requests 2 CPUs, 8 GiB of memory, and 20 GiB of storage. The command overrides the configured concurrency of four to fit an 8 GiB Docker VM.
-- Initial builds download runtime dependencies and PDF models. Later builds reuse cached layers.
+- Initial builds download runtime dependencies and PDF models. Each input has a 900-second preparation limit to allow first-use downloads.
+- A persistent BuildKit cache keeps Hugging Face models across rebuilds, including failed builds. The build also copies the models into the agent image. A new Docker builder starts with an empty cache.
 - `CODEX_FORCE_AUTH_JSON=1` uses the existing `~/.codex/auth.json` sign-in. Keep it in the host environment, not `agents[].env`, to avoid Harbor's artifact-redaction bug.
 - Use an absolute jobs directory. Add `-p evals/harbor/tasks/init-ledger` to run only that task.
 

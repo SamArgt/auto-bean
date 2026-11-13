@@ -23,8 +23,17 @@ RUN uv run --no-project --python 3.13 --with reportlab==5.1.0 python -c "from pa
 
 FROM ledger-base AS extraction-cache
 # Keep one reusable dependency cache, not the disposable extraction environment.
+# Preserve model downloads across failed builds. Copy them out of the mount
+# so the final image includes the models without access to the build cache.
 # Remove temporary environments in this layer so their bytes never enter images.
-RUN --mount=type=cache,target=/opt/uv-cache sh /opt/auto-bean-marketplace/plugins/auto-bean/runtime/launch.sh init --workspace /opt/warm-ledger && sh /opt/auto-bean-marketplace/plugins/auto-bean/runtime/launch.sh ensure-runtime --workspace /opt/warm-ledger --extraction && uv run --no-project --python 3.13 /tmp/prefetch.py && cp -a /opt/uv-cache /opt/dependency-cache && rm -rf /opt/warm-ledger
+RUN --mount=type=cache,target=/opt/uv-cache \
+    --mount=type=cache,id=auto-bean-harbor-huggingface,target=/root/.cache/huggingface,sharing=locked \
+    sh /opt/auto-bean-marketplace/plugins/auto-bean/runtime/launch.sh init --workspace /opt/warm-ledger \
+    && sh /opt/auto-bean-marketplace/plugins/auto-bean/runtime/launch.sh ensure-runtime --workspace /opt/warm-ledger --extraction \
+    && uv run --no-project --python 3.13 /tmp/prefetch.py \
+    && cp -a /root/.cache /opt/model-cache \
+    && cp -a /opt/uv-cache /opt/dependency-cache \
+    && rm -rf /opt/warm-ledger
 
 FROM ledger-base AS base
 COPY plugins/auto-bean /opt/auto-bean-marketplace/plugins/auto-bean
@@ -43,7 +52,7 @@ FROM base AS init-ledger
 
 FROM base AS import-two-statements
 COPY --from=extraction-cache /opt/dependency-cache/ /opt/dependency-cache/
-COPY --from=extraction-cache /root/.cache/ /root/.cache/
+COPY --from=extraction-cache /opt/model-cache/ /root/.cache/
 RUN uv run --no-project --python 3.13 --with reportlab==5.1.0 /opt/evals/harbor/setup_import.py
 
 FROM ledger-base AS verifier
