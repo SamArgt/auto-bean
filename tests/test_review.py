@@ -37,7 +37,7 @@ def save(store: ReviewFiles, path: str, document: dict[str, Any]) -> None:
     target = store.root / path
     target.parent.mkdir(parents=True, exist_ok=True)
     if "source_file" in document:
-        group = (
+        group: dict[str, Any] = (
             json.loads(target.read_text())
             if target.exists()
             else {"schema_version": 2, "group_id": "review", "statements": []}

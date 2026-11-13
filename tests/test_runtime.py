@@ -3,6 +3,7 @@ from __future__ import annotations
 import shutil
 import os
 import platform
+import subprocess
 from collections.abc import Callable
 from pathlib import Path
 
@@ -10,6 +11,30 @@ import pytest
 
 from auto_bean import common, runtime
 from auto_bean.common import WorkflowError, atomic_write, json_bytes, workspace
+
+
+def test_launcher_uses_bundled_python_pin(tmp_path: Path) -> None:
+    bundled = tmp_path / "installed plugin/runtime"
+    bundled.mkdir(parents=True)
+    shutil.copyfile(common.PLUGIN / "runtime/launch.sh", bundled / "launch.sh")
+    (bundled / ".python-version").write_text("3.15.2\n")
+    (tmp_path / ".python-version").write_text("3.13\n")
+    binaries = tmp_path / "bin"
+    binaries.mkdir()
+    uv = binaries / "uv"
+    uv.write_text('#!/bin/sh\nprintf "%s\\n" "$@"\n')
+    uv.chmod(0o755)
+    result = subprocess.run(
+        ["sh", str(bundled / "launch.sh"), "--help"],
+        cwd=tmp_path,
+        env={**os.environ, "PATH": str(binaries) + os.pathsep + os.environ["PATH"]},
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    args = result.stdout.splitlines()
+    assert args[args.index("--python") + 1] == "3.15.2"
+    assert args[-2:] == [str(bundled / "bootstrap.py"), "--help"]
 
 
 @pytest.fixture

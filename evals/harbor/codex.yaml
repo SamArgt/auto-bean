@@ -9,7 +9,5 @@ agents:
     import_path: evals.harbor.adapter:AutoBeanCodex
     model_name: gpt-6.1-sol
     resume_trajectory: true
-    kwargs:
-      version: 0.163.0
 datasets:
   - path: evals/harbor/tasks

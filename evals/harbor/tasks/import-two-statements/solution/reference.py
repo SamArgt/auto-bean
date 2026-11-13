@@ -44,7 +44,7 @@ def read_statement(root: Path, source: str) -> dict[str, Any]:
 
 def save_statement(root: Path, source: str, data: dict[str, Any]) -> None:
     path = parsed_path(root, source)
-    group = (
+    group: dict[str, Any] = (
         load_state(path)
         if path.exists()
         else {"schema_version": 2, "group_id": "january", "statements": []}

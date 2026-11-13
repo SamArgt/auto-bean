@@ -75,6 +75,7 @@ def replace_version(path: str, pattern: str, version: str) -> None:
 
 
 def prepare(base_ref: str) -> None:
+    sync_python()
     base = git("rev-parse", "--verify", f"{base_ref}^{{commit}}")
     major, minor, patch = semver(json.loads(read_at(base, MANIFEST))["version"])
     version = f"{major}.{minor}.{patch + 1}"
@@ -92,9 +93,51 @@ def prepare(base_ref: str) -> None:
         if "packages" in data:
             data["packages"][""]["version"] = version
         write_json(path, data)
-    subprocess.run(["npm", "--prefix", FRONTEND, "ci", "--ignore-scripts"], check=True)
-    subprocess.run(["npm", "--prefix", FRONTEND, "run", "build"], check=True)
+    # Lock after all declarations and release versions are in sync. Do not use
+    # --upgrade: keep Renovate's unrelated resolved versions.
+    for project in (".", RUNTIME):
+        subprocess.run(["uv", "lock", "--project", project], check=True)
+    package = json.loads(Path(f"{FRONTEND}/package.json").read_text())
+    manager = package["packageManager"]
+    if not re.fullmatch(r"npm@\d+\.\d+\.\d+", manager):
+        raise ValueError("The frontend must select an exact npm version")
+    npm = ["npx", "--yes", "--package", manager, "--", "npm", "--prefix", FRONTEND]
+    subprocess.run(
+        [*npm, "install", "--package-lock-only", "--ignore-scripts"], check=True
+    )
+    subprocess.run([*npm, "ci", "--ignore-scripts"], check=True)
+    subprocess.run([*npm, "run", "build"], check=True)
+    subprocess.run([*npm, "test"], check=True)
     print(f"Prepared plugin {version} above {base}.")
+
+
+def sync_python() -> None:
+    """Use the root Python requirement for every executable Python pin."""
+    project = tomllib.loads(Path("pyproject.toml").read_text())
+    requirement = project["project"]["requires-python"]
+    match = re.fullmatch(r">=(\d+\.\d+(?:\.\d+)?),\s*<\d+\.\d+", requirement)
+    if not match:
+        raise ValueError(f"Unsupported Python requirement: {requirement}")
+    version = match[1]
+    minor = ".".join(version.split(".")[:2])
+    replace_version(
+        f"{RUNTIME}/pyproject.toml",
+        r'(?m)(^requires-python = ")[^"]+("$)',
+        requirement,
+    )
+    for path in (".python-version", f"{RUNTIME}/.python-version"):
+        Path(path).write_text(version + "\n")
+    replace_version("pyproject.toml", r'(?m)(^python_version = ")[^"]+("$)', minor)
+    replace_version(
+        "pyproject.toml",
+        r'(?m)(^target-version = ")[^"]+("$)',
+        "py" + minor.replace(".", ""),
+    )
+    replace_version(
+        "evals/harbor/environment/Dockerfile",
+        r"(?m)(^ENV UV_PYTHON=)[^\n]+($)",
+        version,
+    )
 
 
 def normalized(name: str) -> str:
@@ -311,6 +354,9 @@ def merge() -> None:
         runs = api(f"{endpoint}/commits/{head}/check-runs?per_page=100")["check_runs"]
         if not checks_pass(runs, head):
             print(f"PR #{number}: waiting for both baseline checks.")
+            continue
+        if api(f"{endpoint}/commits/{head}/status")["state"] != "success":
+            print(f"PR #{number}: waiting for dependency preparation status.")
             continue
         # GitHub also enforces the strict checks ruleset at merge time.
         if api(f"{endpoint}/commits/main")["sha"] != base:

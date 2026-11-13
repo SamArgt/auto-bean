@@ -58,17 +58,35 @@ The PR completion trigger uses the helper from `main` and rechecks current PR
 heads and CI results. That merge-only run does not execute code or download
 artifacts from the PR. The main completion trigger runs the full preparation flow.
 
-The preparation helper uses the base plugin version plus one patch increment.
-It updates all local release versions without re-resolving dependencies.
-It then builds the UI. Repeated runs against the same base produce the same files.
+The preparation helper runs at the repository root for every update, including
+workflow-only updates. It uses the base plugin version plus one patch increment.
+It updates all local release versions and refreshes both Python lockfiles without
+requesting unrelated upgrades. It repairs the frontend lockfile, performs a clean
+install, builds the UI, and runs its tests. CI, preparation, and the Docker frontend
+use Node 26 and the npm version in `frontend/import-review/package.json`.
 Human-authored PRs can still choose a higher minor or major release version.
+
+The root `project.requires-python` is the source for Python upgrades. Preparation
+copies its requirement to the runtime project. It updates both `.python-version`
+files, the Docker Python selection, and the mypy and Ruff targets. CI reads the
+root pin. The packaged launcher reads the bundled runtime pin. Python upgrades
+can cross minor versions; they still need compatible dependencies and passing CI.
+
+Codex has no fixed version in this repository. A fresh agent-image install uses
+`@openai/codex@latest`. Harbor uses that installed CLI. Docker can reuse a cached
+installation; rebuild without that layer's cache to refresh it. Evaluation metadata
+records the installed version. Historical reports keep their original versions.
+
+Ruff selects `E4`, `E7`, `E9`, and `F` explicitly. A Ruff upgrade does not silently
+adopt a new default rule set. Both CI platforms finish independently. After setup,
+independent checks still run when another check fails. Each failure keeps the job red.
 
 ## First setup
 
 1. Register a private GitHub App named `Auto Bean Renovate` under the repository
    owner's account. Use the repository URL as its homepage. Disable webhooks.
 2. Give the App these repository permissions: Contents, Pull requests, Issues,
-   and Workflows read/write; Checks and Commit statuses read. Metadata read is implicit.
+   Workflows, and Commit statuses read/write; Checks read. Metadata read is implicit.
 3. Install the App on **only** `SamArgt/auto-bean`. Generate a private key.
 4. Store the App ID in the Actions variable `RENOVATE_APP_ID`.
    Store the key in the Actions secret `RENOVATE_APP_PRIVATE_KEY`.
@@ -91,8 +109,10 @@ Human-authored PRs can still choose a higher minor or major release version.
 
 The workflow skips runs until the App ID is configured. An App token ensures
 that bot writes and merges start CI. The App cannot bypass the required checks.
-CI reports lockfile, version, and generated UI failures. Renovate reports its
-preparation errors in its log; it does not need permission to write commit statuses.
+CI reports lockfile, version, and generated UI failures. Renovate also publishes
+`renovate/artifacts` on every update. The merge helper waits for successful commit
+statuses as well as both baseline jobs. Existing App installations must grant
+Commit statuses write permission before enabling this status report.
 
 ## Validation and recovery
 

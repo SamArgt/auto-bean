@@ -10,8 +10,6 @@ from harbor.agents.installed.codex import Codex
 from harbor.environments.base import BaseEnvironment
 from harbor.models.agent.context import AgentContext
 
-CODEX_VERSION = "0.163.0"
-
 
 class AutoBeanCodex(Codex):  # type: ignore[misc]
     """Harbor removes CODEX_HOME after every turn, including between steps."""
@@ -43,7 +41,7 @@ class AutoBeanCodex(Codex):  # type: ignore[misc]
         await self.exec_as_agent(
             environment,
             command=(
-                "uv run --no-project --python 3.13 /opt/evals/harbor/capture.py "
+                "uv run --no-project /opt/evals/harbor/capture.py "
                 f"--phase {phase} --logs {shlex.quote(self.environment_logs_dir.as_posix())}"
             ),
             timeout_sec=150,
@@ -88,7 +86,7 @@ class AutoBeanCodex(Codex):  # type: ignore[misc]
                 "set -euo pipefail; "
                 "codex plugin marketplace add /opt/auto-bean-marketplace >/dev/null; "
                 "codex plugin add auto-bean@auto-bean --json >/dev/null; "
-                "uv run --no-project --python 3.13 /opt/evals/harbor/probe_plugin.py"
+                "uv run --no-project /opt/evals/harbor/probe_plugin.py"
             ),
             env={"CODEX_HOME": self._REMOTE_CODEX_HOME.as_posix()},
             timeout_sec=90,

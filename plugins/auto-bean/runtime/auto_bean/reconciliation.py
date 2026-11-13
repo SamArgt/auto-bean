@@ -258,18 +258,21 @@ def check_directives(
                     ):
                         continue
                     if isinstance(expected, Open):
+                        assert isinstance(actual, Open)
                         matched = (
                             actual.account == expected.account
                             and actual.currencies == expected.currencies
                             and actual.booking == expected.booking
                         )
                     elif isinstance(expected, Balance):
+                        assert isinstance(actual, Balance)
                         matched = (
                             actual.account == expected.account
                             and actual.amount == expected.amount
                             and actual.tolerance == expected.tolerance
                         )
                     elif isinstance(expected, Document):
+                        assert isinstance(actual, Document)
                         target = Path(expected.filename)
                         if not target.is_absolute():
                             target = root / target
@@ -287,6 +290,7 @@ def check_directives(
                                 "Document directives must stay within the selected workspace."
                             )
                     elif isinstance(expected, Transaction):
+                        assert isinstance(actual, Transaction)
                         try:
                             wanted = Counter(_posting_key(p) for p in expected.postings)
                             matched = (

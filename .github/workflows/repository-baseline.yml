@@ -13,6 +13,7 @@ jobs:
   quality-baseline:
     if: github.event_name == 'pull_request'
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.os }}
@@ -26,61 +27,75 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.13"
+          python-version-file: ".python-version"
 
       - name: Set up uv
         uses: astral-sh/setup-uv@v10.3.3
 
       - name: Sync development dependencies
+        id: dependencies
         run: uv sync --locked --group dev --group eval
 
       - name: Require a plugin version increase
-        if: github.event_name == 'pull_request'
+        if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: uv run python scripts/check_plugin_version.py --base-ref "$BASE_SHA"
 
       - name: Set up Node for frontend checks
+        id: node
+        if: ${{ !cancelled() }}
         uses: actions/setup-node@v4
         with:
           node-version: "26"
+
+      - name: Install frontend dependencies
+        id: frontend
+        if: ${{ !cancelled() && steps.node.outcome == 'success' }}
+        run: |
+          npm install -g "$(node -p "require('./frontend/import-review/package.json').packageManager")"
+          npm --prefix frontend/import-review ci --ignore-scripts
 
       - name: Verify bundled review UI
+        if: ${{ !cancelled() && steps.frontend.outcome == 'success' }}
         run: |
-          npm --prefix frontend/import-review ci
           npm --prefix frontend/import-review run build
-          npm --prefix frontend/import-review test
           git diff --exit-code -- plugins/auto-bean/ui
 
-      - name: Set up Node for Renovate validation
-        if: runner.os == 'Linux'
-        uses: actions/setup-node@v4
-        with:
-          node-version: "26"
+      - name: Frontend tests
+        if: ${{ !cancelled() && steps.frontend.outcome == 'success' }}
+        run: npm --prefix frontend/import-review test
 
       - name: Validate Renovate configuration
-        if: runner.os == 'Linux'
+        if: ${{ !cancelled() && runner.os == 'Linux' && steps.node.outcome == 'success' }}
         run: npx --yes --package renovate@44.238.1 -- renovate-config-validator --strict renovate.json
 
       - name: Check runtime lock
+        if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
         run: uv lock --project plugins/auto-bean/runtime --check
 
       - name: Ruff
+        if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
         run: uv run ruff check
 
       - name: Formatting
+        if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
         run: uv run ruff format --check
 
       - name: Pytest
+        if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
         run: uv run pytest tests evals/harbor/tests
 
       - name: Mypy
+        if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
         run: uv run mypy
 
       - name: Check plugin package
+        if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
         run: uv run python scripts/package_plugin.py --check
 
       - name: Packaged runtime smoke
+        if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
         run: uv run python scripts/smoke_plugin.py
 
   release:
