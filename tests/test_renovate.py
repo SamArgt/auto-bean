@@ -14,6 +14,77 @@ ROOT = Path(__file__).resolve().parents[1]
 MESSAGE = "Update dependency\n\nAuto-Bean-Update-Types: patch"
 
 
+@pytest.mark.parametrize(
+    "action",
+    [
+        "unlimit-branch=renovate/example",
+        "rebase-branch=renovate/example",
+        "approve-branch=renovate/example",
+        "approvePr-branch=renovate/example",
+        "create-all-rate-limited-prs",
+        "rebase-all-open-prs",
+        "approve-all-pending-prs",
+    ],
+)
+def test_dashboard_new_request(helper: Any, action: str) -> None:
+    previous = f" - [x] <!-- rebase-branch=renovate/existing -->Existing\n - [ ] <!-- {action} -->Request"
+    event = {
+        "changes": {"body": {"from": previous}},
+        "issue": {"body": previous.replace(f"[ ] <!-- {action}", f"[x] <!-- {action}")},
+    }
+    assert helper.dashboard_requested(event)
+
+
+@pytest.mark.parametrize(
+    ("previous", "current"),
+    [
+        (
+            " - [x] <!-- rebase-branch=a -->Old",
+            " - [x] <!-- rebase-branch=a -->New text",
+        ),
+        (" - [x] <!-- rebase-branch=a -->A", " - [ ] <!-- rebase-branch=a -->A"),
+        (" - [ ] Ordinary task", " - [x] Ordinary task"),
+        (" - [ ] <!-- unknown=a -->A", " - [x] <!-- unknown=a -->A"),
+        ("", " - [x] <!-- rebase-branch=a -->New task"),
+        (None, " - [x] <!-- rebase-branch=a -->A"),
+        (" - [ ] <!-- rebase-branch=a -->A", None),
+    ],
+)
+def test_dashboard_ignores_non_requests(
+    helper: Any, previous: Any, current: Any
+) -> None:
+    assert not helper.dashboard_requested(
+        {"changes": {"body": {"from": previous}}, "issue": {"body": current}}
+    )
+
+
+def test_dashboard_cli_uses_event_file(tmp_path: Path) -> None:
+    import os
+    import sys
+
+    event = tmp_path / "event.json"
+    output = tmp_path / "output"
+    previous = " - [ ] <!-- unlimit-branch=renovate/example -->Example"
+    event.write_text(
+        json.dumps(
+            {
+                "changes": {"body": {"from": previous}},
+                "issue": {"body": previous.replace("[ ]", "[x]")},
+            }
+        )
+    )
+    subprocess.run(
+        [sys.executable, str(ROOT / "scripts/renovate.py"), "dashboard-request"],
+        env={
+            **os.environ,
+            "GITHUB_EVENT_PATH": str(event),
+            "GITHUB_OUTPUT": str(output),
+        },
+        check=True,
+    )
+    assert output.read_text() == "requested=true\n"
+
+
 @pytest.fixture
 def helper() -> Any:
     spec = importlib.util.spec_from_file_location(
