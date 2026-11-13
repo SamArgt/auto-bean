@@ -392,7 +392,7 @@ def test_native_harbor_config_defaults() -> None:
     )
     assert agent_name_from_config(trial) == AutoBeanCodex.name()
     assert config.agents[0].resume_trajectory
-    assert config.agents[0].kwargs["version"] == "0.163.0"
+    assert not config.agents[0].kwargs.get("version")
     # A boolean AUTH flag in agent.env triggers Harbor's secret scrubber,
     # replacing every digit 1 in artifacts. Use its ambient host flag instead.
     assert config.agents[0].env == {}
@@ -598,7 +598,9 @@ def test_adapter_reinstalls_after_config_on_every_turn(
         )
     assert upload.await_count == setup.await_count == 2
     assert "plugin add auto-bean@auto-bean" in setup.call_args.kwargs["command"]
-    assert setup.call_args.kwargs["env"] == {"CODEX_HOME": "/tmp/codex-home"}
+    assert setup.call_args.kwargs["env"] == {
+        "CODEX_HOME": Codex._REMOTE_CODEX_HOME.as_posix()
+    }
 
 
 @pytest.mark.parametrize("phase", ["review", "correct", "approve", "stale"])

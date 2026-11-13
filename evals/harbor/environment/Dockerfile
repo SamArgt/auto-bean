@@ -1,7 +1,7 @@
 FROM node:26-bookworm-slim@sha256:5df79989ed685e09f0a98019db4cebfb22fb9df1a53c0161664a011f7ff6b0f1 AS frontend
 WORKDIR /build/frontend/import-review
 COPY frontend/import-review/package.json frontend/import-review/package-lock.json ./
-RUN npm ci --ignore-scripts
+RUN npm install -g "$(node -p "require('./package.json').packageManager")" && npm ci --ignore-scripts
 COPY frontend/import-review/ ./
 COPY plugins/auto-bean/ui/ /build/plugins/auto-bean/ui/
 # Rebuild the current checkout, and reject a missing or stale distributed bundle.
@@ -11,6 +11,7 @@ FROM node:26-bookworm-slim@sha256:5df79989ed685e09f0a98019db4cebfb22fb9df1a53c01
 COPY --from=ghcr.io/astral-sh/uv:0.13.8@sha256:5cc1805e2426484abca4ad46ea783bab281fdb225fd82d8ce6d66a81254bac85 /uv /uvx /usr/local/bin/
 RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates curl ripgrep libgomp1 poppler-utils && rm -rf /var/lib/apt/lists/*
 ENV PYTHONPATH=/opt
+ENV UV_PYTHON=3.13
 ENV UV_PYTHON_PREFERENCE=only-managed PYTHONDONTWRITEBYTECODE=1 UV_CACHE_DIR=/opt/uv-cache
 ENV GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null GIT_AUTHOR_NAME="Harbor Fixture" GIT_AUTHOR_EMAIL=harbor@example.test GIT_COMMITTER_NAME="Harbor Fixture" GIT_COMMITTER_EMAIL=harbor@example.test
 # Build directly from the current checkout, including uncommitted plugin edits.
@@ -18,8 +19,8 @@ COPY plugins/auto-bean/runtime /opt/auto-bean-marketplace/plugins/auto-bean/runt
 COPY plugins/auto-bean/assets /opt/auto-bean-marketplace/plugins/auto-bean/assets
 COPY evals/harbor/fixtures.py /opt/evals/harbor/fixtures.py
 COPY evals/harbor/environment/prefetch.py /tmp/prefetch.py
-RUN uv python install 3.13.12
-RUN uv run --no-project --python 3.13 --with reportlab==5.1.0 python -c "from pathlib import Path; from evals.harbor.fixtures import raw_inputs; raw_inputs(Path('/opt/raw-fixtures'))"
+RUN uv python install "$UV_PYTHON"
+RUN uv run --no-project --with reportlab==5.1.0 python -c "from pathlib import Path; from evals.harbor.fixtures import raw_inputs; raw_inputs(Path('/opt/raw-fixtures'))"
 
 FROM ledger-base AS extraction-cache
 # Keep one reusable dependency cache, not the disposable extraction environment.
@@ -30,7 +31,7 @@ RUN --mount=type=cache,target=/opt/uv-cache \
     --mount=type=cache,id=auto-bean-harbor-huggingface,target=/root/.cache/huggingface,sharing=locked \
     sh /opt/auto-bean-marketplace/plugins/auto-bean/runtime/launch.sh init --workspace /opt/warm-ledger \
     && sh /opt/auto-bean-marketplace/plugins/auto-bean/runtime/launch.sh ensure-runtime --workspace /opt/warm-ledger --extraction \
-    && uv run --no-project --python 3.13 /tmp/prefetch.py \
+    && uv run --no-project /tmp/prefetch.py \
     && cp -a /root/.cache /opt/model-cache \
     && cp -a /opt/uv-cache /opt/dependency-cache \
     && rm -rf /opt/warm-ledger
@@ -41,10 +42,10 @@ COPY --from=frontend /build/plugins/auto-bean/ui/ /opt/auto-bean-marketplace/plu
 COPY .agents/plugins/marketplace.json /opt/auto-bean-marketplace/.agents/plugins/marketplace.json
 COPY evals/harbor/probe_plugin.py evals/harbor/capture.py /opt/evals/harbor/
 COPY evals/harbor/environment/setup_import.py /opt/evals/harbor/setup_import.py
-RUN npm install -g --cache /tmp/npm-cache @openai/codex@0.163.0 && codex --version && rm -rf /tmp/npm-cache
-RUN --mount=type=cache,id=auto-bean-ledger-dependencies,target=/opt/uv-cache codex plugin marketplace add /opt/auto-bean-marketplace && codex plugin add auto-bean@auto-bean --json && uv run --no-project --python 3.13 /opt/evals/harbor/probe_plugin.py && cp -a /opt/uv-cache /opt/dependency-cache && rm -rf /root/.codex /root/.cache/auto-bean-service
+RUN npm install -g --cache /tmp/npm-cache @openai/codex@latest && codex --version && rm -rf /tmp/npm-cache
+RUN --mount=type=cache,id=auto-bean-ledger-dependencies,target=/opt/uv-cache codex plugin marketplace add /opt/auto-bean-marketplace && codex plugin add auto-bean@auto-bean --json && uv run --no-project /opt/evals/harbor/probe_plugin.py && cp -a /opt/uv-cache /opt/dependency-cache && rm -rf /root/.codex /root/.cache/auto-bean-service
 ENV UV_CACHE_DIR=/opt/dependency-cache
-RUN uv run --no-project --python 3.13 /opt/evals/harbor/capture.py --phase metadata && chmod -R a-w /opt/auto-bean-marketplace
+RUN uv run --no-project /opt/evals/harbor/capture.py --phase metadata && chmod -R a-w /opt/auto-bean-marketplace
 WORKDIR /app/ledger
 
 FROM base AS init-ledger
@@ -53,7 +54,7 @@ FROM base AS init-ledger
 FROM base AS import-two-statements
 COPY --from=extraction-cache /opt/dependency-cache/ /opt/dependency-cache/
 COPY --from=extraction-cache /opt/model-cache/ /root/.cache/
-RUN uv run --no-project --python 3.13 --with reportlab==5.1.0 /opt/evals/harbor/setup_import.py
+RUN uv run --no-project --with reportlab==5.1.0 /opt/evals/harbor/setup_import.py
 
 FROM ledger-base AS verifier
 # Grader code and expected answers exist only in this separate image stage.
@@ -65,6 +66,6 @@ COPY evals/harbor/environment/setup_import.py /opt/evals/harbor/setup_import.py
 COPY evals/harbor/capture.py /opt/evals/harbor/capture.py
 COPY evals/harbor/verify.py /opt/evals/harbor/verify.py
 COPY evals/harbor/trace.py /opt/evals/harbor/trace.py
-RUN uv run --no-project --python 3.13 --with reportlab==5.1.0 /opt/evals/harbor/setup_import.py --workspace /opt/expected-ledger --expected /opt/expected.json && rm -rf /opt/expected-ledger
+RUN uv run --no-project --with reportlab==5.1.0 /opt/evals/harbor/setup_import.py --workspace /opt/expected-ledger --expected /opt/expected.json && rm -rf /opt/expected-ledger
 RUN chmod -R a-w /opt/auto-bean-marketplace
 ENV PYTHONPATH=/opt/auto-bean-marketplace/plugins/auto-bean/runtime:/opt

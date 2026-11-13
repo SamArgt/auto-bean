@@ -55,6 +55,15 @@ def test_manifest_and_packaged_references_are_valid() -> None:
     assert packaging().validate_plugin() == expected
 
 
+def test_packaging_rejects_runtime_python_drift(tmp_path: Path) -> None:
+    module = packaging()
+    plugin = tmp_path / "plugin"
+    shutil.copytree(module.PLUGIN, plugin)
+    (plugin / "runtime/.python-version").write_text("3.15.2\n")
+    with pytest.raises(ValueError, match="Python pin and requirement disagree"):
+        module.validate_plugin(plugin)
+
+
 @pytest.mark.parametrize("change", ["new_source", "edited_source", "bundle"])
 def test_packaging_rejects_stale_frontend(tmp_path: Path, change: str) -> None:
     module = packaging()
@@ -65,8 +74,11 @@ def test_packaging_rejects_stale_frontend(tmp_path: Path, change: str) -> None:
     shutil.copytree(original / "src", source / "src")
     for name in ("package.json", "package-lock.json", "tsconfig.json", "build.mjs"):
         shutil.copyfile(original / name, source / name)
-    for name in ("pyproject.toml", "uv.lock"):
+    for name in ("pyproject.toml", "uv.lock", ".python-version"):
         shutil.copyfile(ROOT / name, tmp_path / name)
+    dockerfile = Path("evals/harbor/environment/Dockerfile")
+    (tmp_path / dockerfile).parent.mkdir(parents=True)
+    shutil.copyfile(ROOT / dockerfile, tmp_path / dockerfile)
     module.ROOT, module.PLUGIN = tmp_path, plugin
     if change == "new_source":
         (source / "src/added.ts").write_text("export const added = true;\n")

@@ -6,7 +6,7 @@
   "enabledManagers": ["pep621", "npm", "github-actions", "dockerfile", "custom.regex"],
   "ignorePaths": ["experiments/**", "plugins/auto-bean/assets/workspace_template/**"],
   "automerge": false,
-  "statusCheckWhen": {"artifactError": "never"},
+  "statusCheckWhen": {"artifactError": "always"},
   "rebaseWhen": "behind-base-branch",
   "separateMajorMinor": true,
   "prConcurrentLimit": 5,
@@ -15,6 +15,7 @@
   "postUpgradeTasks": {
     "commands": ["uv run --no-project python scripts/renovate.py prepare --base-ref origin/main"],
     "executionMode": "branch",
+    "workingDirTemplate": "",
     "fileFilters": [
       "plugins/auto-bean/plugin.json",
       "plugins/auto-bean/runtime/pyproject.toml",
@@ -24,13 +25,17 @@
       "frontend/import-review/package.json",
       "frontend/import-review/package-lock.json",
       "plugins/auto-bean/ui/bundle.html",
-      "plugins/auto-bean/ui/build.json"
+      "plugins/auto-bean/ui/build.json",
+      ".python-version",
+      "plugins/auto-bean/runtime/.python-version",
+      "evals/harbor/environment/Dockerfile"
     ]
   },
   "packageRules": [
     {"matchManagers": ["pep621"], "rangeStrategy": "bump"},
     {"matchPackageNames": ["react", "react-dom", "@types/react", "@types/react-dom"], "groupName": "React"},
     {"matchPackageNames": ["torch", "torchvision"], "groupName": "PyTorch"},
+    {"matchPackageNames": ["python"], "groupName": "Python"},
     {"matchPackageNames": ["beancount", "harbor", "reportlab"], "addLabels": ["eval-dependencies"]},
     {"matchFileNames": ["evals/**"], "addLabels": ["eval-dependencies"]},
     {"matchUpdateTypes": ["major"], "addLabels": ["major-update"]}
@@ -45,25 +50,10 @@
     },
     {
       "customType": "regex",
-      "managerFilePatterns": ["/^evals/harbor/environment/Dockerfile$/", "/^evals/harbor/codex\\.yaml$/"],
-      "matchStrings": ["@openai/codex@(?<currentValue>[0-9.]+)", "version: (?<currentValue>[0-9.]+)"],
-      "depNameTemplate": "@openai/codex",
-      "datasourceTemplate": "npm"
-    },
-    {
-      "customType": "regex",
       "managerFilePatterns": ["/^evals/harbor/environment/Dockerfile$/"],
       "matchStrings": ["reportlab==(?<currentValue>[0-9.]+)"],
       "depNameTemplate": "reportlab",
       "datasourceTemplate": "pypi"
-    },
-    {
-      "customType": "regex",
-      "managerFilePatterns": ["/^evals/harbor/environment/Dockerfile$/"],
-      "matchStrings": ["uv python install (?<currentValue>[0-9.]+)"],
-      "depNameTemplate": "python",
-      "datasourceTemplate": "python-version",
-      "versioningTemplate": "pep440"
     }
   ]
 }

@@ -5,6 +5,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import subprocess
+import tomllib
 from pathlib import Path
 from typing import Any
 
@@ -104,9 +105,12 @@ def repository(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, helper: Any) -> 
     helper.git("config", "user.email", "test@example.invalid")
     files = {
         helper.MANIFEST: '{"version": "0.2.3"}\n',
-        "pyproject.toml": '[project]\nname = "auto-bean-dev"\nversion = "0.2.3"\n[dependency-groups]\ndev = ["ruff>=0.15"]\neval = ["harbor==0.24.0"]\n',
-        f"{helper.RUNTIME}/pyproject.toml": '[project]\nname = "auto-bean-runtime"\nversion = "0.2.3"\ndependencies = ["mcp>=1"]\n',
-        f"{helper.FRONTEND}/package.json": '{"version": "0.2.3", "dependencies": {"react": "19.1.0"}}\n',
+        "pyproject.toml": '[project]\nname = "auto-bean-dev"\nversion = "0.2.3"\nrequires-python = ">=3.13,<3.14"\n[dependency-groups]\ndev = ["ruff>=0.15"]\neval = ["harbor==0.24.0"]\n[tool.mypy]\npython_version = "3.13"\n[tool.ruff]\ntarget-version = "py313"\n',
+        f"{helper.RUNTIME}/pyproject.toml": '[project]\nname = "auto-bean-runtime"\nversion = "0.2.3"\nrequires-python = ">=3.13,<3.14"\ndependencies = ["mcp>=1"]\n',
+        f"{helper.FRONTEND}/package.json": '{"version": "0.2.3", "packageManager": "npm@11.14.1", "dependencies": {"react": "19.1.0"}}\n',
+        "evals/harbor/environment/Dockerfile": "FROM example\nENV UV_PYTHON=3.13\n",
+        ".python-version": "3.13\n",
+        f"{helper.RUNTIME}/.python-version": "3.13\n",
         f"{helper.FRONTEND}/package-lock.json": '{"version": "0.2.3", "packages": {"": {"version": "0.2.3"}, "node_modules/react": {"version": "19.1.0"}}}\n',
         ".github/workflows/test.yml": "jobs:\n  test:\n    steps:\n      - uses: actions/checkout@v4.1.0\n      - run: echo test\n",
     }
@@ -144,7 +148,7 @@ def test_preparation_repeat_and_new_base(
     builds: list[list[str]] = []
 
     def run(args: list[str], **kwargs: Any) -> Any:
-        if args[0] == "npm":
+        if args[0] in {"npx", "uv"}:
             builds.append(args)
             return subprocess.CompletedProcess(args, 0)
         return original(args, **kwargs)
@@ -164,7 +168,69 @@ def test_preparation_repeat_and_new_base(
     assert frontend["version"] == frontend["packages"][""]["version"] == "0.2.4"
     helper.prepare(commit(helper))
     assert json.loads(Path(helper.MANIFEST).read_text())["version"] == "0.2.5"
-    assert [call[-1] for call in builds] == ["--ignore-scripts", "build"] * 3
+    assert [call[-1] for call in builds] == [
+        ".",
+        helper.RUNTIME,
+        "--ignore-scripts",
+        "--ignore-scripts",
+        "build",
+        "test",
+    ] * 3
+
+
+def test_python_upgrade_updates_every_execution_target(
+    repository: str, helper: Any
+) -> None:
+    change("pyproject.toml", ">=3.13,<3.14", ">=3.15.2,<3.16")
+    helper.sync_python()
+    project = tomllib.loads(Path("pyproject.toml").read_text())
+    runtime = tomllib.loads(Path(f"{helper.RUNTIME}/pyproject.toml").read_text())
+    assert runtime["project"]["requires-python"] == ">=3.15.2,<3.16"
+    assert Path(".python-version").read_text() == "3.15.2\n"
+    assert Path(f"{helper.RUNTIME}/.python-version").read_text() == "3.15.2\n"
+    assert project["tool"]["mypy"]["python_version"] == "3.15"
+    assert project["tool"]["ruff"]["target-version"] == "py315"
+    assert (
+        "ENV UV_PYTHON=3.15.2\n"
+        in Path("evals/harbor/environment/Dockerfile").read_text()
+    )
+
+
+def test_workflow_only_upgrade_gets_release_preparation(
+    repository: str, helper: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    change(".github/workflows/test.yml", "checkout@v4.1.0", "checkout@v7")
+    original = subprocess.run
+
+    def run(args: list[str], **kwargs: Any) -> Any:
+        if args[0] in {"uv", "npx"}:
+            return subprocess.CompletedProcess(args, 0)
+        return original(args, **kwargs)
+
+    monkeypatch.setattr(subprocess, "run", run)
+    helper.prepare(repository)
+    assert json.loads(Path(helper.MANIFEST).read_text())["version"] == "0.2.4"
+    assert "checkout@v7" in Path(".github/workflows/test.yml").read_text()
+
+
+def test_failed_lock_preparation_does_not_build_stale_ui(
+    repository: str, helper: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    original = subprocess.run
+    calls: list[list[str]] = []
+
+    def run(args: list[str], **kwargs: Any) -> Any:
+        if args[0] in {"uv", "npx"}:
+            calls.append(args)
+            if "install" in args:
+                raise subprocess.CalledProcessError(1, args)
+            return subprocess.CompletedProcess(args, 0)
+        return original(args, **kwargs)
+
+    monkeypatch.setattr(subprocess, "run", run)
+    with pytest.raises(subprocess.CalledProcessError):
+        helper.prepare(repository)
+    assert not any("build" in call or "test" in call for call in calls)
 
 
 @pytest.mark.parametrize(
@@ -238,8 +304,13 @@ def test_both_current_checks(helper: Any, state: str) -> None:
 
 
 @pytest.mark.parametrize("advanced", [False, True])
+@pytest.mark.parametrize("artifact_status", ["success", "failure", "pending"])
 def test_merge_checks_base_and_pins_head(
-    repository: str, helper: Any, monkeypatch: pytest.MonkeyPatch, advanced: bool
+    repository: str,
+    helper: Any,
+    monkeypatch: pytest.MonkeyPatch,
+    advanced: bool,
+    artifact_status: str,
 ) -> None:
     monkeypatch.setenv("GITHUB_REPOSITORY", "owner/repo")
     monkeypatch.setenv("RENOVATE_BOT", "renovate-test[bot]")
@@ -287,6 +358,8 @@ def test_merge_checks_base_and_pins_head(
                     for i, name in enumerate(helper.CHECKS)
                 ]
             }
+        if path.endswith("/status"):
+            return {"state": artifact_status}
         if path.endswith("commits/main"):
             return {"sha": "new-base" if advanced else repository}
         if path.endswith("/merge"):
@@ -303,7 +376,7 @@ def test_merge_checks_base_and_pins_head(
 
     monkeypatch.setattr(subprocess, "run", run)
     helper.merge()
-    if advanced:
+    if advanced or artifact_status != "success":
         assert not any(path.endswith("/merge") for path, _ in calls)
     else:
         assert calls[-1][0].endswith("/merge")

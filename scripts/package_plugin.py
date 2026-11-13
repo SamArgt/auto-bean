@@ -53,6 +53,10 @@ def validate_plugin(plugin: Path = PLUGIN) -> str:
     if not isinstance(subtitle, str) or not 1 <= len(subtitle) <= 30:
         raise ValueError("Plugin subtitle must contain 1-30 characters")
     runtime = tomllib.loads((plugin / "runtime/pyproject.toml").read_text())
+    python_pin = (plugin / "runtime/.python-version").read_text().strip()
+    requirement = runtime["project"]["requires-python"]
+    if not requirement.startswith(f">={python_pin},"):
+        raise ValueError("Runtime Python pin and requirement disagree")
     lock = tomllib.loads((plugin / "runtime/uv.lock").read_text())
     if runtime["project"]["version"] != version:
         raise ValueError("Plugin and runtime versions disagree")
@@ -77,6 +81,17 @@ def validate_plugin(plugin: Path = PLUGIN) -> str:
     source = ROOT / "frontend/import-review"
     if plugin.resolve() == PLUGIN.resolve():
         development = tomllib.loads((ROOT / "pyproject.toml").read_text())
+        minor = ".".join(python_pin.split(".")[:2])
+        if (
+            development["project"]["requires-python"] != requirement
+            or (ROOT / ".python-version").read_text().strip() != python_pin
+            or development["tool"]["mypy"]["python_version"] != minor
+            or development["tool"]["ruff"]["target-version"]
+            != "py" + minor.replace(".", "")
+            or f"ENV UV_PYTHON={python_pin}\n"
+            not in (ROOT / "evals/harbor/environment/Dockerfile").read_text()
+        ):
+            raise ValueError("Python targets disagree; run dependency preparation")
         dev_lock = tomllib.loads((ROOT / "uv.lock").read_text())
         dev_package = next(
             item for item in dev_lock["package"] if item["name"] == "auto-bean-dev"

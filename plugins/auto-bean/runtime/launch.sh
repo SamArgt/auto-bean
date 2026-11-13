@@ -7,4 +7,4 @@ if ! command -v uv >/dev/null 2>&1; then
     exit 1
 fi
 export PYTHONDONTWRITEBYTECODE=1
-exec uv run --no-project --isolated --python 3.13 python "$runtime_dir/bootstrap.py" "$@"
+exec uv run --no-project --isolated --python "$(cat "$runtime_dir/.python-version")" python "$runtime_dir/bootstrap.py" "$@"
