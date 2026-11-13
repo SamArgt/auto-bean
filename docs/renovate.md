@@ -1,7 +1,8 @@
 # Dependency updates
 
-Renovate runs each Friday at 07:17 UTC, including lockfile maintenance.
+Renovate runs daily at 07:17 UTC. Lockfile maintenance runs on Fridays.
 This is 08:17 in Paris in winter and 09:17 in summer.
+Renovate allows up to five open PRs. Its default limit of two new PRs per hour still applies.
 It prepares a versioned PR, then waits for CI.
 When Repository Baseline succeeds for a Renovate PR in this repository, it
 triggers the merge check immediately. This check does not scan dependencies.
@@ -10,7 +11,7 @@ The merge step checks the actual dependency diff. Labels do not grant permission
 
 ```mermaid
 flowchart TD
-    A[Friday dependency scan] --> B[Create or refresh a PR]
+    A[Daily dependency scan] --> B[Create or refresh a PR]
     B --> C[Bump plugin patch version and rebuild UI]
     C --> D{Both CI platforms pass?}
     D -- No --> E[Keep PR open for fixes]
@@ -42,7 +43,7 @@ packages such as Beancount. It also checks lockfile-only maintenance PRs.
 Renovate writes update types into its commit message. The merge step accepts
 one App-authored commit, checks its diff, and requires both current CI results.
 It merges at most one PR per run. Other PRs must rebase before their next merge.
-A stale PR waits for the next Friday refresh or a manual Renovate run.
+A stale PR waits for the next daily refresh or a manual Renovate run.
 The completion trigger uses the helper from `main` and rechecks current PR
 heads and CI results. It does not execute code or download artifacts from the PR.
 
