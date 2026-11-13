@@ -1,4 +1,4 @@
-FROM node:22-bookworm-slim@sha256:e9f565d32859f0cbfb52125eafe8be39390f24dac302dc3cdf566e8ba3ab21ee AS frontend
+FROM node:26-bookworm-slim@sha256:5df79989ed685e09f0a98019db4cebfb22fb9df1a53c0161664a011f7ff6b0f1 AS frontend
 WORKDIR /build/frontend/import-review
 COPY frontend/import-review/package.json frontend/import-review/package-lock.json ./
 RUN npm ci --ignore-scripts
@@ -7,7 +7,7 @@ COPY plugins/auto-bean/ui/ /build/plugins/auto-bean/ui/
 # Rebuild the current checkout, and reject a missing or stale distributed bundle.
 RUN cp /build/plugins/auto-bean/ui/bundle.html /tmp/expected-bundle.html && cp /build/plugins/auto-bean/ui/build.json /tmp/expected-build.json && npm run build && cmp /tmp/expected-bundle.html /build/plugins/auto-bean/ui/bundle.html && cmp /tmp/expected-build.json /build/plugins/auto-bean/ui/build.json
 
-FROM node:22-bookworm-slim@sha256:e9f565d32859f0cbfb52125eafe8be39390f24dac302dc3cdf566e8ba3ab21ee AS ledger-base
+FROM node:26-bookworm-slim@sha256:5df79989ed685e09f0a98019db4cebfb22fb9df1a53c0161664a011f7ff6b0f1 AS ledger-base
 COPY --from=ghcr.io/astral-sh/uv:0.11.3@sha256:90bbb3c16635e9627f49eec6539f956d70746c409209041800a0280b93152823 /uv /uvx /usr/local/bin/
 RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates curl ripgrep libgomp1 poppler-utils && rm -rf /var/lib/apt/lists/*
 ENV PYTHONPATH=/opt
