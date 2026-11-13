@@ -106,7 +106,7 @@ wheels = [
 
 [[package]]
 name = "auto-bean-dev"
-version = "0.2.32"
+version = "0.2.33"
 source = { virtual = "." }
 
 [package.dev-dependencies]
