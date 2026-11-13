@@ -8,7 +8,7 @@ permissions:
 
 jobs:
   publish:
-    # Repository Baseline must finish its full verification matrix first.
+    # Required PR checks protect main. Publish without repeating the matrix.
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     concurrency:
