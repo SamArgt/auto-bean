@@ -19,7 +19,7 @@ COPY plugins/auto-bean/assets /opt/auto-bean-marketplace/plugins/auto-bean/asset
 COPY evals/harbor/fixtures.py /opt/evals/harbor/fixtures.py
 COPY evals/harbor/environment/prefetch.py /tmp/prefetch.py
 RUN uv python install 3.13.12
-RUN uv run --no-project --python 3.13 --with reportlab==5.0.1 python -c "from pathlib import Path; from evals.harbor.fixtures import raw_inputs; raw_inputs(Path('/opt/raw-fixtures'))"
+RUN uv run --no-project --python 3.13 --with reportlab==5.1.0 python -c "from pathlib import Path; from evals.harbor.fixtures import raw_inputs; raw_inputs(Path('/opt/raw-fixtures'))"
 
 FROM ledger-base AS extraction-cache
 # Keep one reusable dependency cache, not the disposable extraction environment.
@@ -44,7 +44,7 @@ FROM base AS init-ledger
 FROM base AS import-two-statements
 COPY --from=extraction-cache /opt/dependency-cache/ /opt/dependency-cache/
 COPY --from=extraction-cache /root/.cache/ /root/.cache/
-RUN uv run --no-project --python 3.13 --with reportlab==5.0.1 /opt/evals/harbor/setup_import.py
+RUN uv run --no-project --python 3.13 --with reportlab==5.1.0 /opt/evals/harbor/setup_import.py
 
 FROM ledger-base AS verifier
 # Grader code and expected answers exist only in this separate image stage.
@@ -56,6 +56,6 @@ COPY evals/harbor/environment/setup_import.py /opt/evals/harbor/setup_import.py
 COPY evals/harbor/capture.py /opt/evals/harbor/capture.py
 COPY evals/harbor/verify.py /opt/evals/harbor/verify.py
 COPY evals/harbor/trace.py /opt/evals/harbor/trace.py
-RUN uv run --no-project --python 3.13 --with reportlab==5.0.1 /opt/evals/harbor/setup_import.py --workspace /opt/expected-ledger --expected /opt/expected.json && rm -rf /opt/expected-ledger
+RUN uv run --no-project --python 3.13 --with reportlab==5.1.0 /opt/evals/harbor/setup_import.py --workspace /opt/expected-ledger --expected /opt/expected.json && rm -rf /opt/expected-ledger
 RUN chmod -R a-w /opt/auto-bean-marketplace
 ENV PYTHONPATH=/opt/auto-bean-marketplace/plugins/auto-bean/runtime:/opt

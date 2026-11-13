@@ -1,6 +1,6 @@
 [project]
 name = "auto-bean-dev"
-version = "0.2.25"
+version = "0.2.26"
 description = "Development tooling for the auto-bean Codex plugin."
 requires-python = ">=3.13,<3.14"
 dependencies = []
@@ -23,7 +23,7 @@ dev = [
 eval = [
     "beancount>=3.2.3",
     "harbor==0.24.0",
-    "reportlab>=5.0.1",
+    "reportlab>=5.1.0",
 ]
 
 [tool.pytest.ini_options]
