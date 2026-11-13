@@ -80,6 +80,13 @@ jobs:
         with:
           app-id: ${{ vars.RENOVATE_APP_ID }}
           private-key: ${{ secrets.RENOVATE_APP_PRIVATE_KEY }}
+          # Fail at token creation if the App installation lacks a permission.
+          permission-checks: read
+          permission-contents: write
+          permission-issues: write
+          permission-pull-requests: write
+          permission-statuses: write
+          permission-workflows: write
       - name: Identify the App
         if: github.event_name != 'workflow_run' || github.event.workflow_run.event == 'push'
         id: identity
@@ -92,6 +99,8 @@ jobs:
       - name: Update dependencies and prepare PRs
         if: github.event_name != 'workflow_run' || github.event.workflow_run.event == 'push'
         env:
+          LOG_LEVEL: debug
+          RENOVATE_EXIT_CODE_FOR_ERRORS: "true"
           RENOVATE_TOKEN: ${{ steps.app.outputs.token }}
           RENOVATE_GIT_AUTHOR: ${{ steps.identity.outputs.author }}
           RENOVATE_PLATFORM: github
