@@ -3,15 +3,19 @@
 Renovate runs each Friday at 07:17 UTC, including lockfile maintenance.
 This is 08:17 in Paris in winter and 09:17 in summer.
 It prepares a versioned PR, then waits for CI.
+When Repository Baseline succeeds for a Renovate PR in this repository, it
+triggers the merge check immediately. This check does not scan dependencies.
+Failed CI, fork PRs, and disabled automatic merging do not start the merge job.
 The merge step checks the actual dependency diff. Labels do not grant permission to merge.
 
 ```mermaid
 flowchart TD
-    A[Renovate finds updates] --> B[Create or refresh a PR]
+    A[Friday dependency scan] --> B[Create or refresh a PR]
     B --> C[Bump plugin patch version and rebuild UI]
     C --> D{Both CI platforms pass?}
     D -- No --> E[Keep PR open for fixes]
-    D -- Yes --> F{Major, direct eval, or unknown change?}
+    D -- Yes --> M[CI completion triggers merge check]
+    M --> F{Major, direct eval, or unknown change?}
     F -- Yes --> G[Human reviews and merges]
     F -- No --> H[Automatically merge]
     G --> I[Run main CI]
@@ -38,6 +42,9 @@ packages such as Beancount. It also checks lockfile-only maintenance PRs.
 Renovate writes update types into its commit message. The merge step accepts
 one App-authored commit, checks its diff, and requires both current CI results.
 It merges at most one PR per run. Other PRs must rebase before their next merge.
+A stale PR waits for the next Friday refresh or a manual Renovate run.
+The completion trigger uses the helper from `main` and rechecks current PR
+heads and CI results. It does not execute code or download artifacts from the PR.
 
 The preparation helper uses the base plugin version plus one patch increment.
 It updates all local release versions without re-resolving dependencies.
@@ -66,7 +73,8 @@ Human-authored PRs can still choose a higher minor or major release version.
      the dedicated App the **For pull requests only** bypass.
    Keep ordinary human PRs subject to review. Remove the old branch lock only
    after the replacement rules are active. GitHub's native auto-merge can stay off.
-8. Set `RENOVATE_AUTOMERGE=true`. The next run can merge an eligible PR.
+8. Set `RENOVATE_AUTOMERGE=true`. The next successful Renovate PR CI run or
+   manual Renovate run can merge an eligible PR.
    Verify that the merge starts main CI and that publication follows its success.
 
 The workflow skips runs until the App ID is configured. An App token ensures

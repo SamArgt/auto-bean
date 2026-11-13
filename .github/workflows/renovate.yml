@@ -4,6 +4,10 @@ on:
   schedule:
     - cron: "17 7 * * 5" # Friday at 07:17 UTC.
   workflow_dispatch:
+  workflow_run:
+    workflows: [Repository Baseline]
+    types: [completed]
+    branches: ["renovate/**"]
 
 permissions:
   contents: read
@@ -14,12 +18,19 @@ concurrency:
 
 jobs:
   update:
-    if: github.ref == 'refs/heads/main' && vars.RENOVATE_APP_ID != ''
+    if: >-
+      github.ref == 'refs/heads/main' && vars.RENOVATE_APP_ID != '' &&
+      (github.event_name != 'workflow_run' ||
+       (vars.RENOVATE_AUTOMERGE == 'true' &&
+        github.event.workflow_run.event == 'pull_request' &&
+        github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.head_repository.full_name == github.repository))
     runs-on: ubuntu-latest
     timeout-minutes: 55
     steps:
       - uses: actions/checkout@v4
         with:
+          # Run the trusted merge helper, never code from the triggering PR.
           ref: main
           fetch-depth: 0
           persist-credentials: false
@@ -27,6 +38,7 @@ jobs:
         with:
           python-version: "3.13"
       - uses: actions/setup-node@v4
+        if: github.event_name != 'workflow_run'
         with:
           node-version: "24"
       - uses: astral-sh/setup-uv@v6
@@ -36,6 +48,7 @@ jobs:
           app-id: ${{ vars.RENOVATE_APP_ID }}
           private-key: ${{ secrets.RENOVATE_APP_PRIVATE_KEY }}
       - name: Identify the App
+        if: github.event_name != 'workflow_run'
         id: identity
         env:
           GH_TOKEN: ${{ steps.app.outputs.token }}
@@ -44,6 +57,7 @@ jobs:
           bot_id="$(gh api "users/${APP_SLUG}[bot]" --jq .id)"
           echo "author=${APP_SLUG}[bot] <${bot_id}+${APP_SLUG}[bot]@users.noreply.github.com>" >> "$GITHUB_OUTPUT"
       - name: Update dependencies and prepare PRs
+        if: github.event_name != 'workflow_run'
         env:
           RENOVATE_TOKEN: ${{ steps.app.outputs.token }}
           RENOVATE_GIT_AUTHOR: ${{ steps.identity.outputs.author }}
