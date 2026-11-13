@@ -99,7 +99,7 @@ jobs:
           RENOVATE_REQUIRE_CONFIG: required
           RENOVATE_BINARY_SOURCE: global
           RENOVATE_ALLOWED_COMMANDS: '["^uv run --no-project python scripts/renovate\\.py prepare --base-ref origin/main$"]'
-        run: npx --yes --package renovate@44.237.3 -- renovate "$GITHUB_REPOSITORY"
+        run: npx --yes --package renovate@44.238.1 -- renovate "$GITHUB_REPOSITORY"
       - name: Merge eligible PRs
         if: vars.RENOVATE_AUTOMERGE == 'true'
         env:
