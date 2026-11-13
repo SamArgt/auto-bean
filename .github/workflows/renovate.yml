@@ -75,7 +75,7 @@ jobs:
         with:
           node-version: "26"
       - uses: astral-sh/setup-uv@v10.3.3
-      - uses: actions/create-github-app-token@v2
+      - uses: actions/create-github-app-token@v3
         id: app
         with:
           app-id: ${{ vars.RENOVATE_APP_ID }}
