@@ -9,6 +9,7 @@
   "statusCheckWhen": {"artifactError": "always"},
   "rebaseWhen": "behind-base-branch",
   "separateMajorMinor": true,
+  "separateMinorPatch": false,
   "prConcurrentLimit": 5,
   "commitBody": "Auto-Bean-Update-Types:{{#each upgrades}} {{updateType}}{{/each}}",
   "lockFileMaintenance": {"enabled": true, "schedule": ["on friday"]},
@@ -33,12 +34,8 @@
   },
   "packageRules": [
     {"matchManagers": ["pep621"], "rangeStrategy": "bump"},
-    {"matchPackageNames": ["react", "react-dom", "@types/react", "@types/react-dom"], "groupName": "React"},
-    {"matchPackageNames": ["torch", "torchvision"], "groupName": "PyTorch"},
-    {"matchPackageNames": ["python"], "groupName": "Python"},
-    {"matchPackageNames": ["beancount", "harbor", "reportlab"], "addLabels": ["eval-dependencies"]},
-    {"matchFileNames": ["evals/**"], "addLabels": ["eval-dependencies"]},
-    {"matchUpdateTypes": ["major"], "addLabels": ["major-update"]}
+    {"matchUpdateTypes": ["minor", "patch"], "groupName": "all non-major dependencies", "groupSlug": "all-minor-patch"},
+    {"matchUpdateTypes": ["major"], "groupName": null, "addLabels": ["major-update"]}
   ],
   "customManagers": [
     {

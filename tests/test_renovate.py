@@ -108,7 +108,12 @@ def repository(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, helper: Any) -> 
         "pyproject.toml": '[project]\nname = "auto-bean-dev"\nversion = "0.2.3"\nrequires-python = ">=3.13,<3.14"\n[dependency-groups]\ndev = ["ruff>=0.15"]\neval = ["harbor==0.24.0"]\n[tool.mypy]\npython_version = "3.13"\n[tool.ruff]\ntarget-version = "py313"\n',
         f"{helper.RUNTIME}/pyproject.toml": '[project]\nname = "auto-bean-runtime"\nversion = "0.2.3"\nrequires-python = ">=3.13,<3.14"\ndependencies = ["mcp>=1"]\n',
         f"{helper.FRONTEND}/package.json": '{"version": "0.2.3", "packageManager": "npm@11.14.1", "dependencies": {"react": "19.1.0"}}\n',
-        "evals/harbor/environment/Dockerfile": "FROM example\nENV UV_PYTHON=3.13\n",
+        "evals/harbor/environment/Dockerfile": (
+            f"FROM node:26.0.0-bookworm-slim@sha256:{'a' * 64} AS frontend\n"
+            f"COPY --from=ghcr.io/astral-sh/uv:0.13.8@sha256:{'b' * 64} /uv /usr/local/bin/\n"
+            "ENV UV_PYTHON=3.13\n"
+            "RUN uv run --no-project --with reportlab==5.1.0 python fixtures.py\n"
+        ),
         ".python-version": "3.13\n",
         f"{helper.RUNTIME}/.python-version": "3.13\n",
         f"{helper.FRONTEND}/package-lock.json": '{"version": "0.2.3", "packages": {"": {"version": "0.2.3"}, "node_modules/react": {"version": "19.1.0"}}}\n',
@@ -237,8 +242,15 @@ def test_failed_lock_preparation_does_not_build_stale_ui(
     ("path", "old", "new", "reason"),
     [
         ("pyproject.toml", "ruff>=0.15", "ruff>=0.16", None),
-        ("pyproject.toml", "harbor==0.24.0", "harbor==0.25.0", "eval declarations"),
-        ("uv.lock", 'version = "0.24.0"', 'version = "0.25.0"', "eval lock"),
+        ("pyproject.toml", "harbor==0.24.0", "harbor==0.25.0", None),
+        ("uv.lock", 'version = "0.24.0"', 'version = "0.25.0"', None),
+        ("uv.lock", 'version = "0.24.0"', 'version = "1.0.0"', "Major locked"),
+        (
+            "plugins/auto-bean/runtime/uv.lock",
+            'version = "0.24.0"',
+            'version = "0.25.0"',
+            None,
+        ),
         ("uv.lock", 'version = "0.28.0"', 'version = "0.28.1"', None),
         ("uv.lock", 'version = "0.28.0"', 'version = "1.0.0"', "Major locked"),
         (".github/workflows/test.yml", "checkout@v4.1.0", "checkout@v4.2.0", None),
@@ -267,19 +279,64 @@ def test_major_mixed_unknown(repository: str, helper: Any, types: str) -> None:
 
 
 @pytest.mark.parametrize("path", ["evals/harbor/codex.yaml", "scripts/unexpected.py"])
-def test_eval_pins_and_unexpected_files(
-    repository: str, helper: Any, path: str
-) -> None:
+def test_unexpected_files(repository: str, helper: Any, path: str) -> None:
     target = Path(path)
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text("changed\n")
     assert helper.policy_reason(repository, commit(helper), MESSAGE) is not None
 
 
-def test_maintenance_checks_direct_eval_versions(repository: str, helper: Any) -> None:
-    change("uv.lock", 'version = "0.24.0"', 'version = "0.24.1"')
-    assert "eval lock" in helper.policy_reason(
+@pytest.mark.parametrize("version", ["0.24.1", "1.0.0"])
+def test_maintenance_checks_eval_versions(
+    repository: str, helper: Any, version: str
+) -> None:
+    change(helper.MANIFEST, "0.2.3", "0.2.4")
+    change("uv.lock", 'version = "0.24.0"', f'version = "{version}"')
+    reason = helper.policy_reason(
         repository, commit(helper), "Auto-Bean-Update-Types: lockFileMaintenance"
+    )
+    assert reason == ("Major locked update: harbor" if version == "1.0.0" else None)
+
+
+@pytest.mark.parametrize(
+    ("old", "new", "allowed"),
+    [
+        ("node:26.0.0", "node:26.1.0", True),
+        ("a" * 64, "c" * 64, True),
+        ("uv:0.13.8", "uv:0.13.9", True),
+        ("reportlab==5.1.0", "reportlab==5.1.1", True),
+        ("node:26.0.0", "other:26.0.0", False),
+        ("bookworm-slim", "alpine", False),
+        ("ghcr.io/astral-sh/uv", "example.com/uv", False),
+        ("python fixtures.py", "python other.py", False),
+        ("/usr/local/bin/", "/another/path/", False),
+        ("UV_PYTHON=3.13", "UV_PYTHON=3.14", False),
+    ],
+)
+def test_docker_dependency_updates(
+    repository: str, helper: Any, old: str, new: str, allowed: bool
+) -> None:
+    change(helper.MANIFEST, "0.2.3", "0.2.4")
+    change(helper.DOCKERFILE, old, new)
+    reason = helper.policy_reason(repository, commit(helper), MESSAGE)
+    assert reason == (
+        None if allowed else "Dockerfile changes beyond dependency versions"
+    )
+
+
+def test_grouped_updates_include_evals(repository: str, helper: Any) -> None:
+    change(helper.MANIFEST, "0.2.3", "0.2.4")
+    change("pyproject.toml", "harbor==0.24.0", "harbor==0.25.0")
+    for path in helper.LOCKS:
+        change(path, 'version = "0.24.0"', 'version = "0.25.0"')
+    change(f"{helper.FRONTEND}/package.json", "19.1.0", "19.1.1")
+    change(f"{helper.FRONTEND}/package-lock.json", "19.1.0", "19.1.1")
+    change(helper.DOCKERFILE, "reportlab==5.1.0", "reportlab==5.1.1")
+    assert (
+        helper.policy_reason(
+            repository, commit(helper), "Auto-Bean-Update-Types: minor patch patch"
+        )
+        is None
     )
 
 
