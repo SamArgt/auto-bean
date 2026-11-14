@@ -1,4 +1,4 @@
-"""Prepare dependency PRs and merge only verified, non-eval updates."""
+"""Prepare dependency PRs and merge only verified, non-major updates."""
 
 from __future__ import annotations
 
@@ -16,6 +16,7 @@ RUNTIME = "plugins/auto-bean/runtime"
 FRONTEND = "frontend/import-review"
 PROJECTS = ("pyproject.toml", f"{RUNTIME}/pyproject.toml")
 LOCKS = ("uv.lock", f"{RUNTIME}/uv.lock")
+DOCKERFILE = "evals/harbor/environment/Dockerfile"
 GENERATED = {
     MANIFEST,
     "plugins/auto-bean/ui/bundle.html",
@@ -151,20 +152,6 @@ def requirement_name(value: str) -> str:
     return normalized(match[0])
 
 
-def locked_eval(text: str, names: set[str]) -> list[str]:
-    return sorted(
-        json.dumps(
-            {
-                key: package.get(key)
-                for key in ("name", "version", "source", "resolution-markers")
-            },
-            sort_keys=True,
-        )
-        for package in tomllib.loads(text)["package"]
-        if normalized(package["name"]) in names
-    )
-
-
 def dependency_shape(project: dict[str, Any]) -> dict[str, Any]:
     """Remove versions, but preserve names and all non-dependency settings."""
     project["project"].pop("version", None)
@@ -192,6 +179,17 @@ def package_shape(package: dict[str, Any]) -> dict[str, Any]:
         if key in package:
             package[key] = sorted(package[key])
     return package
+
+
+def docker_dependency_shape(text: str) -> str:
+    """Remove managed versions and digests. Preserve images and build commands."""
+    text = re.sub(
+        r"(?m)(^\s*FROM\s+|^\s*COPY\s+--from=)"
+        r"([\w./-]+):\d+(?:\.\d+)*([-\w.]*)(?:@sha256:[a-f0-9]{64})?(?=\s|$)",
+        r"\1\2:VERSION\3",
+        text,
+    )
+    return re.sub(r"(?<=--with reportlab==)\d+\.\d+\.\d+(?=\s)", "VERSION", text)
 
 
 def versions(path: str, text: str) -> dict[str, set[str]]:
@@ -236,26 +234,13 @@ def policy_reason(base: str, head: str, message: str) -> str | None:
         or not set(markers[0].split()) <= SAFE_TYPES
     ):
         return "Major or unclassified update"
-    old_project = tomllib.loads(read_at(base, "pyproject.toml"))
-    new_project = tomllib.loads(read_at(head, "pyproject.toml"))
-    old_eval = old_project["dependency-groups"]["eval"]
-    new_eval = new_project["dependency-groups"]["eval"]
-    if old_eval != new_eval:
-        return "Direct eval declarations changed"
-    names = {requirement_name(item) for item in old_eval + new_eval}
-    for path in LOCKS:
-        if locked_eval(read_at(base, path), names) != locked_eval(
-            read_at(head, path), names
-        ):
-            return f"Direct eval lock entries changed: {path}"
     for path in git("diff", "--name-only", base, head).splitlines():
-        if path.startswith("evals/"):
-            return "Eval tool or container changed"
         if path in GENERATED:
             continue
         if path not in (
             *PROJECTS,
             *LOCKS,
+            DOCKERFILE,
             f"{FRONTEND}/package.json",
             f"{FRONTEND}/package-lock.json",
         ) and not (path.startswith(".github/workflows/") and path.endswith(".yml")):
@@ -273,6 +258,9 @@ def policy_reason(base: str, head: str, message: str) -> str | None:
             reason = lock_update_reason(path, before, after)
             if reason:
                 return reason
+        elif path == DOCKERFILE:
+            if docker_dependency_shape(before) != docker_dependency_shape(after):
+                return "Dockerfile changes beyond dependency versions"
         elif path.startswith(".github/workflows/") and path.endswith(".yml"):
             pattern = r"(?m)^(\s*(?:- )?uses: )[\w./-]+@[^\s]+(?:\s+#.*)?$"
             before = re.sub(

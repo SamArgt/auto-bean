@@ -4,6 +4,9 @@ Renovate runs daily at 07:17 UTC. Lockfile maintenance runs on Fridays.
 This is 08:17 in Paris in winter and 09:17 in summer.
 Renovate allows up to five open PRs. Its default limit of two new PRs per hour still applies.
 It prepares a versioned PR, then waits for CI.
+All minor and patch updates share one PR, including eval dependencies.
+Each major dependency update gets its own PR. Eval updates use the same labels
+and merge rules as other updates.
 When the repository owner checks an action in the dedicated App's Dependency
 Dashboard, Renovate starts a refresh without waiting for the daily schedule.
 This supports update requests and retry/rebase actions, including the bulk actions.
@@ -25,7 +28,7 @@ flowchart TD
     C --> D{Both CI platforms pass?}
     D -- No --> E[Keep PR open for fixes]
     D -- Yes --> M[CI completion triggers merge check]
-    M --> F{Major, direct eval, or unknown change?}
+    M --> F{Major or unknown change?}
     F -- Yes --> G[Human reviews and merges]
     F -- No --> H[Automatically merge]
     G --> I[Build plugin on main]
@@ -39,16 +42,15 @@ flowchart TD
 
 | Change | Decision |
 | --- | --- |
-| Non-eval minor, patch, or version/digest pin | Automatic after CI |
+| Minor, patch, or version/digest pin, including eval dependencies | Automatic after CI |
 | Major update | Manual |
-| Direct eval requirement or its locked version/source | Manual |
-| Eval tool or container pin | Manual |
-| Transitive-only eval update | Automatic after CI, unless major |
-| Mixed or unclassified change | Manual |
+| Lockfile maintenance | Automatic after CI, unless major |
+| Non-dependency or unclassified change | Manual |
 
-Direct eval packages come from the root `dependency-groups.eval` list.
-The guard checks their entries in both Python lockfiles. This includes shared
-packages such as Beancount. It also checks lockfile-only maintenance PRs.
+The guard checks both Python lockfiles and the frontend lockfile for major updates.
+This also applies to lockfile-only maintenance PRs. In the eval Dockerfile, it
+allows managed image versions, image digests, and ReportLab versions to change.
+Image names, image variants, and build commands must stay the same.
 Renovate writes update types into its commit message. The merge step accepts
 one App-authored commit, checks its diff, and requires both current CI results.
 It merges at most one PR per run. Other PRs must rebase before their next merge.
@@ -94,7 +96,7 @@ independent checks still run when another check fails. Each failure keeps the jo
 5. Leave `RENOVATE_AUTOMERGE` unset or set it to `false`.
 6. Merge the implementation, then manually run the **Renovate** workflow.
    Inspect one generated PR. Confirm its version bump, rebuilt UI, and both
-   baseline checks. Also confirm that an eval PR stays manual.
+   baseline checks. Also confirm that a major update stays manual.
 7. Replace the locked `main` protection with these two active branch rulesets:
    - **Main checks**: require PRs, block deletion and force pushes, require
      up-to-date branches, and require `quality-baseline (ubuntu-latest)` and
@@ -117,7 +119,7 @@ Commit statuses write permission before enabling this status report.
 ## Validation and recovery
 
 ```sh
-npx --yes --package renovate@44.237.3 -- renovate-config-validator --strict renovate.json
+npx --yes --package renovate@44.238.1 -- renovate-config-validator --strict renovate.json
 uv run pytest tests/test_renovate.py tests/test_release_workflows.py
 ```
 
