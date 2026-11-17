@@ -1,9 +1,9 @@
 {
   "name": "auto-bean-import-review",
   "private": true,
-  "version": "0.2.35",
+  "version": "0.2.36",
   "type": "module",
-  "packageManager": "npm@11.14.1",
+  "packageManager": "npm@11.21.2",
   "scripts": {
     "build:demo": "tsc --noEmit && node build.mjs --demo",
     "build": "tsc --noEmit && node build.mjs",
