@@ -10,10 +10,8 @@ from typing import Any
 
 from jsonschema import Draft202012Validator
 from mcp import types
-from mcp.server.lowlevel import Server
-from mcp.server.lowlevel.helper_types import ReadResourceContents
+from mcp.server import Server, ServerRequestContext
 from mcp.server.stdio import stdio_server
-from pydantic import AnyUrl
 
 from auto_bean.common import (
     PLUGIN,
@@ -44,10 +42,6 @@ from auto_bean.validation import (
 UI_BUILD = json.loads((PLUGIN / "ui/build.json").read_text())
 # Hosts cache UI resources by URI. New bundles must have a new resource identity.
 URI = f"ui://auto-bean/import-review/{UI_BUILD['bundle_sha256']}.html"
-server: Server[Any] = Server(
-    "auto-bean-import-review",
-    version=json.loads((PLUGIN / "plugin.json").read_text())["version"],
-)
 S: dict[str, Any] = {"type": "string"}
 HASH = {"type": "string", "pattern": "^[a-f0-9]{64}$"}
 N: dict[str, Any] = {"type": "integer", "minimum": 0}
@@ -437,7 +431,6 @@ def dispatch(name: str, args: dict[str, Any]) -> dict[str, Any]:
     invalid("Unknown operation.")
 
 
-@server.list_tools()  # type: ignore[no-untyped-call, untyped-decorator]
 async def list_tools() -> list[types.Tool]:
     result = []
     for name, (inputs, outputs) in CONTRACTS.items():
@@ -458,26 +451,26 @@ async def list_tools() -> list[types.Tool]:
                 description="Open the local import review panel."
                 if name == "open_import_review"
                 else f"{name.replace('_', ' ')}. Explicit workspace/session binding; strict v2 artifacts.",
-                inputSchema={
+                input_schema={
                     **inputs,
                     "$schema": "https://json-schema.org/draft/2020-12/schema",
                     "$id": f"https://auto-bean.local/schemas/v1/tools/{name}/input",
                 },
-                outputSchema={
+                output_schema={
                     **output_schema(outputs),
                     "$schema": "https://json-schema.org/draft/2020-12/schema",
                     "$id": f"https://auto-bean.local/schemas/v1/tools/{name}/output",
                 },
                 annotations=types.ToolAnnotations(
-                    readOnlyHint=name
+                    read_only_hint=name
                     not in {
                         "update_import_review",
                         "acknowledge_import_review_batch",
                         "approve_import_prices",
                         "export_import_review",
                     },
-                    destructiveHint=False,
-                    openWorldHint=False,
+                    destructive_hint=False,
+                    open_world_hint=False,
                 ),
                 _meta=meta,
             )
@@ -485,39 +478,54 @@ async def list_tools() -> list[types.Tool]:
     return result
 
 
-@server.list_resources()  # type: ignore[no-untyped-call, untyped-decorator]
-async def list_resources() -> list[types.Resource]:
-    return [
-        types.Resource(
-            uri=AnyUrl(URI), name="Import Review", mimeType="text/html;profile=mcp-app"
-        )
-    ]
+async def handle_list_tools(
+    ctx: ServerRequestContext, params: types.PaginatedRequestParams | None
+) -> types.ListToolsResult:
+    return types.ListToolsResult(tools=await list_tools())
 
 
-@server.read_resource()  # type: ignore[no-untyped-call, untyped-decorator]
-async def read_resource(uri: Any) -> list[ReadResourceContents]:
-    if str(uri) != URI:
+async def list_resources(
+    ctx: ServerRequestContext, params: types.PaginatedRequestParams | None
+) -> types.ListResourcesResult:
+    return types.ListResourcesResult(
+        resources=[
+            types.Resource(
+                uri=URI, name="Import Review", mime_type="text/html;profile=mcp-app"
+            )
+        ]
+    )
+
+
+async def read_resource(
+    ctx: ServerRequestContext, params: types.ReadResourceRequestParams
+) -> types.ReadResourceResult:
+    if str(params.uri) != URI:
         invalid("Unknown UI resource.")
-    return [
-        ReadResourceContents(
-            content=(PLUGIN / "ui/bundle.html").read_text(),
-            mime_type="text/html;profile=mcp-app",
-            meta={
-                "ui": {
-                    "csp": {"connectDomains": [], "resourceDomains": []},
-                    "prefersBorder": False,
+    return types.ReadResourceResult(
+        contents=[
+            types.TextResourceContents(
+                uri=URI,
+                text=(PLUGIN / "ui/bundle.html").read_text(),
+                mime_type="text/html;profile=mcp-app",
+                _meta={
+                    "ui": {
+                        "csp": {"connectDomains": [], "resourceDomains": []},
+                        "prefersBorder": False,
+                    },
+                    "openai/ui": {
+                        "availableDisplayModes": ["fullscreen"],
+                        "preferredDisplayMode": "fullscreen",
+                    },
                 },
-                "openai/ui": {
-                    "availableDisplayModes": ["fullscreen"],
-                    "preferredDisplayMode": "fullscreen",
-                },
-            },
-        )
-    ]
+            )
+        ]
+    )
 
 
-@server.call_tool()  # type: ignore[untyped-decorator]
-async def call_tool(name: str, arguments: dict[str, Any]) -> types.CallToolResult:
+async def call_tool(
+    ctx: ServerRequestContext, params: types.CallToolRequestParams
+) -> types.CallToolResult:
+    name, arguments = params.name, params.arguments or {}
     with record_changes() as changes:
         try:
             if name not in CONTRACTS:
@@ -534,9 +542,19 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> types.CallToolResul
     result.update(change_report(Path(str(arguments.get("workspace", "."))), changes))
     return types.CallToolResult(
         content=[types.TextContent(type="text", text=json.dumps(result))],
-        structuredContent=result,
-        isError=result["status"] == "error",
+        structured_content=result,
+        is_error=result["status"] == "error",
     )
+
+
+server = Server(
+    "auto-bean-import-review",
+    version=json.loads((PLUGIN / "plugin.json").read_text())["version"],
+    on_list_tools=handle_list_tools,
+    on_list_resources=list_resources,
+    on_read_resource=read_resource,
+    on_call_tool=call_tool,
+)
 
 
 async def main() -> None:

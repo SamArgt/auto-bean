@@ -842,7 +842,8 @@ def test_harbor_discovery_contract_tracks_packaged_review_tools() -> None:
     tools = {tool.name: tool for tool in asyncio.run(list_tools())}
     assert set(tools) == EXPECTED_MCP_TOOLS
     assert "export_import_review" in EXPECTED_MCP_TOOLS
-    assert tools["update_import_review"].meta["ui"]["visibility"] == ["app"]
+    meta = tools["update_import_review"].meta
+    assert meta and meta["ui"]["visibility"] == ["app"]
 
 
 @pytest.mark.parametrize("subject", ["account", "transaction", "statement"])

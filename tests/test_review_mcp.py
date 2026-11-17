@@ -11,7 +11,6 @@ import sys
 from mcp import ClientSession, StdioServerParameters
 from jsonschema import Draft202012Validator
 from mcp.client.stdio import stdio_client
-from pydantic import AnyUrl
 
 from auto_bean.common import PLUGIN, digest
 from auto_bean.review import ReviewFiles, etag
@@ -36,8 +35,8 @@ def test_stdio_discovery_without_workspace_and_ui_resource(tmp_path: Path) -> No
                 names = {tool.name for tool in listing.tools}
                 for tool in listing.tools:
                     for kind, schema in (
-                        ("input", tool.inputSchema),
-                        ("output", tool.outputSchema),
+                        ("input", tool.input_schema),
+                        ("output", tool.output_schema),
                     ):
                         assert schema is not None
                         Draft202012Validator.check_schema(schema)
@@ -53,7 +52,7 @@ def test_stdio_discovery_without_workspace_and_ui_resource(tmp_path: Path) -> No
                     t for t in listing.tools if t.name == "export_import_review"
                 )
                 assert exporter.annotations
-                assert exporter.annotations.readOnlyHint is False
+                assert exporter.annotations.read_only_hint is False
                 assert not exporter.meta or exporter.meta.get("ui", {}).get(
                     "visibility"
                 ) != ["app"]
@@ -66,7 +65,7 @@ def test_stdio_discovery_without_workspace_and_ui_resource(tmp_path: Path) -> No
                 )
                 assert action.meta and action.meta["ui"]["visibility"] == ["app"]
                 result = await session.call_tool("open_import_review", {})
-                assert result.structuredContent == {
+                assert result.structured_content == {
                     "status": "ok",
                     "result": {"binding": None},
                     "changed_files": [],
@@ -79,8 +78,10 @@ def test_stdio_discovery_without_workspace_and_ui_resource(tmp_path: Path) -> No
                 assert opener.meta["openai/ui"]["entrypoints"] == [{"type": "thread"}]
                 uri = opener.meta["ui"]["resourceUri"]
                 assert uri.startswith("ui://auto-bean/import-review/")
-                resource = await session.read_resource(AnyUrl(uri))
-                assert resource.contents[0].mimeType == "text/html;profile=mcp-app"
+                resources = await session.list_resources()
+                assert [str(item.uri) for item in resources.resources] == [uri]
+                resource = await session.read_resource(uri)
+                assert resource.contents[0].mime_type == "text/html;profile=mcp-app"
                 assert resource.contents[0].meta == {
                     "ui": {
                         "csp": {"connectDomains": [], "resourceDomains": []},
@@ -92,6 +93,13 @@ def test_stdio_discovery_without_workspace_and_ui_resource(tmp_path: Path) -> No
                     },
                 }
                 assert "Import review" in resource.contents[0].text  # type: ignore[union-attr]
+                # MCP v2 does not wrap or validate low-level handler results.
+                # Keep omitted arguments and errors in our structured contract.
+                omitted = await session.call_tool("open_import_review")
+                assert omitted.structured_content == result.structured_content
+                unknown = await session.call_tool("missing_tool", {})
+                assert unknown.is_error and unknown.structured_content
+                assert unknown.structured_content["status"] == "error"
                 for arguments in (
                     {"extra": True},
                     {"workspace": ""},
@@ -99,7 +107,10 @@ def test_stdio_discovery_without_workspace_and_ui_resource(tmp_path: Path) -> No
                     {"workspace": " ", "session_id": "test"},
                 ):
                     bad = await session.call_tool("open_import_review", arguments)
-                    assert bad.isError
+                    assert bad.is_error
+                    assert bad.structured_content
+                    assert bad.structured_content["status"] == "error"
+                    assert bad.structured_content["changed_files"] == []
                 bad = await session.call_tool(
                     "read_import_statement",
                     {
@@ -108,7 +119,7 @@ def test_stdio_discovery_without_workspace_and_ui_resource(tmp_path: Path) -> No
                         "source_file": "",
                     },
                 )
-                assert bad.isError
+                assert bad.is_error
         assert not (tmp_path / "ledger.beancount").exists()
 
     asyncio.run(scenario())
@@ -145,13 +156,13 @@ def test_stdio_exports_valid_session_without_changing_ledger(
                     exporter.name,
                     {"workspace": str(store.root), "session_id": store.session_id},
                 )
-                assert not response.isError
-                assert response.structuredContent is not None
-                assert exporter.outputSchema is not None
-                Draft202012Validator(exporter.outputSchema).validate(
-                    response.structuredContent
+                assert not response.is_error
+                assert response.structured_content is not None
+                assert exporter.output_schema is not None
+                Draft202012Validator(exporter.output_schema).validate(
+                    response.structured_content
                 )
-                result = response.structuredContent["result"]
+                result = response.structured_content["result"]
                 assert set(result) == {"path", "filename", "sha256", "exported_at"}
                 path = Path(result["path"])
                 assert path.is_absolute()
@@ -231,23 +242,23 @@ def test_stdio_saves_inline_correction_and_rejects_stale_retry(
                     },
                 }
                 result = await client.call_tool("update_import_review", args)
-                assert not result.isError
-                assert result.structuredContent
-                receipt = result.structuredContent["result"]
-                changed = result.structuredContent["changed_files"]
+                assert not result.is_error
+                assert result.structured_content
+                receipt = result.structured_content["result"]
+                changed = result.structured_content["changed_files"]
                 assert changed == [
                     ".auto-bean/review-batches/test-session.json",
                     PARSED,
                 ]
-                assert result.structuredContent["file_sha256"] == {
+                assert result.structured_content["file_sha256"] == {
                     path: digest((store.root / path).read_bytes()) for path in changed
                 }
                 assert set(receipt) == {"source_file", "etag", "review_digest"}
                 assert receipt["etag"] == etag(store.statement(SOURCE))
                 stale = await client.call_tool("update_import_review", args)
-                assert stale.isError
-                assert stale.structuredContent
-                assert stale.structuredContent["error_code"] == "edit_conflict"
+                assert stale.is_error
+                assert stale.structured_content
+                assert stale.structured_content["error_code"] == "edit_conflict"
                 detail = await client.call_tool(
                     "read_import_statement",
                     {
@@ -256,9 +267,9 @@ def test_stdio_saves_inline_correction_and_rejects_stale_retry(
                         "source_file": SOURCE,
                     },
                 )
-                assert not detail.isError
-                assert detail.structuredContent
-                value = detail.structuredContent["result"]
+                assert not detail.is_error
+                assert detail.structured_content
+                value = detail.structured_content["result"]
                 assert (
                     value["statement_metadata"]["accounts"][0]["review"][
                         "ledger_account"
