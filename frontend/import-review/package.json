@@ -1,7 +1,7 @@
 {
   "name": "auto-bean-import-review",
   "private": true,
-  "version": "0.2.37",
+  "version": "0.2.38",
   "type": "module",
   "packageManager": "npm@11.21.2",
   "scripts": {
