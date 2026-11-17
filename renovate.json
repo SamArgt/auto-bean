@@ -13,6 +13,9 @@
   "prConcurrentLimit": 5,
   "commitBody": "Auto-Bean-Update-Types:{{#each upgrades}} {{updateType}}{{/each}}",
   "lockFileMaintenance": {"enabled": true, "schedule": ["on friday"]},
+  "dependencyDashboard": {
+    "header": "Python minor upgrades and MCP Apps major upgrades need a compatibility review before a PR is created. They remain visible here. See [compatibility notes](https://github.com/SamArgt/auto-bean/blob/main/docs/renovate.md#compatibility-review)."
+  },
   "postUpgradeTasks": {
     "commands": ["uv run --no-project python scripts/renovate.py prepare --base-ref origin/main"],
     "executionMode": "branch",
@@ -35,7 +38,22 @@
   "packageRules": [
     {"matchManagers": ["pep621"], "rangeStrategy": "bump"},
     {"matchUpdateTypes": ["minor", "patch"], "groupName": "all non-major dependencies", "groupSlug": "all-minor-patch"},
-    {"matchUpdateTypes": ["major"], "groupName": null, "addLabels": ["major-update"]}
+    {"matchUpdateTypes": ["major"], "groupName": null, "addLabels": ["major-update"]},
+    {
+      "description": "Review Harbor and extraction support before changing Python minors",
+      "matchPackageNames": ["python"],
+      "matchUpdateTypes": ["minor", "major"],
+      "groupName": null,
+      "dependencyDashboardApproval": true,
+      "addLabels": ["compatibility-review"]
+    },
+    {
+      "description": "Check the OpenAI extension peer range before upgrading MCP Apps",
+      "matchPackageNames": ["@modelcontextprotocol/ext-apps"],
+      "matchUpdateTypes": ["major"],
+      "dependencyDashboardApproval": true,
+      "addLabels": ["compatibility-review"]
+    }
   ],
   "customManagers": [
     {

@@ -32,7 +32,7 @@ jobs:
         with:
           ref: main
           persist-credentials: false
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version-file: ".python-version"
       - uses: astral-sh/setup-uv@v10.3.3
@@ -67,10 +67,10 @@ jobs:
           ref: main
           fetch-depth: 0
           persist-credentials: false
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version-file: ".python-version"
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         if: github.event_name != 'workflow_run' || github.event.workflow_run.event == 'push'
         with:
           node-version: "26"
@@ -87,6 +87,21 @@ jobs:
           permission-pull-requests: write
           permission-statuses: write
           permission-workflows: write
+      - name: Explain App token failure
+        if: failure() && steps.app.outcome == 'failure'
+        run: |
+          cat >> "$GITHUB_STEP_SUMMARY" <<'EOF'
+          ## Renovate App token could not be created
+
+          If GitHub reports that requested permissions are not granted, update
+          the **Auto Bean Renovate** App and accept its installation permission update.
+          Required permissions: Contents, Issues, Pull requests, Commit statuses,
+          and Workflows read/write; Checks read.
+
+          See [recovery steps](https://github.com/SamArgt/auto-bean/blob/main/docs/renovate.md#validation-and-recovery).
+          Rerun this workflow after the installation grants the permissions.
+          Dependency preparation has not run. A code change cannot grant App permissions.
+          EOF
       - name: Identify the App
         if: github.event_name != 'workflow_run' || github.event.workflow_run.event == 'push'
         id: identity

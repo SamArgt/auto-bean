@@ -4,7 +4,8 @@ Renovate runs daily at 07:17 UTC. Lockfile maintenance runs on Fridays.
 This is 08:17 in Paris in winter and 09:17 in summer.
 Renovate allows up to five open PRs. Its default limit of two new PRs per hour still applies.
 It prepares a versioned PR, then waits for CI.
-All minor and patch updates share one PR, including eval dependencies.
+Minor and patch updates share one PR, including eval dependencies.
+Python minor upgrades stay separate for compatibility review.
 Each major dependency update gets its own PR. Eval updates use the same labels
 and merge rules as other updates.
 When the repository owner checks an action in the dedicated App's Dependency
@@ -120,6 +121,28 @@ If the installation lacks a permission, token creation fails before Renovate run
 The workflow keeps debug logs and enables Renovate's error-specific exit codes.
 An aborted refresh fails the job and prevents its merge step from running.
 
+## Compatibility review
+
+Python minor upgrades and MCP Apps major upgrades need approval in the Dependency
+Dashboard before Renovate creates a branch. They have no version ceiling and are
+not disabled. New versions remain visible in the dashboard. Supported patch
+updates continue through the normal workflow.
+
+| Upgrade | Current blocker | Check before approval |
+| --- | --- | --- |
+| Python 3.15 | Harbor depends on LiteLLM, which depends on `fastuuid==0.14.0`. Its PyO3 build supports Python through 3.14 and fails on 3.15. | Confirm a compatible fastuuid release. Run development and eval installation, the tests, and packaged extraction on Linux and macOS. |
+| MCP Apps v2 | `@openai/mcp-extensions@0.2.1` declares `@modelcontextprotocol/ext-apps` peer support for `^1.7.5`. | Confirm the OpenAI extension supports v2. Regenerate the lockfile, build the UI, and test host messages and file opening. |
+
+Renovate detects new versions. It does not determine whether these compatibility
+blockers are resolved. OpenAI extension updates still use normal dependency PRs.
+Fastuuid updates are visible in lockfile maintenance. Review their release notes
+before approving the related upgrade. Do not use `allowedVersions` or disable the
+package to defer these upgrades; that would hide future candidates.
+
+Approval applies to branch creation. It does not stop an existing PR or turn a
+red check green. Existing Python and MCP Apps upgrade PRs remain available for
+review and testing. Refresh them only after the relevant blocker is resolved.
+
 ## Validation and recovery
 
 ```sh
@@ -136,6 +159,13 @@ cannot write commit statuses. Set the App's **Commit statuses** permission to
 **Read and write**, then accept the permission update for its installation.
 Run Renovate again after both settings are updated. Keep artifact status reporting
 enabled so failed preparation continues to block automatic merging.
+
+Token creation can also fail with HTTP `422` and “The level of access for
+permissions requested are not granted to this installation.” This occurs before
+dependency preparation. Check all permissions in **First setup**, then accept
+the App installation's pending permission update. The error does not identify
+which permission is missing. A repository PR cannot grant installation
+permissions. The failed run's summary links to these recovery steps.
 
 If Renovate posts an **Edited/Blocked** notice, inspect the branch's manual commits.
 Use the Renovate rebase/retry checkbox only when those changes can be discarded.
