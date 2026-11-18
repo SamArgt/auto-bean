@@ -68,7 +68,7 @@ jobs:
 
       - name: Validate Renovate configuration
         if: ${{ !cancelled() && runner.os == 'Linux' && steps.node.outcome == 'success' }}
-        run: npx --yes --package renovate@44.251.0 -- renovate-config-validator --strict renovate.json
+        run: npx --yes --package renovate@44.252.3 -- renovate-config-validator --strict renovate.json
 
       - name: Check runtime lock
         if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
