@@ -2,6 +2,8 @@
 
 Auto Bean is a Codex plugin for managing local, Git-backed [Beancount](https://beancount.github.io/) ledgers. It initializes ledgers, imports statements, reviews transactions, updates prices, and remembers accepted decisions. You review and approve financial changes before they are written.
 
+![Auto Bean in Codex, with import questions in the chat and statement reviews in the Import Review panel](docs/images/import-review.png)
+
 ## Install
 
 Requirements: macOS or Linux, Git, [uv](https://docs.astral.sh/uv/getting-started/installation/), and Codex with plugin support.
