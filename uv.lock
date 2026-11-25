@@ -175,7 +175,7 @@ wheels = [
 
 [[package]]
 name = "auto-bean-dev"
-version = "0.2.49"
+version = "0.2.50"
 source = { virtual = "." }
 
 [package.dev-dependencies]
@@ -213,7 +213,7 @@ dev = [
 eval = [
     { name = "beancount", specifier = ">=3.2.3" },
     { name = "harbor", specifier = "==0.27.0" },
-    { name = "reportlab", specifier = ">=5.1.1" },
+    { name = "reportlab", specifier = ">=5.1.2" },
 ]
 
 [[package]]
@@ -1612,15 +1612,15 @@ wheels = [
 
 [[package]]
 name = "reportlab"
-version = "5.1.1"
+version = "5.1.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "charset-normalizer" },
     { name = "pillow" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/71/eb/176ef5717ebf0af4745a64501ff0d925341e9ae5560fa369bf20ec37abd8/reportlab-5.1.1.tar.gz", hash = "sha256:4bc6d7e5a961cabd320850637fa469c81dd9d6e32d0fe4191446086c6ea9a8d3", size = 4110241, upload-time = "2026-11-24T16:12:59.636Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/c8/b8/9fa1c49fbc6fb9f4c9f2445123af346792b7fef220152004b13ec51b37ee/reportlab-5.1.2.tar.gz", hash = "sha256:2d2785281fc435e39fb33eee7f8c10b10ffee626dad9de360310390aacaf2f38", size = 3794521, upload-time = "2026-11-25T16:08:24.398Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/35/40/3b11dfcb2443a90c01f45e87c6e72f79bae3405a08bb9df61784f563f8af/reportlab-5.1.1-py3-none-any.whl", hash = "sha256:43af899b836179032807f68aa83b410182e8e6b1221e4339560c5ec44da843ab", size = 2015997, upload-time = "2026-11-24T16:13:20.33Z" },
+    { url = "https://files.pythonhosted.org/packages/27/bb/603afbaa72589bd9519bef5d631c099407a6853465814e6a22b77a7b12d3/reportlab-5.1.2-py3-none-any.whl", hash = "sha256:8ec602de18aff4db94f3b5846f877e66edbcb42969c4100b2ae5dd69a7f3e84e", size = 2017267, upload-time = "2026-11-25T16:07:57.882Z" },
 ]
 
 [[package]]

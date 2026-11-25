@@ -8,7 +8,7 @@ COPY plugins/auto-bean/ui/ /build/plugins/auto-bean/ui/
 RUN cp /build/plugins/auto-bean/ui/bundle.html /tmp/expected-bundle.html && cp /build/plugins/auto-bean/ui/build.json /tmp/expected-build.json && npm run build && cmp /tmp/expected-bundle.html /build/plugins/auto-bean/ui/bundle.html && cmp /tmp/expected-build.json /build/plugins/auto-bean/ui/build.json
 
 FROM node:26-bookworm-slim@sha256:0042e17d232a87a2cd485be1da7900fca4d10a4ad11b29e9285da1d2e54798c9 AS ledger-base
-COPY --from=ghcr.io/astral-sh/uv:0.13.9@sha256:d3b601f0c7b118bc1753febf7c41cc80981df678445e0254284eecf84db79a7d /uv /uvx /usr/local/bin/
+COPY --from=ghcr.io/astral-sh/uv:0.13.10@sha256:a3ea1357342c1a4bf9a0c53a3deb1b55379aefa037338d8113d5771efa01774f /uv /uvx /usr/local/bin/
 RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates curl ripgrep libgomp1 poppler-utils && rm -rf /var/lib/apt/lists/*
 ENV PYTHONPATH=/opt
 ENV UV_PYTHON=3.13
@@ -20,7 +20,7 @@ COPY plugins/auto-bean/assets /opt/auto-bean-marketplace/plugins/auto-bean/asset
 COPY evals/harbor/fixtures.py /opt/evals/harbor/fixtures.py
 COPY evals/harbor/environment/prefetch.py /tmp/prefetch.py
 RUN uv python install "$UV_PYTHON"
-RUN uv run --no-project --with reportlab==5.1.1 python -c "from pathlib import Path; from evals.harbor.fixtures import raw_inputs; raw_inputs(Path('/opt/raw-fixtures'))"
+RUN uv run --no-project --with reportlab==5.1.2 python -c "from pathlib import Path; from evals.harbor.fixtures import raw_inputs; raw_inputs(Path('/opt/raw-fixtures'))"
 
 FROM ledger-base AS extraction-cache
 # Keep one reusable dependency cache, not the disposable extraction environment.
@@ -54,7 +54,7 @@ FROM base AS init-ledger
 FROM base AS import-two-statements
 COPY --from=extraction-cache /opt/dependency-cache/ /opt/dependency-cache/
 COPY --from=extraction-cache /opt/model-cache/ /root/.cache/
-RUN uv run --no-project --with reportlab==5.1.1 /opt/evals/harbor/setup_import.py
+RUN uv run --no-project --with reportlab==5.1.2 /opt/evals/harbor/setup_import.py
 
 FROM ledger-base AS verifier
 # Grader code and expected answers exist only in this separate image stage.
@@ -66,6 +66,6 @@ COPY evals/harbor/environment/setup_import.py /opt/evals/harbor/setup_import.py
 COPY evals/harbor/capture.py /opt/evals/harbor/capture.py
 COPY evals/harbor/verify.py /opt/evals/harbor/verify.py
 COPY evals/harbor/trace.py /opt/evals/harbor/trace.py
-RUN uv run --no-project --with reportlab==5.1.1 /opt/evals/harbor/setup_import.py --workspace /opt/expected-ledger --expected /opt/expected.json && rm -rf /opt/expected-ledger
+RUN uv run --no-project --with reportlab==5.1.2 /opt/evals/harbor/setup_import.py --workspace /opt/expected-ledger --expected /opt/expected.json && rm -rf /opt/expected-ledger
 RUN chmod -R a-w /opt/auto-bean-marketplace
 ENV PYTHONPATH=/opt/auto-bean-marketplace/plugins/auto-bean/runtime:/opt
