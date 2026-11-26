@@ -1,8 +1,8 @@
 [project]
 name = "auto-bean-dev"
-version = "0.2.51"
+version = "0.2.52"
 description = "Development tooling for the auto-bean Codex plugin."
-requires-python = ">=3.13,<3.14"
+requires-python = ">=3.15.2,<3.16"
 dependencies = []
 
 [tool.uv]
@@ -31,7 +31,7 @@ pythonpath = ["plugins/auto-bean/runtime"]
 testpaths = ["tests"]
 
 [tool.mypy]
-python_version = "3.13"
+python_version = "3.15"
 files = ["plugins/auto-bean/runtime", "tests", "scripts", "evals"]
 mypy_path = ["plugins/auto-bean/runtime", "scripts"]
 strict = true
@@ -42,7 +42,7 @@ module = ["harbor.*", "reportlab.*", "beancount.*"]
 ignore_missing_imports = true
 
 [tool.ruff]
-target-version = "py313"
+target-version = "py315"
 
 [tool.ruff.lint]
 select = ["E4", "E7", "E9", "F"]

@@ -11,7 +11,7 @@ FROM node:26-bookworm-slim@sha256:0042e17d232a87a2cd485be1da7900fca4d10a4ad11b29
 COPY --from=ghcr.io/astral-sh/uv:0.13.10@sha256:a3ea1357342c1a4bf9a0c53a3deb1b55379aefa037338d8113d5771efa01774f /uv /uvx /usr/local/bin/
 RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates curl ripgrep libgomp1 poppler-utils && rm -rf /var/lib/apt/lists/*
 ENV PYTHONPATH=/opt
-ENV UV_PYTHON=3.13
+ENV UV_PYTHON=3.15.2
 ENV UV_PYTHON_PREFERENCE=only-managed PYTHONDONTWRITEBYTECODE=1 UV_CACHE_DIR=/opt/uv-cache
 ENV GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null GIT_AUTHOR_NAME="Harbor Fixture" GIT_AUTHOR_EMAIL=harbor@example.test GIT_COMMITTER_NAME="Harbor Fixture" GIT_COMMITTER_EMAIL=harbor@example.test
 # Build directly from the current checkout, including uncommitted plugin edits.
